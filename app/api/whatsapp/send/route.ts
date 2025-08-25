@@ -10,7 +10,7 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const sb = supabaseFromAuthHeader();
+    const sb = await supabaseFromAuthHeader();
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
     const parsed = BodySchema.safeParse(await req.json());
