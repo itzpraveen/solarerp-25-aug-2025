@@ -69,6 +69,9 @@ begin
   if exists (select 1 from pg_policies where schemaname='public' and tablename='settings' and policyname='tenant_can_update_settings') then
     execute 'drop policy tenant_can_update_settings on public.settings';
   end if;
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='settings' and policyname='tenant_can_delete_settings') then
+    execute 'drop policy tenant_can_delete_settings on public.settings';
+  end if;
 
   execute $$create policy owner_can_insert_settings on public.settings for insert with check (
     tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = 'owner')
@@ -76,5 +79,7 @@ begin
   execute $$create policy owner_can_update_settings on public.settings for update using (
     tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = 'owner')
   )$$;
+  execute $$create policy owner_can_delete_settings on public.settings for delete using (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = 'owner')
+  )$$;
 end $$;
-

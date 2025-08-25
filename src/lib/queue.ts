@@ -29,7 +29,13 @@ export async function processDueJobs() {
       switch (job.type) {
         case 'whatsapp_template': {
           const { to, templateName, variables } = job.payload || {};
-          await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/whatsapp/send`, {
+          const base =
+            process.env.NEXT_PUBLIC_BASE_URL && process.env.NEXT_PUBLIC_BASE_URL.trim() !== ''
+              ? process.env.NEXT_PUBLIC_BASE_URL
+              : process.env.VERCEL_URL && !process.env.VERCEL_URL.startsWith('http')
+                ? `https://${process.env.VERCEL_URL}`
+                : process.env.VERCEL_URL || 'http://localhost:3000';
+          await fetch(`${base}/api/whatsapp/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ to, templateName, variables }),
@@ -54,4 +60,3 @@ export async function processDueJobs() {
     }
   }
 }
-

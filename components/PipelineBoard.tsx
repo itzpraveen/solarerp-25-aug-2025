@@ -35,9 +35,11 @@ export default function PipelineBoard() {
   }, []);
 
   const onDrop = async (jobId: string, newStatus: string) => {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
     await fetch('/api/jobs/updateStatus', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ jobId, newStatus }),
     });
     load();
