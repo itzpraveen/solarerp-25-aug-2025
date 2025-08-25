@@ -61,7 +61,7 @@ export default function LeadsPage() {
             <Button onClick={add}>Add Lead</Button>
             <a
               className="rounded border px-3 py-2 text-sm"
-              href={`data:text/csv;charset=utf-8,${encodeURIComponent('Date,Name,Phone,Capacity,Status\n' + leads.map(l => [l.date || '', l.name || '', l.phone || '', l.interested_capacity_kw || '', l.status || ''].join(',')).join('\n'))} `}
+              href={'data:text/csv;charset=utf-8,' + encodeURIComponent('Date,Name,Phone,Capacity,Status\n' + leads.map(l => [l.date || '', l.name || '', l.phone || '', l.interested_capacity_kw || '', l.status || ''].join(',')).join('\n'))}
               download="leads.csv"
             >Export CSV</a>
           </div>
