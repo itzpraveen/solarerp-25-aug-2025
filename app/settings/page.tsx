@@ -2,31 +2,70 @@
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import RequireOwner from '~/components/RequireOwner';
+import Button from '~/components/ui/Button';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
   const [form, setForm] = useState<any>({ currency: 'INR', default_tax_rate: 0, upi_id: '', proposal_note_ml: '' });
   const [tenantId, setTenantId] = useState<string>('');
   const [team, setTeam] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-      setTenantId(prof!.tenant_id);
-      const { data } = await supabase.from('settings').select('*').eq('tenant_id', prof!.tenant_id).maybeSingle();
-      if (data) setForm(data);
-      const { data: members } = await supabase.from('profiles').select('*').eq('tenant_id', prof!.tenant_id);
-      setTeam((members as any[]) || []);
+      try {
+        setLoading(true);
+        setErrorMsg(null);
+        const { data: prof } = await supabase.from('profiles').select('tenant_id, role').maybeSingle();
+        if (!prof?.tenant_id) {
+          // attempt ensureProfile once
+          const { data: session } = await supabase.auth.getSession();
+          const token = session.session?.access_token;
+          if (token) {
+            await fetch('/api/auth/ensureProfile', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
+          }
+          const { data: prof2 } = await supabase.from('profiles').select('tenant_id, role').maybeSingle();
+          if (!prof2?.tenant_id) {
+            setErrorMsg('Your profile is not ready yet. Please refresh or sign out and sign in again.');
+            setLoading(false);
+            return;
+          }
+          setTenantId(prof2.tenant_id);
+          const { data } = await supabase.from('settings').select('*').eq('tenant_id', prof2.tenant_id).maybeSingle();
+          if (data) setForm(data);
+          const { data: members } = await supabase.from('profiles').select('*').eq('tenant_id', prof2.tenant_id);
+          setTeam((members as any[]) || []);
+          setLoading(false);
+          return;
+        }
+        setTenantId(prof.tenant_id);
+        const { data } = await supabase.from('settings').select('*').eq('tenant_id', prof.tenant_id).maybeSingle();
+        if (data) setForm(data);
+        const { data: members } = await supabase.from('profiles').select('*').eq('tenant_id', prof.tenant_id);
+        setTeam((members as any[]) || []);
+      } catch (e: any) {
+        setErrorMsg(String(e?.message || e));
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    setSaving(true);
     const { error } = await supabase.from('settings').upsert({ ...form, tenant_id: tenantId }).eq('tenant_id', tenantId);
-    if (!error) alert('Saved');
+    setSaving(false);
+    if (error) return alert(`Save failed: ${error.message}`);
+    alert('Saved');
   };
 
   return (
     <RequireOwner fallback={<div className="rounded border bg-white p-4 text-sm text-gray-600">Only owners can view and edit settings.</div>}>
+      {loading && <div className="rounded border bg-white p-4 text-sm text-gray-700">Loading settings…</div>}
+      {errorMsg && <div className="rounded border bg-red-50 p-3 text-sm text-red-700">{errorMsg}</div>}
+      {!loading && !errorMsg && (
       <div className="space-y-4">
         <h1 className="text-xl font-semibold">Settings</h1>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -69,7 +108,7 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium">Deposit % (auto-invoice on Won)</label>
               <input className="mt-1 w-full rounded border px-3 py-2" type="number" value={form.deposit_percent || 0} onChange={(e) => setForm({ ...form, deposit_percent: Number(e.target.value) })} />
             </div>
-            <button onClick={save} className="rounded bg-blue-600 px-3 py-2 text-white">Save</button>
+            <Button onClick={save} loading={saving}>Save</Button>
           </div>
           <div className="rounded border bg-white p-4 space-y-3">
             <h2 className="text-lg font-medium">Team & Roles</h2>
@@ -108,6 +147,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
     </RequireOwner>
   );
 }

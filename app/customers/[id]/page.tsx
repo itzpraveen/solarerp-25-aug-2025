@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Breadcrumbs from '~/components/Breadcrumbs';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 
 export default function CustomerDetail() {
@@ -33,6 +34,7 @@ export default function CustomerDetail() {
         <h1 className="text-xl font-semibold">{customer?.name}</h1>
         <button onClick={createJob} className="rounded bg-blue-600 px-3 py-2 text-white">New Job</button>
       </div>
+      <Breadcrumbs items={[{ href: '/customers', label: 'Customers' }, { label: customer?.name || 'Customer' }]} />
       <div className="rounded border bg-white p-4">
         <div className="text-sm">Phone: {customer?.phone || '—'}</div>
         <div className="text-sm">Email: {customer?.email || '—'}</div>

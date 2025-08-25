@@ -12,7 +12,7 @@ export default function ProposalsPage() {
     const { data } = await supabase
       .from('proposals')
       .select('id, job_id, date, kit_name, total, pdf_url, jobs(id, customers(name))')
-      .order('date', { ascending: false });
+      .order('"date"', { ascending: false });
     setRows(data || []);
   };
   useEffect(() => { load(); }, []);
@@ -32,7 +32,10 @@ export default function ProposalsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Proposals</h1>
-        <a className="text-sm text-blue-600" href="/jobs">Create from a Job →</a>
+        <div className="flex items-center gap-3">
+          <a className="text-sm text-blue-600" href="/proposals/new">New Proposal</a>
+          <a className="text-sm text-gray-700" href="/jobs">Create from a Job →</a>
+        </div>
       </div>
       {rows.length === 0 ? (
         <EmptyState title="No proposals yet" description="Generate a proposal from a Job to get started." />

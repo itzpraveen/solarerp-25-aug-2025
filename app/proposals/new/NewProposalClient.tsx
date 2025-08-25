@@ -50,6 +50,12 @@ export default function NewProposalClient() {
           setKitName(k[0].kit_name);
           setPrice(Number(k[0].selling_price || 0));
         }
+      } else {
+        // No job: still allow generating a PDF
+        if (k && k.length) {
+          setKitName(k[0].kit_name);
+          setPrice(Number(k[0].selling_price || 0));
+        }
       }
     })();
   }, [jobId, supabase]);
@@ -134,12 +140,14 @@ export default function NewProposalClient() {
     });
     const out = await res.json();
     if (out.ok) setSignedUrl(out.url);
-    // persist proposal
-    const addOnSum = addOns.reduce((s, a) => s + (a.amount || 0), 0);
-    const beforeTax = price + addOnSum;
-    const taxAmt = (beforeTax * (taxRate || 0)) / 100;
-    const total = beforeTax + taxAmt;
-    await supabase.from('proposals').insert({ tenant_id: tenantId, job_id: jobId, date: new Date().toISOString().slice(0,10), kit_name: kitName, price_before_tax: beforeTax, tax: taxAmt, total, pdf_url: out.key });
+    // persist proposal only if tied to a job
+    if (jobId) {
+      const addOnSum = addOns.reduce((s, a) => s + (a.amount || 0), 0);
+      const beforeTax = price + addOnSum;
+      const taxAmt = (beforeTax * (taxRate || 0)) / 100;
+      const total = beforeTax + taxAmt;
+      await supabase.from('proposals').insert({ tenant_id: tenantId, job_id: jobId, date: new Date().toISOString().slice(0,10), kit_name: kitName, price_before_tax: beforeTax, tax: taxAmt, total, pdf_url: out.key });
+    }
   };
 
   const selectedKit = useMemo(() => kits.find((k) => k.kit_name === kitName), [kits, kitName]);
@@ -148,6 +156,11 @@ export default function NewProposalClient() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">New Proposal</h1>
       <div className="rounded border bg-white p-4 space-y-3">
+        {!jobId && (
+          <div className="rounded border border-yellow-200 bg-yellow-50 p-3 text-sm text-gray-800">
+            No Job selected. You can still generate a PDF, but it won’t be saved to the Proposals list.
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium">Kit</label>
           <select className="mt-1 w-full rounded border px-3 py-2" value={kitName} onChange={(e) => setKitName(e.target.value)}>
