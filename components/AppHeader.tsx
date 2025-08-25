@@ -19,12 +19,17 @@ const links = [
 export default function AppHeader() {
   const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
+  const [role, setRole] = useState<'owner' | 'staff' | null>(null);
   // Keep nav simple and predictable: always show links in header
   const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+    supabase.auth.getUser().then(async ({ data }) => {
+      setEmail(data.user?.email ?? null);
+      const { data: prof } = await supabase.from('profiles').select('role').maybeSingle();
+      setRole((prof as any)?.role ?? null);
+    });
   }, []);
 
   const signOut = async () => {
@@ -53,7 +58,7 @@ export default function AppHeader() {
           <Sun size={18} className="text-gray-600 hidden sm:block" />
           {email ? (
             <>
-              <span className="hidden sm:inline text-gray-600">{email}</span>
+              <span className="hidden sm:inline text-gray-600">{email}{role ? ` • ${role === 'owner' ? 'Owner' : 'Staff'}` : ''}</span>
               <button onClick={signOut} className="rounded border px-2 py-1">Sign out</button>
             </>
           ) : (

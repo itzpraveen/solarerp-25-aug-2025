@@ -13,30 +13,43 @@ export default function KitsPage() {
   const [form, setForm] = useState<any>({ kit_name: '', capacity_kw: 1, selling_price: 0, description: '' });
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [search, setSearch] = useState('');
+  const [err, setErr] = useState<string | null>(null);
 
   const load = async () => {
-    const { data } = await supabase.from('kits').select('*').order('capacity_kw');
+    setErr(null);
+    const { data, error } = await supabase.from('kits').select('*').order('capacity_kw');
+    if (error) setErr(error.message);
     setKits(data || []);
   };
   useEffect(() => { load(); }, []);
 
   const add = async () => {
-    if (!form.kit_name) return alert('Kit name is required');
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-    await supabase.from('kits').upsert({
+    setErr(null);
+    if (!form.kit_name.trim()) return setErr('Kit name is required');
+    if (form.capacity_kw <= 0) return setErr('Capacity must be > 0');
+    if (form.selling_price < 0) return setErr('Price must be ≥ 0');
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    if (pErr || !prof?.tenant_id) return setErr('Profile not ready');
+    const { error } = await supabase.from('kits').upsert({
       tenant_id: prof!.tenant_id,
       kit_name: form.kit_name,
       capacity_kw: form.capacity_kw,
       selling_price: form.selling_price,
       description: form.description || null,
     });
+    if (error) return setErr(error.message);
     setForm({ kit_name: '', capacity_kw: 1, selling_price: 0, description: '' });
     load();
   };
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Kits</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Kits</h1>
+        <input className="rounded border px-3 py-2 text-sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
       <RequireOwner fallback={<Card><div className="text-sm text-gray-600">Only owners can add or edit kits.</div></Card>}>
         <Card>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
@@ -52,7 +65,7 @@ export default function KitsPage() {
         <EmptyState title="No kits yet" description="Create standard kit offerings to speed up quoting." />
       ) : (
         <ul className="space-y-2">
-          {kits.map((k) => (
+          {kits.filter((k) => !search || `${k.kit_name} ${k.description}`.toLowerCase().includes(search.toLowerCase())).map((k) => (
             <li key={k.kit_name} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
               {editing === k.kit_name ? (
                 <div className="w-full grid grid-cols-1 gap-2 md:grid-cols-4">

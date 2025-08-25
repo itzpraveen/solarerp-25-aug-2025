@@ -5,6 +5,7 @@ import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
+import { isPhone, required } from '@/lib/validation';
 
 export default function LeadsPage() {
   const supabase = supabaseBrowser();
@@ -16,17 +17,31 @@ export default function LeadsPage() {
   const [editForm, setEditForm] = useState<any>({});
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertForm, setConvertForm] = useState<any>({ address: '', system_type: 'On-grid', capacity_kw: 1, location: '', roof_type: '' });
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [err, setErr] = useState<string | null>(null);
 
   const load = async () => {
-    const { data } = await supabase.from('leads').select('*').order('date', { ascending: false });
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .order('"date"', { ascending: false });
+    if (error) {
+      // Surface server-side error details in dev tools to diagnose 500s
+      console.error('Failed to load leads:', error);
+    }
     setLeads(data || []);
   };
 
   useEffect(() => { load(); }, []);
 
   const add = async () => {
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-    await supabase.from('leads').insert({ tenant_id: prof!.tenant_id, date: new Date().toISOString().slice(0,10), name, phone, interested_capacity_kw: capacity, status: 'New' });
+    setErr(null);
+    if (!required(name)) return setErr('Name is required');
+    if (!isPhone(phone)) return setErr('Valid phone required');
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    if (pErr || !prof?.tenant_id) return setErr('Profile not ready');
+    const { error } = await supabase.from('leads').insert({ tenant_id: prof!.tenant_id, date: new Date().toISOString().slice(0,10), name, phone, interested_capacity_kw: capacity, status: 'New' });
+    if (error) return setErr(error.message);
     setName(''); setPhone(''); setCapacity(1);
     load();
   };
@@ -36,12 +51,19 @@ export default function LeadsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Leads</h1>
       </div>
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
       <Card>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
           <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Input type="number" min={0} step={0.1} placeholder="Capacity kW" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
-          <Button onClick={add}>Add Lead</Button>
+          <div className="flex gap-2">
+            <Button onClick={add}>Add Lead</Button>
+            <a
+              className="rounded border px-3 py-2 text-sm"
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent('Date,Name,Phone,Capacity,Status\n' + (leads.map(l => `${l.date || ''},${l.name || ''},${l.phone || ''},${l.interested_capacity_kw || ''},${l.status || ''}`).join('\n')))}" download="leads.csv"`}
+            >Export CSV</a>
+          </div>
         </div>
       </Card>
       {leads.length === 0 ? (
@@ -51,9 +73,12 @@ export default function LeadsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left">
-                <th className="p-2">Date</th>
-                <th className="p-2">Name</th>
-                <th className="p-2">Phone</th>
+              <th className="p-2"><input type="checkbox" onChange={(e) => {
+                const v = e.target.checked; const map: Record<string, boolean> = {}; (leads || []).forEach((l) => map[l.id] = v); setSelected(map);
+              }} /></th>
+              <th className="p-2">Date</th>
+              <th className="p-2">Name</th>
+              <th className="p-2">Phone</th>
                 <th className="p-2">Capacity (kW)</th>
                 <th className="p-2">Status</th>
                 <th className="p-2">Actions</th>
@@ -63,6 +88,7 @@ export default function LeadsPage() {
               {leads.map((l) => (
                 <React.Fragment key={l.id}>
                 <tr className="border-b">
+                  <td className="p-2"><input type="checkbox" checked={!!selected[l.id]} onChange={(e) => setSelected({ ...selected, [l.id]: e.target.checked })} /></td>
                   <td className="p-2">{l.date || '—'}</td>
                   {editing === l.id ? (
                     <>
@@ -83,7 +109,7 @@ export default function LeadsPage() {
                       <td className="p-2 text-xs text-gray-600">{l.status || '—'}</td>
                       <td className="p-2 whitespace-nowrap">
                         <Button variant="outline" size="sm" onClick={() => { setEditing(l.id); setEditForm(l); }}>Edit</Button>
-                        <Button size="sm" className="ml-2" onClick={() => { setConvertingId(l.id); setConvertForm({ address: '', system_type: 'On-grid', capacity_kw: l.interested_capacity_kw || 1, location: '', roof_type: '' }); }}>Convert</Button>
+                        <Button size="sm" className="ml-2" onClick={() => { if (!confirm('Convert this lead to a Job?')) return; setConvertingId(l.id); setConvertForm({ address: '', system_type: 'On-grid', capacity_kw: l.interested_capacity_kw || 1, location: '', roof_type: '' }); }}>Convert</Button>
                       </td>
                 </>
                   )}
@@ -126,6 +152,16 @@ export default function LeadsPage() {
             </tbody>
           </table>
         </div>
+        {Object.values(selected).some(Boolean) && (
+          <div className="mt-3">
+            <Button variant="outline" size="sm" onClick={async () => {
+              const ids = Object.keys(selected).filter((k) => selected[k]);
+              await supabase.from('leads').update({ status: 'Closed' }).in('id', ids);
+              setSelected({});
+              load();
+            }}>Mark selected Closed</Button>
+          </div>
+        )}
       )}
     </div>
   );

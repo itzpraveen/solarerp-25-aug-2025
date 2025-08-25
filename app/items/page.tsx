@@ -14,16 +14,24 @@ export default function ItemsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
+  const [err, setErr] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [adding, setAdding] = useState(false);
+
   const load = async () => {
-    const { data } = await supabase.from('items').select('*').order('name');
+    setErr(null);
+    const { data, error } = await supabase.from('items').select('*').order('name');
+    if (error) setErr(error.message);
     setItems(data || []);
   };
   useEffect(() => { load(); }, []);
 
   const add = async () => {
     if (!form.item_code || !form.name) return alert('Code and name are required');
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-    await supabase.from('items').insert({
+    setAdding(true);
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    if (pErr || !prof?.tenant_id) { setAdding(false); return alert('Profile not ready'); }
+    const { error } = await supabase.from('items').insert({
       item_code: form.item_code,
       tenant_id: prof!.tenant_id,
       name: form.name,
@@ -33,13 +41,19 @@ export default function ItemsPage() {
       mrp: form.mrp || 0,
       preferred_vendor: form.preferred_vendor || null,
     });
+    setAdding(false);
+    if (error) return alert(`Add failed: ${error.message}`);
     setForm({ item_code: '', name: '', category: '', unit: '', gst_rate: 0, mrp: 0, preferred_vendor: '' });
     load();
   };
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Items</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Items</h1>
+        <input className="rounded border px-3 py-2 text-sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
       <RequireOwner fallback={<Card><div className="text-sm text-gray-600">Only owners can add items.</div></Card>}>
         <Card>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
@@ -50,7 +64,7 @@ export default function ItemsPage() {
             <Input type="number" placeholder="GST %" value={form.gst_rate} onChange={(e) => setForm({ ...form, gst_rate: Number(e.target.value) })} />
             <Input type="number" placeholder="MRP" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: Number(e.target.value) })} />
             <Input className="md:col-span-5" placeholder="Preferred Vendor" value={form.preferred_vendor} onChange={(e) => setForm({ ...form, preferred_vendor: e.target.value })} />
-            <Button onClick={add} className="md:col-span-6">Add Item</Button>
+            <Button onClick={add} className="md:col-span-6" loading={adding}>Add Item</Button>
           </div>
         </Card>
       </RequireOwner>
@@ -71,7 +85,7 @@ export default function ItemsPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
+            {items.filter((it) => !search || `${it.item_code} ${it.name} ${it.category}`.toLowerCase().includes(search.toLowerCase())).map((it) => (
               <tr key={it.item_code} className="border-b">
                 <td className="p-2">{it.item_code}</td>
                 {editing === it.item_code ? (

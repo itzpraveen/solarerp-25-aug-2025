@@ -13,9 +13,16 @@ export default function ServiceTickets() {
   const [summary, setSummary] = useState('');
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerId, setCustomerId] = useState<string>('');
+  const [err, setErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase.from('service_tickets').select('*').order('date', { ascending: false });
+    setErr(null);
+    const { data, error } = await supabase
+      .from('service_tickets')
+      .select('*')
+      .order('"date"', { ascending: false });
+    if (error) setErr(error.message);
     setTickets(data || []);
     const { data: cust } = await supabase.from('customers').select('id,name').order('name');
     setCustomers(cust || []);
@@ -24,8 +31,12 @@ export default function ServiceTickets() {
 
   const add = async () => {
     if (!customerId) return alert('Select a customer');
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-    await supabase.from('service_tickets').insert({ tenant_id: prof!.tenant_id, customer_id: customerId, date: new Date().toISOString().slice(0,10), summary });
+    setAdding(true);
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    if (pErr || !prof?.tenant_id) { setAdding(false); return alert('Profile not ready'); }
+    const { error } = await supabase.from('service_tickets').insert({ tenant_id: prof!.tenant_id, customer_id: customerId, date: new Date().toISOString().slice(0,10), summary });
+    setAdding(false);
+    if (error) return alert(`Add failed: ${error.message}`);
     setSummary('');
     setCustomerId('');
     load();
@@ -34,6 +45,7 @@ export default function ServiceTickets() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Service Tickets</h1>
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
       <Card>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
           <Input placeholder="Issue summary" value={summary} onChange={(e) => setSummary(e.target.value)} />
@@ -43,7 +55,7 @@ export default function ServiceTickets() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </Select>
-          <Button onClick={add}>Add</Button>
+          <Button onClick={add} loading={adding}>Add</Button>
         </div>
       </Card>
       {tickets.length === 0 ? (
