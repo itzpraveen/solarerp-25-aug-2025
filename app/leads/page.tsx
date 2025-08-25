@@ -24,7 +24,7 @@ export default function LeadsPage() {
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .order('"date"', { ascending: false });
+      .order('date', { ascending: false });
     if (error) {
       // Surface server-side error details in dev tools to diagnose 500s
       console.error('Failed to load leads:', error);
