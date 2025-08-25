@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { height: 100%; }
+body { @apply bg-gray-50 text-gray-900; }
+
+/* Improve default focus and selection */
+::selection { @apply bg-blue-600 text-white; }
+
+a { @apply text-blue-600; }
+a:hover { @apply underline; }
+
+/* Smooth tables on mobile */
+.table-wrap { @apply overflow-x-auto; }
+
+/* Subtle custom scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background-color: rgb(203 213 225); border-radius: 9999px; }
+*::-webkit-scrollbar-track { background-color: transparent; }
