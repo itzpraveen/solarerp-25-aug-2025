@@ -61,7 +61,7 @@ export default function LeadsPage() {
             <Button onClick={add}>Add Lead</Button>
             <a
               className="rounded border px-3 py-2 text-sm"
-              href={`data:text/csv;charset=utf-8,${encodeURIComponent('Date,Name,Phone,Capacity,Status\n' + (leads.map(l => `${l.date || ''},${l.name || ''},${l.phone || ''},${l.interested_capacity_kw || ''},${l.status || ''}`).join('\n')))} `}
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent('Date,Name,Phone,Capacity,Status\n' + leads.map(l => [l.date || '', l.name || '', l.phone || '', l.interested_capacity_kw || '', l.status || ''].join(',')).join('\n'))} `}
               download="leads.csv"
             >Export CSV</a>
           </div>
@@ -117,7 +117,7 @@ export default function LeadsPage() {
                 </tr>
                 {convertingId === l.id && (
                   <tr className="bg-gray-50" key={`${l.id}-convert`}>
-                    <td className="p-2" colSpan={6}>
+                    <td className="p-2" colSpan={7}>
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
                         <Input className="md:col-span-2" placeholder="Address" value={convertForm.address} onChange={(e) => setConvertForm({ ...convertForm, address: e.target.value })} />
                         <select className="rounded border px-3 py-2" value={convertForm.system_type} onChange={(e) => setConvertForm({ ...convertForm, system_type: e.target.value })}>

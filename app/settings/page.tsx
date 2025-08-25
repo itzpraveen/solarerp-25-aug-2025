@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import RequireOwner from '~/components/RequireOwner';
+import Button from '~/components/ui/Button';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
