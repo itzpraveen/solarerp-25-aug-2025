@@ -61,7 +61,7 @@ export default function CustomersPage() {
             <Button onClick={add} loading={adding}>Add</Button>
             <a
               className="rounded border px-3 py-2 text-sm"
-              href={`data:text/csv;charset=utf-8,${encodeURIComponent('Name,Phone,Email,Address\n' + (customers.map(c => `${c.name || ''},${c.phone || ''},${c.email || ''},${c.address || ''}`).join('\n')))} `}
+              href={'data:text/csv;charset=utf-8,' + encodeURIComponent('Name,Phone,Email,Address\n' + customers.map(c => [c.name || '', c.phone || '', c.email || '', c.address || ''].join(',')).join('\n'))}
               download="customers.csv"
             >Export CSV</a>
           </div>
