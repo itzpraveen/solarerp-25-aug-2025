@@ -125,9 +125,11 @@ export default function NewProposalClient() {
       malayalamNote: mlNote || undefined,
     };
 
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
     const res = await fetch('/api/pdf/invoice', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ tenantId, payload, pathKey: `${tenantId}/${payload.meta.quoteNo}.pdf` })
     });
     const out = await res.json();

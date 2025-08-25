@@ -19,21 +19,21 @@ begin
     execute 'drop policy tenant_can_delete_items on public.items';
   end if;
 
-  execute $$create policy owner_can_insert_items on public.items for insert
+  execute 'create policy owner_can_insert_items on public.items for insert
     with check (
       tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-      and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role = 'owner')
-    )$$;
+      and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role = ''owner'')
+    )';
 
-  execute $$create policy owner_can_update_items on public.items for update using (
+  execute 'create policy owner_can_update_items on public.items for update using (
       tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-      and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role = 'owner')
-    )$$;
+      and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role = ''owner'')
+    )';
 
-  execute $$create policy owner_can_delete_items on public.items for delete using (
+  execute 'create policy owner_can_delete_items on public.items for delete using (
       tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-      and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role = 'owner')
-    )$$;
+      and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role = ''owner'')
+    )';
 end $$;
 
 -- KITS
@@ -49,15 +49,15 @@ begin
     execute 'drop policy tenant_can_delete_kits on public.kits';
   end if;
 
-  execute $$create policy owner_can_insert_kits on public.kits for insert with check (
-    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role = 'owner')
-  )$$;
-  execute $$create policy owner_can_update_kits on public.kits for update using (
-    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role = 'owner')
-  )$$;
-  execute $$create policy owner_can_delete_kits on public.kits for delete using (
-    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role = 'owner')
-  )$$;
+  execute 'create policy owner_can_insert_kits on public.kits for insert with check (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role = ''owner'')
+  )';
+  execute 'create policy owner_can_update_kits on public.kits for update using (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role = ''owner'')
+  )';
+  execute 'create policy owner_can_delete_kits on public.kits for delete using (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role = ''owner'')
+  )';
 end $$;
 
 -- SETTINGS
@@ -69,12 +69,17 @@ begin
   if exists (select 1 from pg_policies where schemaname='public' and tablename='settings' and policyname='tenant_can_update_settings') then
     execute 'drop policy tenant_can_update_settings on public.settings';
   end if;
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='settings' and policyname='tenant_can_delete_settings') then
+    execute 'drop policy tenant_can_delete_settings on public.settings';
+  end if;
 
-  execute $$create policy owner_can_insert_settings on public.settings for insert with check (
-    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = 'owner')
-  )$$;
-  execute $$create policy owner_can_update_settings on public.settings for update using (
-    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = 'owner')
-  )$$;
+  execute 'create policy owner_can_insert_settings on public.settings for insert with check (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = ''owner'')
+  )';
+  execute 'create policy owner_can_update_settings on public.settings for update using (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = ''owner'')
+  )';
+  execute 'create policy owner_can_delete_settings on public.settings for delete using (
+    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()) and exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role = ''owner'')
+  )';
 end $$;
-
