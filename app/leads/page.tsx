@@ -46,6 +46,9 @@ export default function LeadsPage() {
     load();
   };
 
+  const csvLeads = 'Date,Name,Phone,Capacity,Status\n' +
+    leads.map((l) => [l.date || '', l.name || '', l.phone || '', l.interested_capacity_kw || '', l.status || ''].join(',')).join('\n');
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -59,11 +62,7 @@ export default function LeadsPage() {
           <Input type="number" min={0} step={0.1} placeholder="Capacity kW" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
           <div className="flex gap-2">
             <Button onClick={add}>Add Lead</Button>
-            <a
-              className="rounded border px-3 py-2 text-sm"
-              href={'data:text/csv;charset=utf-8,' + encodeURIComponent('Date,Name,Phone,Capacity,Status\n' + leads.map(l => [l.date || '', l.name || '', l.phone || '', l.interested_capacity_kw || '', l.status || ''].join(',')).join('\n'))}
-              download="leads.csv"
-            >Export CSV</a>
+            <a className="rounded border px-3 py-2 text-sm" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csvLeads)} download="leads.csv">Export CSV</a>
           </div>
         </div>
       </Card>

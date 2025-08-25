@@ -44,6 +44,10 @@ export default function CustomersPage() {
     load();
   };
 
+  const csvCustomers = 'Name,Phone,Email,Address\n' + customers
+    .map((c) => [c.name || '', c.phone || '', c.email || '', c.address || ''].join(','))
+    .join('\n');
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -59,11 +63,7 @@ export default function CustomersPage() {
           <Input placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
           <div className="flex gap-2">
             <Button onClick={add} loading={adding}>Add</Button>
-            <a
-              className="rounded border px-3 py-2 text-sm"
-              href={'data:text/csv;charset=utf-8,' + encodeURIComponent('Name,Phone,Email,Address\n' + customers.map(c => [c.name || '', c.phone || '', c.email || '', c.address || ''].join(',')).join('\n'))}
-              download="customers.csv"
-            >Export CSV</a>
+            <a className="rounded border px-3 py-2 text-sm" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csvCustomers)} download="customers.csv">Export CSV</a>
           </div>
         </div>
       </Card>
