@@ -1,14 +1,18 @@
 "use client";
 import { useState } from 'react';
+import { supabaseBrowser } from '@/lib/supabaseClient';
 
 export default function WhatsAppSendButton({ to, templateName, variables }: { to: string; templateName: string; variables: string[] }) {
   const [loading, setLoading] = useState(false);
   const [msgId, setMsgId] = useState<string | null>(null);
+  const supabase = supabaseBrowser();
   const send = async () => {
     setLoading(true);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
     const res = await fetch('/api/whatsapp/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ to, templateName, variables }),
     });
     const data = await res.json();
@@ -22,4 +26,3 @@ export default function WhatsAppSendButton({ to, templateName, variables }: { to
     </div>
   );
 }
-

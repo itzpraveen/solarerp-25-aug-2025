@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
+import { z } from 'zod';
+
+const BodySchema = z.object({
+  to: z.string().min(5),
+  templateName: z.string().min(1),
+  variables: z.array(z.string()).default([]),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const { to, templateName, variables } = (await req.json()) as {
-      to: string;
-      templateName: 'proposal_ready' | 'invoice_due' | string;
-      variables: string[];
-    };
+    const sb = supabaseFromAuthHeader();
+    if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+
+    const parsed = BodySchema.safeParse(await req.json());
+    if (!parsed.success) return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
+    const { to, templateName, variables } = parsed.data;
 
     const token = process.env.WHATSAPP_TOKEN!;
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID!;
@@ -44,4 +53,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
 }
-

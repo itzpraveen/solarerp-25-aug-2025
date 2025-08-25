@@ -19,10 +19,10 @@ export default function SignIn() {
     if (!supabase) return;
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
+        const token = session.access_token;
         await fetch('/api/auth/ensureProfile', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: session.user }),
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         });
         router.replace('/jobs');
       }
