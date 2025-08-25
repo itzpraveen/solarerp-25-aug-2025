@@ -27,8 +27,16 @@ export default function AppHeader() {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       setEmail(data.user?.email ?? null);
-      const { data: prof } = await supabase.from('profiles').select('role').maybeSingle();
-      setRole((prof as any)?.role ?? null);
+      if (data.user?.id) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+        setRole((prof as any)?.role ?? null);
+      } else {
+        setRole(null);
+      }
     });
   }, []);
 
