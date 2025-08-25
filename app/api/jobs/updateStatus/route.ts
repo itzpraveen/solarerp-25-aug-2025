@@ -4,7 +4,7 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 export async function POST(req: NextRequest) {
   try {
     const { jobId, newStatus } = (await req.json()) as { jobId: string; newStatus: string };
-    const sb = supabaseFromAuthHeader();
+    const sb = await supabaseFromAuthHeader();
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
     // Load job under RLS

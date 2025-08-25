@@ -2,6 +2,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
+import Spinner from './Spinner';
 
 const button = cva(
   'inline-flex items-center justify-center rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
@@ -24,11 +25,15 @@ const button = cva(
   },
 );
 
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button> & { className?: string };
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button> & { className?: string; loading?: boolean };
 
-const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ className, variant, size, ...props }, ref) {
-  return <button ref={ref} className={clsx(button({ variant, size }), className)} {...props} />;
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ className, variant, size, loading, children, disabled, ...props }, ref) {
+  return (
+    <button ref={ref} className={clsx(button({ variant, size }), className)} disabled={disabled || loading} {...props}>
+      {loading && <Spinner className="mr-2 h-4 w-4" />}
+      {children}
+    </button>
+  );
 });
 
 export default Button;
-

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
+import Breadcrumbs from '~/components/Breadcrumbs';
 import Button from '~/components/ui/Button';
 import { JOB_STATUSES, statusLabel } from '@/lib/status';
 
@@ -41,8 +42,9 @@ export default function JobDetailPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Job Details</h1>
-        <a href="/jobs" className="text-sm text-blue-600">Back</a>
+        <button onClick={() => { if (history.length > 1) history.back(); else window.location.href = '/jobs'; }} className="text-sm text-blue-600">Back</button>
       </div>
+      <Breadcrumbs items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]} />
       <div className="flex flex-wrap gap-2">
         {(['overview', 'finance', 'docs', 'tasks', 'proposals'] as const).map((t) => (
           <Button key={t} variant={tab === t ? 'primary' : 'outline'} size="sm" onClick={() => setTab(t)}>
@@ -63,6 +65,7 @@ export default function JobDetailPage() {
                 value={job?.status}
                 onChange={async (e) => {
                   const newStatus = e.target.value;
+                  if (!confirm(`Change status to ${newStatus}?`)) return;
                   const { data: session } = await supabase.auth.getSession();
                   const token = session.session?.access_token;
                   await fetch('/api/jobs/updateStatus', {
@@ -157,6 +160,7 @@ export default function JobDetailPage() {
                 .eq('id', params.id)
                 .single();
               setJob(data as any);
+              alert('Saved');
             }}>Save Changes</Button>
           </div>
         </Card>
@@ -174,9 +178,16 @@ function Finance({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [showInv, setShowInv] = useState(false);
+  const [invAmt, setInvAmt] = useState<number>(0);
+  const [invType, setInvType] = useState<'Deposit' | 'Progress' | 'Final'>('Progress');
+  const [payAmt, setPayAmt] = useState<number>(0);
+  const [payDate, setPayDate] = useState<string>('');
+  const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
-      const { data: inv } = await supabase.from('invoices').select('*').eq('job_id', jobId);
+      const { data: inv, error: iErr } = await supabase.from('invoices').select('*').eq('job_id', jobId);
+      if (iErr) setErr(iErr.message);
       const { data: pay } = await supabase.from('payments').select('*, invoices(total)').in('invoice_id', (inv || []).map(i => i.id));
       setInvoices(inv || []);
       setPayments(pay || []);
@@ -184,6 +195,7 @@ function Finance({ jobId }: { jobId: string }) {
   }, [jobId]);
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {err && <div className="md:col-span-2 rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
       <Card title="Invoices">
         <ul className="space-y-2 text-sm">
           {invoices.map((i) => (
@@ -191,6 +203,27 @@ function Finance({ jobId }: { jobId: string }) {
           ))}
           {invoices.length === 0 && <li className="text-gray-500">No invoices</li>}
         </ul>
+        <div className="mt-3 space-y-2">
+          <button className="text-blue-600 text-sm" onClick={() => setShowInv((v) => !v)}>{showInv ? 'Hide' : 'New Invoice'}</button>
+          {showInv && (
+            <div className="grid grid-cols-1 gap-2">
+              <select className="rounded border px-2 py-1 text-sm" value={invType} onChange={(e) => setInvType(e.target.value as any)}>
+                <option>Deposit</option>
+                <option>Progress</option>
+                <option>Final</option>
+              </select>
+              <input className="rounded border px-3 py-2" type="number" placeholder="Amount" value={invAmt} onChange={(e) => setInvAmt(Number(e.target.value))} />
+              <button className="rounded bg-blue-600 px-3 py-2 text-white text-sm" onClick={async () => {
+                const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+                const due = new Date(); due.setDate(due.getDate() + 7);
+                await supabase.from('invoices').insert({ tenant_id: prof!.tenant_id, job_id: jobId, date: new Date().toISOString().slice(0,10), invoice_type: invType, amount_before_tax: invAmt, tax: 0, total: invAmt, due_date: due.toISOString().slice(0,10), status: 'Draft' });
+                const { data: inv } = await supabase.from('invoices').select('*').eq('job_id', jobId);
+                setInvoices(inv || []);
+                setShowInv(false); setInvAmt(0);
+              }}>Create</button>
+            </div>
+          )}
+        </div>
       </Card>
       <Card title="Payments">
         <ul className="space-y-2 text-sm">
@@ -199,6 +232,19 @@ function Finance({ jobId }: { jobId: string }) {
           ))}
           {payments.length === 0 && <li className="text-gray-500">No payments</li>}
         </ul>
+        <div className="mt-3 grid grid-cols-1 gap-2">
+          <input className="rounded border px-3 py-2" type="date" placeholder="Date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+          <input className="rounded border px-3 py-2" type="number" placeholder="Amount" value={payAmt} onChange={(e) => setPayAmt(Number(e.target.value))} />
+          <button className="rounded bg-blue-600 px-3 py-2 text-white text-sm" onClick={async () => {
+            const { data: inv } = await supabase.from('invoices').select('id').eq('job_id', jobId).order('date', { ascending: false }).limit(1).maybeSingle();
+            if (!inv) return alert('Create an invoice first');
+            const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+            await supabase.from('payments').insert({ tenant_id: prof!.tenant_id, invoice_id: inv.id, date: (payDate || new Date().toISOString().slice(0,10)), mode: 'UPI', amount: payAmt });
+            const { data: pay } = await supabase.from('payments').select('*, invoices(total)').in('invoice_id', [inv.id]);
+            setPayments(pay || []);
+            setPayAmt(0); setPayDate('');
+          }}>Record Payment</button>
+        </div>
       </Card>
     </div>
   );
@@ -213,7 +259,11 @@ function Proposals({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('proposals').select('*').eq('job_id', jobId).order('date', { ascending: false });
+      const { data } = await supabase
+        .from('proposals')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('"date"', { ascending: false });
       setRows(data || []);
     })();
   }, [jobId]);
@@ -268,9 +318,11 @@ function Proposals({ jobId }: { jobId: string }) {
                         }
                       }
                       if (!url) return;
+                      const { data: session } = await supabase.auth.getSession();
+                      const token = session.session?.access_token;
                       await fetch('/api/whatsapp/send', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                         body: JSON.stringify({
                           to: customer!.phone,
                           templateName: 'proposal_ready',
@@ -298,6 +350,8 @@ function Docs({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
   const [docs, setDocs] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState<string>('upload');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -308,22 +362,33 @@ function Docs({ jobId }: { jobId: string }) {
 
   const upload = async () => {
     if (!file) return;
+    if (!['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      alert('Only PDF or image files allowed'); return;
+    }
+    setUploading(true);
     const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
     const key = `${prof!.tenant_id}/${crypto.randomUUID()}-${file.name}`;
     await supabase.storage.from('documents').upload(key, file);
     const { data: signed } = await supabase.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);
-    await supabase.from('documents').insert({ tenant_id: prof!.tenant_id, job_id: jobId, file_url: signed!.signedUrl, doc_type: 'upload' });
+    await supabase.from('documents').insert({ tenant_id: prof!.tenant_id, job_id: jobId, file_url: signed!.signedUrl, doc_type: docType || 'upload' });
     const { data } = await supabase.from('documents').select('*').eq('job_id', jobId);
     setDocs(data || []);
     setFile(null);
+    setUploading(false);
   };
 
   return (
     <div className="space-y-4">
       <Card>
         <div className="flex items-center gap-2">
-          <input className="text-sm" type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-          <Button onClick={upload}>Upload</Button>
+          <input className="text-sm" type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          <select className="rounded border px-2 py-1 text-sm" value={docType} onChange={(e) => setDocType(e.target.value)}>
+            <option value="upload">Upload</option>
+            <option value="kseb-application">KSEB Application</option>
+            <option value="invoice">Invoice</option>
+            <option value="photo">Photo</option>
+          </select>
+          <Button onClick={upload} loading={uploading}>Upload</Button>
         </div>
       </Card>
       <ul className="space-y-2">
