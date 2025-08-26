@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       args: chromium.args,
       defaultViewport: chromium.defaultViewport ?? null,
       executablePath,
-      headless: true,
+      headless: (chromium as any).headless ?? true,
     });
     const page = await browser.newPage();
     // Safer content load strategy on serverless: avoid hanging on external resources
