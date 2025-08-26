@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[pre-commit] Starting checks…"
+
+# Skip on merge commits
+if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+  echo "[pre-commit] Merge commit detected — skipping."
+  exit 0
+fi
+
+BIN="./node_modules/.bin"
+ESLINT="$BIN/eslint"
+PRETTIER="$BIN/prettier"
+VITEST="$BIN/vitest"
+
+if [ ! -x "$ESLINT" ] || [ ! -x "$PRETTIER" ] || [ ! -x "$VITEST" ]; then
+  echo "[pre-commit] Missing local binaries. Run 'npm i' first." >&2
+  exit 1
+fi
+
+# Collect staged files of interest
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx|json|css|md)$' || true)
+
+if [ -n "$STAGED" ]; then
+  echo "[pre-commit] Prettier check on staged files…"
+  echo "$STAGED" | xargs -r "$PRETTIER" --check
+
+  echo "[pre-commit] ESLint on staged files…"
+  echo "$STAGED" | xargs -r "$ESLINT" --max-warnings=0
+else
+  echo "[pre-commit] No lintable files staged."
+fi
+
+echo "[pre-commit] Running unit tests (vitest)…"
+"$VITEST" run --reporter=dot --threads=false --pool=forks
+
+echo "[pre-commit] All checks passed."
+
