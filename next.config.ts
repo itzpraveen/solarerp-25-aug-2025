@@ -14,15 +14,15 @@ const nextConfig: NextConfig = {
   // Ensure serverless Chromium binaries/assets are included in the Vercel
   // Serverless Function bundle. We avoid externalizing these packages so the
   // traced files are packaged with the function.
-  // Extra safety: explicitly include chromium-min binaries for the PDF route.
+  // Extra safety: explicitly include chromium binaries for the PDF route.
   // This helps when dynamic imports prevent static analysis.
   outputFileTracingIncludes: {
     // Match the API route handler for PDF generation
     'app/api/pdf/invoice/route': [
-      './node_modules/@sparticuz/chromium-min/**',
+      './node_modules/@sparticuz/chromium/**',
     ],
     'app/api/pdf/invoice/route.ts': [
-      './node_modules/@sparticuz/chromium-min/**',
+      './node_modules/@sparticuz/chromium/**',
     ],
   },
 };
