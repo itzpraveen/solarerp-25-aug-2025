@@ -1,9 +1,8 @@
 {
   "functions": {
-    "api/pdf/invoice/route.ts": { "memory": 1024, "maxDuration": 60 }
+    "api/pdf/invoice/route.ts": { "runtime": "nodejs20.x", "memory": 1024, "maxDuration": 60 }
   },
   "crons": [
     { "path": "/api/cron/daily", "schedule": "0 3 * * *" }
   ]
 }
-

@@ -59,26 +59,39 @@ export async function POST(req: NextRequest) {
     const chromium = await import('@sparticuz/chromium').then(m => m.default || (m as any));
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
-      // In serverless (Vercel/AWS), always use chromium-min
-      if (isServerless) {
-        try { return await chromium.executablePath(); } catch {}
-      }
-      // Try environment-provided candidates (local dev)
-      const candidates = [
+      // 1) Always prefer explicit env paths if present (both prod and dev)
+      const envCandidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
         process.env.CHROME_PATH,
+        // Common packaged path on Vercel/AWS when traced into the function
+        '/var/task/node_modules/@sparticuz/chromium/bin/chromium',
+        // Common custom layer path (AWS Lambda)
+        '/opt/chromium',
+      ].filter(Boolean) as string[];
+      for (const p of envCandidates) {
+        try { if (p && fs.existsSync(p)) return p; } catch {}
+      }
+
+      // 2) Serverless helper path from @sparticuz/chromium (Vercel/AWS)
+      if (isServerless) {
+        try { const p = await chromium.executablePath(); if (p) return p; } catch {}
+      }
+
+      // 3) Try common local Chrome/Chromium paths (dev workstations)
+      const localCandidates = [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
         '/usr/bin/google-chrome',
         '/usr/bin/chromium-browser',
         '/usr/bin/chromium',
         '/opt/google/chrome/chrome',
-      ].filter(Boolean) as string[];
-      for (const p of candidates) {
-        try { if (p && fs.existsSync(p)) return p; } catch {}
+      ];
+      for (const p of localCandidates) {
+        try { if (fs.existsSync(p)) return p; } catch {}
       }
-      // Final fallback: try chromium-min even on dev (works on many platforms)
-      try { return await chromium.executablePath(); } catch {}
+
+      // 4) Final fallback: try chromium helper even on dev
+      try { const p = await chromium.executablePath(); if (p) return p; } catch {}
       return null;
     }
 
