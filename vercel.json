@@ -4,9 +4,7 @@
       "memory": 1024,
       "maxDuration": 60,
       "includeFiles": [
-        "node_modules/@sparticuz/chromium-min/bin/**",
-        "node_modules/@sparticuz/chromium-min/swiftshader/**",
-        "node_modules/@sparticuz/chromium-min/locales/**"
+        "node_modules/@sparticuz/chromium/**"
       ]
     }
   },
