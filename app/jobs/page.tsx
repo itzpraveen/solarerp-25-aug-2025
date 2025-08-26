@@ -8,6 +8,7 @@ import Input from '~/components/ui/Input';
 import Select from '~/components/ui/Select';
 import Alert from '~/components/ui/Alert';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 
 type Customer = { id: string; name: string };
 
@@ -17,6 +18,7 @@ export default function JobsPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [custId, setCustId] = useState('');
   const [systemType, setSystemType] = useState('On-grid');
+  const [program, setProgram] = useState<ProgramType>('PM_Surya');
   const [capacity, setCapacity] = useState<number>(1);
   const [location, setLocation] = useState('');
   const [roof, setRoof] = useState('');
@@ -32,16 +34,24 @@ export default function JobsPage() {
 
   const canCreate = custId && (Number(capacity) || 0) > 0;
 
+  const allowedSystems = PROGRAM_ALLOWED_SYSTEMS[program];
+  useEffect(() => {
+    // Ensure system type is valid for selected program
+    if (!allowedSystems.includes(systemType)) setSystemType(allowedSystems[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program]);
+
   const createJob = async () => {
     setMsg(null);
     if (!custId) { setMsg('Select a customer'); return; }
     if ((Number(capacity) || 0) <= 0) { setMsg('Capacity must be > 0'); return; }
+    if (!allowedSystems.includes(systemType)) { setMsg('System not allowed for selected program'); return; }
     setCreating(true);
     try {
       const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
       const { data: job } = await supabase
         .from('jobs')
-        .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: custId, system_type: systemType, status: 'Lead', capacity_kw: capacity, location: location || null, roof_type: roof || null, date_lead: new Date().toISOString().slice(0,10) })
+        .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: custId, system_type: systemType, program_type: program, status: 'Lead', capacity_kw: capacity, location: location || null, roof_type: roof || null, date_lead: new Date().toISOString().slice(0,10) })
         .select('id')
         .single();
       router.push(`/jobs/${(job as any).id}`);
@@ -65,20 +75,24 @@ export default function JobsPage() {
         <div aria-live="polite" className="mb-2">
           {msg && <Alert variant="error">{msg}</Alert>}
         </div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
           <label className="sr-only" htmlFor="qc-customer">Customer</label>
           <Select id="qc-customer" value={custId} onChange={(e) => setCustId(e.target.value)}>
             <option value="">Select customer…</option>
             {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </Select>
 
+          <label className="sr-only" htmlFor="qc-program">Program</label>
+          <Select id="qc-program" value={program} onChange={(e) => setProgram(e.target.value as ProgramType)}>
+            <option value="PM_Surya">PM Surya</option>
+            <option value="Commercial">Commercial</option>
+          </Select>
+
           <label className="sr-only" htmlFor="qc-system">System type</label>
           <Select id="qc-system" value={systemType} onChange={(e) => setSystemType(e.target.value)}>
-            <option>On-grid</option>
-            <option>Hybrid</option>
-            <option>Off-grid</option>
-            <option>Inverter & Battery</option>
-            <option>Solar Water Heater</option>
+            {allowedSystems.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
           </Select>
 
           <label className="sr-only" htmlFor="qc-capacity">Capacity (kW)</label>

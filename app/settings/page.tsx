@@ -133,6 +133,17 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium">Default Tax %</label>
               <input className="mt-1 w-full rounded border px-3 py-2" type="number" value={form.default_tax_rate || 0} onChange={(e) => setForm({ ...form, default_tax_rate: Number(e.target.value) })} />
             </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium">Quote Prefix</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={form.quote_prefix || ''} onChange={(e) => setForm({ ...form, quote_prefix: e.target.value })} placeholder="e.g., q" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Quote Format</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={form.quote_format || ''} onChange={(e) => setForm({ ...form, quote_format: e.target.value })} placeholder="e.g., {YY}_{KW}KW_SOLAR PLANT_{NAME}" />
+                <p className="mt-1 text-xs text-gray-600">Tokens: {'{YY}'}, {'{YYYY}'}, {'{KW}'}, {'{SYSTEM}'}, {'{NAME}'}, {'{PLACE}'}</p>
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-medium">UPI ID</label>
               <input className="mt-1 w-full rounded border px-3 py-2" value={form.upi_id || ''} onChange={(e) => setForm({ ...form, upi_id: e.target.value })} />
