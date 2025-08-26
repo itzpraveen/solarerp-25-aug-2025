@@ -18,6 +18,18 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!supabase) return;
+    // Handle session present on initial load (e.g., after magic-link redirect)
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const token = session.access_token;
+        await fetch('/api/auth/ensureProfile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        router.replace('/jobs');
+      }
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const token = session.access_token;
@@ -34,7 +46,15 @@ export default function SignIn() {
   const sendMagicLink = async () => {
     setLoading(true);
     setMessage(null);
-    const { error } = await supabase!.auth.signInWithOtp({ email });
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const { error } = await supabase!.auth.signInWithOtp({
+      email,
+      options: {
+        // Ensure magic link lands back on this app in any environment
+        emailRedirectTo: origin ? `${origin}/auth/signin` : undefined,
+        shouldCreateUser: true,
+      },
+    });
     setLoading(false);
     setMessage(error ? error.message : 'Check your email for the magic link.');
   };
