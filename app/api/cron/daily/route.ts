@@ -5,11 +5,23 @@ import { env } from '@/lib/env';
 import { enqueueJob, processDueJobs } from '@/lib/queue';
 import { secureEqual } from '@/lib/secureCompare';
 
-export async function POST(req: NextRequest) {
+function isAuthorized(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const url = new URL(req.url);
+  const tokenParam = url.searchParams.get('token') || '';
   const secret = process.env.CRON_SECRET || '';
-  if (!secret || !secureEqual(token, secret)) {
+  const allowVercelHeader = process.env.CRON_ALLOW_VERCEL_HEADER === '1';
+  const hasVercelCronHeader = req.headers.has('x-vercel-cron');
+
+  const bearerOk = !!secret && secureEqual(bearer, secret);
+  const queryOk = !!secret && secureEqual(tokenParam, secret);
+  const vercelOk = allowVercelHeader && hasVercelCronHeader;
+  return bearerOk || queryOk || vercelOk;
+}
+
+export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -57,6 +69,45 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+  }
+
+  try {
+    // 4) Process due jobs
+    await processDueJobs();
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/cron/daily', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+  }
+}
+
+// Support GET so Vercel Cron (default GET) can also trigger it
+export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+  // 1) Mark overdue invoices
+  const today = dayjs().format('YYYY-MM-DD');
+  await supabase
+    .from('invoices')
+    .update({ status: 'Overdue' })
+    .lt('due_date', today)
+    .neq('status', 'Paid');
+
+  // 2) Enqueue reminders (if enabled via settings - simplified: if default_tax_rate is not null)
+  const { data: tenants } = await supabase.from('tenants').select('id');
+  for (const t of tenants || []) {
+    // Example: enqueue a WhatsApp reminder job for overdue invoices per tenant (payload simplified)
+    await enqueueJob(t.id, 'whatsapp_template', {
+      to: '91xxxxxxxxxx',
+      templateName: 'invoice_due',
+      variables: ['Customer', 'INV001', '1000', today, 'https://example.com']
+    });
   }
 
   try {
