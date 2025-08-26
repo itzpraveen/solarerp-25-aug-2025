@@ -15,7 +15,7 @@ type Job = {
   customers?: { name: string }[];
 };
 
-export default function PipelineBoard() {
+export default function PipelineBoard({ branchId }: { branchId?: string | null } = {}) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = supabaseBrowser();
@@ -29,10 +29,12 @@ export default function PipelineBoard() {
         return;
       }
       // Fetch jobs first (avoid nested select dependency on FK introspection)
-      const { data: jobsRaw, error: jErr } = await supabase
+      let q = supabase
         .from('jobs')
-        .select('id, tenant_id, customer_id, status, capacity_kw, system_type, location')
+        .select('id, tenant_id, customer_id, status, capacity_kw, system_type, location, branch_id')
         .order('created_at', { ascending: false });
+      if (branchId) q = q.eq('branch_id', branchId);
+      const { data: jobsRaw, error: jErr } = await q;
       if (jErr) throw jErr;
 
       const rows = (jobsRaw as Job[]) || [];

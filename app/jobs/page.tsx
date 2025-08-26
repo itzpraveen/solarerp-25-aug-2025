@@ -9,6 +9,7 @@ import Select from '~/components/ui/Select';
 import Alert from '~/components/ui/Alert';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
+import BranchSelect from '~/components/BranchSelect';
 
 type Customer = { id: string; name: string };
 
@@ -24,6 +25,7 @@ export default function JobsPage() {
   const [roof, setRoof] = useState('');
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState<string | 'all'>('all');
 
   useEffect(() => {
     (async () => {
@@ -51,7 +53,7 @@ export default function JobsPage() {
       const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
       const { data: job } = await supabase
         .from('jobs')
-        .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: custId, system_type: systemType, program_type: program, status: 'Lead', capacity_kw: capacity, location: location || null, roof_type: roof || null, date_lead: new Date().toISOString().slice(0,10) })
+        .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: custId, system_type: systemType, program_type: program, status: 'Lead', capacity_kw: capacity, location: location || null, roof_type: roof || null, date_lead: new Date().toISOString().slice(0,10), branch_id: branchId !== 'all' ? branchId : null })
         .select('id')
         .single();
       router.push(`/jobs/${(job as any).id}`);
@@ -67,6 +69,9 @@ export default function JobsPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Jobs</h1>
         <div className="flex items-center gap-2">
+          <div className="min-w-[220px]">
+            <BranchSelect value={branchId} onChange={setBranchId} />
+          </div>
           <Button variant="outline" size="sm" onClick={() => router.push('/customers')}>Customers</Button>
           <Button size="sm" onClick={() => router.push('/leads')}>Leads</Button>
         </div>
@@ -118,7 +123,7 @@ export default function JobsPage() {
           </div>
         </div>
       </Card>
-      <PipelineBoard />
+      <PipelineBoard branchId={branchId === 'all' ? null : (branchId as string)} />
     </div>
   );
 }

@@ -18,6 +18,12 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<'owner' | 'admin' | 'manager' | 'sales' | 'technician' | 'accountant' | 'viewer' | 'staff' | null>(null);
+  // Branch management state
+  const [branches, setBranches] = useState<any[]>([]);
+  const [newBranch, setNewBranch] = useState('');
+  const [savingBranch, setSavingBranch] = useState(false);
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [editingBranchName, setEditingBranchName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -47,6 +53,8 @@ export default function SettingsPage() {
           if (data) setForm(data);
           const { data: members } = await supabase.from('profiles').select('*').eq('tenant_id', prof2.tenant_id);
           setTeam((members as any[]) || []);
+          const { data: br2 } = await supabase.from('branches').select('*').eq('tenant_id', prof2.tenant_id).order('name');
+          setBranches((br2 as any[]) || []);
           setLoading(false);
           return;
         }
@@ -55,6 +63,8 @@ export default function SettingsPage() {
         if (data) setForm(data);
         const { data: members } = await supabase.from('profiles').select('*').eq('tenant_id', prof.tenant_id);
         setTeam((members as any[]) || []);
+        const { data: br } = await supabase.from('branches').select('*').eq('tenant_id', prof.tenant_id).order('name');
+        setBranches((br as any[]) || []);
       } catch (e: any) {
         setErrorMsg(String(e?.message || e));
       } finally {
@@ -108,6 +118,39 @@ export default function SettingsPage() {
     } finally {
       setInviting(false);
     }
+  };
+
+  const reloadBranches = async () => {
+    if (!tenantId) return;
+    const { data: br } = await supabase.from('branches').select('*').eq('tenant_id', tenantId).order('name');
+    setBranches((br as any[]) || []);
+  };
+
+  const addBranch = async () => {
+    if (!newBranch.trim()) return;
+    setSavingBranch(true);
+    await supabase.from('branches').insert({ tenant_id: tenantId, name: newBranch.trim() });
+    setNewBranch('');
+    setSavingBranch(false);
+    reloadBranches();
+  };
+
+  const saveBranchName = async () => {
+    if (!editingBranchId) return;
+    const name = editingBranchName.trim();
+    if (!name) return;
+    setSavingBranch(true);
+    await supabase.from('branches').update({ name }).eq('id', editingBranchId);
+    setSavingBranch(false);
+    setEditingBranchId(null);
+    setEditingBranchName('');
+    reloadBranches();
+  };
+
+  const deleteBranch = async (id: string) => {
+    if (!confirm('Delete this branch? Existing records will have branch cleared.')) return;
+    await supabase.from('branches').delete().eq('id', id);
+    reloadBranches();
   };
 
   return (
@@ -292,6 +335,53 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+        <div className="rounded border bg-white p-4 space-y-3">
+          <h2 className="text-lg font-medium">Branches</h2>
+          <p className="text-sm text-gray-600">Create and manage your branches. Deleting a branch clears branch on related records.</p>
+          <div className="flex items-center gap-2">
+            <input className="rounded border px-3 py-2" placeholder="New branch name" value={newBranch} onChange={(e) => setNewBranch(e.target.value)} />
+            <Button onClick={addBranch} loading={savingBranch} disabled={!newBranch.trim()}>Add</Button>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-600">
+                <th className="p-2">Name</th>
+                <th className="p-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {branches.map((b) => (
+                <tr key={b.id} className="border-t">
+                  <td className="p-2">
+                    {editingBranchId === b.id ? (
+                      <input className="w-full rounded border px-2 py-1" value={editingBranchName} onChange={(e) => setEditingBranchName(e.target.value)} />
+                    ) : (
+                      <span>{b.name}</span>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {editingBranchId === b.id ? (
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={saveBranchName} loading={savingBranch}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingBranchId(null); setEditingBranchName(''); }}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => { setEditingBranchId(b.id as string); setEditingBranchName(b.name as string); }}>Rename</Button>
+                        <Button size="sm" variant="outline" onClick={() => deleteBranch(b.id as string)}>Delete</Button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {branches.length === 0 && (
+                <tr>
+                  <td className="p-2 text-sm text-gray-500" colSpan={2}>No branches yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
       )}
