@@ -27,7 +27,7 @@
     "unseed": "tsx scripts/unseed.ts"
   },
   "dependencies": {
-    "@sparticuz/chromium-min": "^127.0.0",
+    "@sparticuz/chromium": "^127.0.0",
     "@supabase/supabase-js": "^2.45.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
