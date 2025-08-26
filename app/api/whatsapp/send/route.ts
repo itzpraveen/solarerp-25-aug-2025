@@ -10,12 +10,17 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const sb = await supabaseFromAuthHeader();
+    const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
     const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success) return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
     const { to, templateName, variables } = parsed.data;
+
+    // Mock mode: short-circuit and pretend success
+    if (process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1') {
+      return NextResponse.json({ ok: true, id: 'mock-message-id' });
+    }
 
     const token = process.env.WHATSAPP_TOKEN!;
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID!;

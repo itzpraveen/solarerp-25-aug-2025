@@ -12,7 +12,7 @@ export function useProfile() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from('profiles').select('tenant_id, role, display_name').single();
+      const { data } = await supabase.from('profiles').select('tenant_id, role, display_name').maybeSingle();
       setProfile((data as any) || null);
       setLoading(false);
     })();
@@ -20,4 +20,3 @@ export function useProfile() {
 
   return { profile, loading };
 }
-

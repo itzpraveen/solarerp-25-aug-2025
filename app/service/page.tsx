@@ -32,7 +32,7 @@ export default function ServiceTickets() {
   const add = async () => {
     if (!customerId) return alert('Select a customer');
     setAdding(true);
-    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     if (pErr || !prof?.tenant_id) { setAdding(false); return alert('Profile not ready'); }
     const { error } = await supabase.from('service_tickets').insert({ tenant_id: prof!.tenant_id, customer_id: customerId, date: new Date().toISOString().slice(0,10), summary });
     setAdding(false);

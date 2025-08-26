@@ -4,7 +4,13 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // All defaults; no experimental flags.
+  // Reduce dev cache flakiness by using in-memory cache for webpack
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.cache = { type: 'memory' } as any;
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

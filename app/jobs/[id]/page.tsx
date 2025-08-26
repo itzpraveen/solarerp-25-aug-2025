@@ -15,6 +15,7 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [tab, setTab] = useState<'overview' | 'finance' | 'docs' | 'tasks' | 'proposals'>('overview');
   const [edit, setEdit] = useState<any | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -44,6 +45,7 @@ export default function JobDetailPage() {
         <h1 className="text-xl font-semibold">Job Details</h1>
         <button onClick={() => { if (history.length > 1) history.back(); else window.location.href = '/jobs'; }} className="text-sm text-blue-600">Back</button>
       </div>
+      {flash && <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">{flash}</div>}
       <Breadcrumbs items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]} />
       <div className="flex flex-wrap gap-2">
         {(['overview', 'finance', 'docs', 'tasks', 'proposals'] as const).map((t) => (
@@ -160,7 +162,7 @@ export default function JobDetailPage() {
                 .eq('id', params.id)
                 .single();
               setJob(data as any);
-              alert('Saved');
+              setFlash('Saved'); setTimeout(() => setFlash(null), 1500);
             }}>Save Changes</Button>
           </div>
         </Card>
@@ -183,6 +185,8 @@ function Finance({ jobId }: { jobId: string }) {
   const [invType, setInvType] = useState<'Deposit' | 'Progress' | 'Final'>('Progress');
   const [payAmt, setPayAmt] = useState<number>(0);
   const [payDate, setPayDate] = useState<string>('');
+  const [payMode, setPayMode] = useState<'UPI' | 'NEFT' | 'Cash' | 'Card' | 'Cheque'>('UPI');
+  const [payRef, setPayRef] = useState<string>('');
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
@@ -199,7 +203,17 @@ function Finance({ jobId }: { jobId: string }) {
       <Card title="Invoices">
         <ul className="space-y-2 text-sm">
           {invoices.map((i) => (
-            <li key={i.id} className="flex items-center justify-between"><span>{i.invoice_type} • Due {i.due_date || '—'}</span><span>{i.status}</span></li>
+            <li key={i.id} className="flex items-center justify-between gap-2">
+              <span>{i.invoice_type} • Due {i.due_date || '—'}</span>
+              <select className="rounded border px-2 py-1 text-xs" value={i.status || 'Draft'} onChange={async (e) => {
+                const newStatus = e.target.value as any;
+                await supabase.from('invoices').update({ status: newStatus }).eq('id', i.id);
+                const { data: inv } = await supabase.from('invoices').select('*').eq('job_id', jobId);
+                setInvoices(inv || []);
+              }}>
+                {['Draft','Sent','Paid','Overdue','Cancelled'].map(s => (<option key={s} value={s}>{s}</option>))}
+              </select>
+            </li>
           ))}
           {invoices.length === 0 && <li className="text-gray-500">No invoices</li>}
         </ul>
@@ -214,7 +228,7 @@ function Finance({ jobId }: { jobId: string }) {
               </select>
               <input className="rounded border px-3 py-2" type="number" placeholder="Amount" value={invAmt} onChange={(e) => setInvAmt(Number(e.target.value))} />
               <button className="rounded bg-blue-600 px-3 py-2 text-white text-sm" onClick={async () => {
-                const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+                const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
                 const due = new Date(); due.setDate(due.getDate() + 7);
                 await supabase.from('invoices').insert({ tenant_id: prof!.tenant_id, job_id: jobId, date: new Date().toISOString().slice(0,10), invoice_type: invType, amount_before_tax: invAmt, tax: 0, total: invAmt, due_date: due.toISOString().slice(0,10), status: 'Draft' });
                 const { data: inv } = await supabase.from('invoices').select('*').eq('job_id', jobId);
@@ -235,14 +249,20 @@ function Finance({ jobId }: { jobId: string }) {
         <div className="mt-3 grid grid-cols-1 gap-2">
           <input className="rounded border px-3 py-2" type="date" placeholder="Date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
           <input className="rounded border px-3 py-2" type="number" placeholder="Amount" value={payAmt} onChange={(e) => setPayAmt(Number(e.target.value))} />
+          <div className="flex items-center gap-2">
+            <select className="rounded border px-2 py-2 text-sm" value={payMode} onChange={(e) => setPayMode(e.target.value as any)}>
+              {['UPI','NEFT','Cash','Card','Cheque'].map(m => (<option key={m} value={m}>{m}</option>))}
+            </select>
+            <input className="rounded border px-3 py-2" placeholder="Reference" value={payRef} onChange={(e) => setPayRef(e.target.value)} />
+          </div>
           <button className="rounded bg-blue-600 px-3 py-2 text-white text-sm" onClick={async () => {
             const { data: inv } = await supabase.from('invoices').select('id').eq('job_id', jobId).order('date', { ascending: false }).limit(1).maybeSingle();
             if (!inv) return alert('Create an invoice first');
-            const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-            await supabase.from('payments').insert({ tenant_id: prof!.tenant_id, invoice_id: inv.id, date: (payDate || new Date().toISOString().slice(0,10)), mode: 'UPI', amount: payAmt });
+            const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+            await supabase.from('payments').insert({ tenant_id: prof!.tenant_id, invoice_id: inv.id, date: (payDate || new Date().toISOString().slice(0,10)), mode: payMode, amount: payAmt, reference: payRef || null });
             const { data: pay } = await supabase.from('payments').select('*, invoices(total)').in('invoice_id', [inv.id]);
             setPayments(pay || []);
-            setPayAmt(0); setPayDate('');
+            setPayAmt(0); setPayDate(''); setPayRef('');
           }}>Record Payment</button>
         </div>
       </Card>
@@ -256,6 +276,7 @@ function Proposals({ jobId }: { jobId: string }) {
   const [signed, setSigned] = useState<Record<string, string>>({});
   const [customer, setCustomer] = useState<{ name?: string; phone?: string } | null>(null);
   const [capacity, setCapacity] = useState<number>(0);
+  const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -291,16 +312,38 @@ function Proposals({ jobId }: { jobId: string }) {
     }
   };
 
+  const parseStatus = (terms?: string | null) => {
+    if (!terms) return null;
+    const m = /^\[STATUS:([^\]]+)\]/.exec(terms);
+    return m ? m[1] : null;
+  };
+
+  const setStatus = async (id: string, status: 'Sent' | 'Accepted' | 'Rejected', jobUpdate?: 'Won') => {
+    const row = rows.find(r => r.id === id);
+    const rest = String(row?.terms || '').replace(/^\[STATUS:[^\]]+\]\s*/,'');
+    await supabase.from('proposals').update({ terms: `[STATUS:${status}] ${rest}` }).eq('id', id);
+    const { data } = await supabase.from('proposals').select('*').eq('job_id', jobId).order('"date"', { ascending: false });
+    setRows(data || []);
+    if (jobUpdate === 'Won') {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      await fetch('/api/jobs/updateStatus', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jobId, newStatus: 'Won' }) });
+    }
+    setFlash(`Proposal marked ${status}${jobUpdate ? ' • Job updated' : ''}`);
+    setTimeout(() => setFlash(null), 2000);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">Proposals</h3>
         <a className="rounded bg-blue-600 px-3 py-2 text-white" href={`/proposals/new?jobId=${jobId}`}>New Proposal</a>
       </div>
+      {flash && <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">{flash}</div>}
       <ul className="space-y-2">
         {rows.map((r) => (
           <li key={r.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
-            <span>{r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}</span>
+            <span>{r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}{parseStatus(r.terms) ? ` • ${parseStatus(r.terms)}` : ''}</span>
             {r.pdf_url ? (
               <div className="flex items-center gap-3">
                 <button onClick={() => openPdf(r.pdf_url)} className="text-blue-600">Open PDF</button>
@@ -329,12 +372,15 @@ function Proposals({ jobId }: { jobId: string }) {
                           variables: [customer!.name || 'Customer', String(capacity || ''), url],
                         }),
                       });
-                      alert('WhatsApp send enqueued.');
+                      setFlash('WhatsApp send enqueued'); setTimeout(() => setFlash(null), 1500);
                     }}
                   >
                     Send WhatsApp
                   </button>
                 )}
+                <button className="text-gray-700" onClick={() => setStatus(r.id, 'Sent')}>Mark Sent</button>
+                <button className="text-emerald-700" onClick={() => setStatus(r.id, 'Accepted', 'Won')}>Mark Accepted</button>
+                <button className="text-red-700" onClick={() => setStatus(r.id, 'Rejected')}>Mark Rejected</button>
               </div>
             ) : (
               <span className="text-gray-500">—</span>
@@ -352,6 +398,7 @@ function Docs({ jobId }: { jobId: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<string>('upload');
   const [uploading, setUploading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -361,12 +408,13 @@ function Docs({ jobId }: { jobId: string }) {
   }, [jobId]);
 
   const upload = async () => {
-    if (!file) return;
+    setMsg(null);
+    if (!file) { setMsg('Select a file'); return; }
     if (!['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      alert('Only PDF or image files allowed'); return;
+      setMsg('Only PDF or image files allowed'); return;
     }
     setUploading(true);
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     const key = `${prof!.tenant_id}/${crypto.randomUUID()}-${file.name}`;
     await supabase.storage.from('documents').upload(key, file);
     const { data: signed } = await supabase.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);
@@ -375,11 +423,13 @@ function Docs({ jobId }: { jobId: string }) {
     setDocs(data || []);
     setFile(null);
     setUploading(false);
+    setMsg('Uploaded'); setTimeout(() => setMsg(null), 1500);
   };
 
   return (
     <div className="space-y-4">
       <Card>
+        {msg && <div className="mb-2 rounded border bg-emerald-50 p-2 text-xs text-emerald-700">{msg}</div>}
         <div className="flex items-center gap-2">
           <input className="text-sm" type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           <select className="rounded border px-2 py-1 text-sm" value={docType} onChange={(e) => setDocType(e.target.value)}>
@@ -392,9 +442,35 @@ function Docs({ jobId }: { jobId: string }) {
         </div>
       </Card>
       <ul className="space-y-2">
-        {docs.map((d) => (
-          <li key={d.id} className="rounded border bg-white p-3 text-sm"><a className="text-blue-600" href={d.file_url} target="_blank">Open document</a></li>
-        ))}
+        {docs.map((d) => {
+          const url: string = d.file_url || '';
+          const isImg = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
+          return (
+            <li key={d.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {isImg ? (
+                  <a href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt="preview" className="h-12 w-12 rounded object-cover" />
+                  </a>
+                ) : (
+                  <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-600">PDF</div>
+                )}
+                <div>
+                  <div className="text-gray-700">{d.doc_type || 'document'}</div>
+                  <div className="text-xs text-gray-500">Uploaded</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <a className="text-blue-600" href={url} target="_blank" rel="noreferrer">Open</a>
+                <button className="text-red-600" onClick={async () => {
+                  await supabase.from('documents').delete().eq('id', d.id);
+                  const { data } = await supabase.from('documents').select('*').eq('job_id', jobId);
+                  setDocs(data || []);
+                }}>Delete</button>
+              </div>
+            </li>
+          );
+        })}
         {docs.length === 0 && <li className="rounded border bg-white p-3 text-sm text-gray-600">No documents uploaded</li>}
       </ul>
     </div>
@@ -412,7 +488,7 @@ function Tasks({ jobId }: { jobId: string }) {
     })();
   }, [jobId]);
   const add = async () => {
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     await supabase.from('tasks').insert({ tenant_id: prof!.tenant_id, job_id: jobId, title });
     const { data } = await supabase.from('tasks').select('*').eq('job_id', jobId);
     setTasks(data || []);

@@ -4,7 +4,7 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 export async function POST(req: NextRequest) {
   try {
     const { jobId, newStatus } = (await req.json()) as { jobId: string; newStatus: string };
-    const sb = await supabaseFromAuthHeader();
+    const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
     // Load job under RLS
@@ -20,23 +20,32 @@ export async function POST(req: NextRequest) {
       const total = Number(job.total_amount || job.quoted_price || 0);
       const deposit = Math.round((total * depositPercent) / 100);
       if (deposit > 0) {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 7);
-        await sb.from('invoices').insert({
-          tenant_id: job.tenant_id,
-          job_id: job.id,
-          date: new Date().toISOString().slice(0, 10),
-          invoice_type: 'Deposit',
-          amount_before_tax: deposit,
-          tax: 0,
-          total: deposit,
-          due_date: dueDate.toISOString().slice(0, 10),
-          status: 'Draft',
-        });
-        await sb
-          .from('jobs')
-          .update({ deposit_amount: deposit, balance_due: total - deposit })
-          .eq('id', job.id);
+        // Avoid duplicate deposit invoices for this job
+        const { data: existing } = await sb
+          .from('invoices')
+          .select('id')
+          .eq('job_id', job.id)
+          .eq('invoice_type', 'Deposit')
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 7);
+          await sb.from('invoices').insert({
+            tenant_id: job.tenant_id,
+            job_id: job.id,
+            date: new Date().toISOString().slice(0, 10),
+            invoice_type: 'Deposit',
+            amount_before_tax: deposit,
+            tax: 0,
+            total: deposit,
+            due_date: dueDate.toISOString().slice(0, 10),
+            status: 'Draft',
+          });
+          await sb
+            .from('jobs')
+            .update({ deposit_amount: deposit, balance_due: total - deposit })
+            .eq('id', job.id);
+        }
       }
     }
 

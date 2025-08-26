@@ -5,7 +5,7 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 export async function POST(req: NextRequest) {
   try {
     // Require authenticated caller; derive user from token
-    const sb = await supabaseFromAuthHeader();
+    const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     const { data: authUser, error: uErr } = await sb.auth.getUser();
     if (uErr || !authUser?.user) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

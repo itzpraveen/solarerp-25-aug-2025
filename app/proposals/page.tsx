@@ -1,21 +1,31 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import EmptyState from '~/components/ui/EmptyState';
+import Card from '~/components/ui/Card';
+import Button from '~/components/ui/Button';
 
-export default function ProposalsPage() {
+export default function ProposalsListPage() {
   const supabase = supabaseBrowser();
   const [rows, setRows] = useState<any[]>([]);
   const [signed, setSigned] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  const load = async () => {
-    const { data } = await supabase
-      .from('proposals')
-      .select('id, job_id, date, kit_name, total, pdf_url, jobs(id, customers(name))')
-      .order('"date"', { ascending: false });
-    setRows(data || []);
-  };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    (async () => {
+      setLoading(true); setErr(null);
+      const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+      if (!prof?.tenant_id) { setErr('Profile not ready. Please sign in again.'); setLoading(false); return; }
+      const { data, error } = await supabase
+        .from('proposals')
+        .select('*, jobs(id, customers(name, phone))')
+        .eq('tenant_id', prof.tenant_id)
+        .order('"date"', { ascending: false });
+      if (error) setErr(error.message);
+      setRows(data || []);
+      setLoading(false);
+    })();
+  }, []);
 
   const openPdf = async (key?: string | null) => {
     if (!key) return;
@@ -32,44 +42,33 @@ export default function ProposalsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Proposals</h1>
-        <div className="flex items-center gap-3">
-          <a className="text-sm text-blue-600" href="/proposals/new">New Proposal</a>
-          <a className="text-sm text-gray-700" href="/jobs">Create from a Job →</a>
-        </div>
+        <a href="/proposals/new" className="rounded bg-blue-600 px-3 py-2 text-white text-sm">New Proposal</a>
       </div>
-      {rows.length === 0 ? (
-        <EmptyState title="No proposals yet" description="Generate a proposal from a Job to get started." />
-      ) : (
-      <div className="rounded border bg-white overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="p-2">Date</th>
-              <th className="p-2">Customer</th>
-              <th className="p-2">Kit</th>
-              <th className="p-2">Total</th>
-              <th className="p-2">PDF</th>
-            </tr>
-          </thead>
-          <tbody>
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
+      <Card>
+        {loading ? (
+          <div className="text-sm text-gray-600">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="text-sm text-gray-600">No proposals yet.</div>
+        ) : (
+          <ul className="space-y-2">
             {rows.map((r) => (
-              <tr key={r.id} className="border-b">
-                <td className="p-2">{r.date || '—'}</td>
-                <td className="p-2">{r.jobs?.customers?.name || '—'}</td>
-                <td className="p-2">{r.kit_name || '—'}</td>
-                <td className="p-2">₹{r.total ?? '—'}</td>
-                <td className="p-2">
-                  {r.pdf_url ? (
-                    <button onClick={() => openPdf(r.pdf_url)} className="text-blue-600">Open PDF</button>
-                  ) : (
-                    <span className="text-gray-500">—</span>
-                  )}
-                </td>
-              </tr>
+              <li key={r.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}</div>
+                  <div className="text-xs text-gray-600">Job: {r.jobs?.id || '—'} • Customer: {r.jobs?.customers?.[0]?.name || '—'}</div>
+                </div>
+                {r.pdf_url ? (
+                  <Button variant="outline" size="sm" onClick={() => openPdf(r.pdf_url)}>Open PDF</Button>
+                ) : (
+                  <span className="text-gray-500">—</span>
+                )}
+              </li>
             ))}
-          </tbody>
-        </table>
-      </div>)}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }
+

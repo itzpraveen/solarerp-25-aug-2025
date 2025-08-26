@@ -30,7 +30,7 @@ export default function CustomersPage() {
     if (email && !isEmail(email)) return setErr('Invalid email');
     if (phone && !isPhone(phone)) return setErr('Invalid phone');
     setAdding(true);
-    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     if (pErr || !prof?.tenant_id) { setAdding(false); return setErr('Profile not ready'); }
     // duplicate phone check within tenant
     if (phone) {

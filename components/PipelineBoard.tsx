@@ -22,6 +22,12 @@ export default function PipelineBoard() {
 
   const load = async () => {
     setLoading(true);
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('jobs')
       .select('id, tenant_id, customer_id, status, capacity_kw, system_type, location, customers(name)')
@@ -35,6 +41,7 @@ export default function PipelineBoard() {
   }, []);
 
   const onDrop = async (jobId: string, newStatus: string) => {
+    if (!confirm(`Move job to "${statusLabel(newStatus as any)}"?`)) return;
     const { data: session } = await supabase.auth.getSession();
     const token = session.session?.access_token;
     await fetch('/api/jobs/updateStatus', {
