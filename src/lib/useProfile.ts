@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 
-export type Profile = { tenant_id: string; role: 'owner' | 'staff'; display_name?: string | null };
+export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'technician' | 'accountant' | 'viewer' | 'staff';
+export type Profile = { tenant_id: string; role: Role; display_name?: string | null };
 
 export function useProfile() {
   const supabase = supabaseBrowser();

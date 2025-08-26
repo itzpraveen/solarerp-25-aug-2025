@@ -262,8 +262,11 @@ export default function NewProposalClient() {
         body: JSON.stringify({ tenantId, payload }),
       });
       const out = await res.json();
-      if (!res.ok || !out.ok)
-        throw new Error(out?.error || 'PDF generation failed');
+      if (!res.ok || !out.ok) {
+        const detail = [out?.hint, out?.cause].filter(Boolean).join(' — ');
+        const eid = out?.id ? ` (id: ${out.id})` : '';
+        throw new Error(`${out?.error || 'PDF generation failed'}${detail ? ` — ${detail}` : ''}${eid}`);
+      }
       setSignedUrl(out.url);
       setPdfKey(out.key);
       if (jobId) {
@@ -283,6 +286,34 @@ export default function NewProposalClient() {
             total,
             pdf_url: out.key,
             lang,
+            valid_till: validTill || null,
+            cover: includeCover
+              ? {
+                  to: coverTo || null,
+                  subject: coverSubject || null,
+                  reference: coverReference || null,
+                  paragraphs: coverParagraphs
+                    .split(/\n\n+|\r\n\r\n+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                  signatory: {
+                    name: signName || null,
+                    title: signTitle || null,
+                    phone: signPhone || null,
+                  },
+                }
+              : null,
+            notes: (notes || []).filter((n) => n.trim()).map((n) => n.trim()),
+            work_schedule:
+              workRows.length > 0
+                ? {
+                    rows: workRows.map((r) => ({
+                      scope: r.scope,
+                      details: r.details,
+                      timeline: r.timeline,
+                    })),
+                  }
+                : null,
           })
           .select('id, total, pdf_url')
           .single();
@@ -418,6 +449,36 @@ export default function NewProposalClient() {
                           total,
                           pdf_url: pdfKey!,
                           lang,
+                          valid_till: validTill || null,
+                          cover: includeCover
+                            ? {
+                                to: coverTo || null,
+                                subject: coverSubject || null,
+                                reference: coverReference || null,
+                                paragraphs: coverParagraphs
+                                  .split(/\n\n+|\r\n\r\n+/)
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                                signatory: {
+                                  name: signName || null,
+                                  title: signTitle || null,
+                                  phone: signPhone || null,
+                                },
+                              }
+                            : null,
+                          notes: (notes || [])
+                            .filter((n) => n.trim())
+                            .map((n) => n.trim()),
+                          work_schedule:
+                            workRows.length > 0
+                              ? {
+                                  rows: workRows.map((r) => ({
+                                    scope: r.scope,
+                                    details: r.details,
+                                    timeline: r.timeline,
+                                  })),
+                                }
+                              : null,
                         })
                         .select('id')
                         .single();
@@ -894,14 +955,51 @@ export default function NewProposalClient() {
       {!jobId && (
         <div className="rounded border bg-white p-4">
           <div className="text-sm font-medium mb-2">Program</div>
-          <select
-            className="rounded border px-3 py-2 text-sm"
-            value={program}
-            onChange={(e) => setProgram(e.target.value as 'PM_Surya' | 'Commercial')}
-          >
-            <option value="PM_Surya">PM Surya</option>
-            <option value="Commercial">Commercial</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={program}
+              onChange={(e) => setProgram(e.target.value as 'PM_Surya' | 'Commercial')}
+            >
+              <option value="PM_Surya">PM Surya</option>
+              <option value="Commercial">Commercial</option>
+            </select>
+            <button
+              type="button"
+              className="rounded border px-3 py-2 text-sm"
+              onClick={() => {
+                // Lightweight default presets by program
+                if (program === 'PM_Surya') {
+                  setNotes([
+                    'On‑grid plant sized as per site conditions; final design post feasibility.',
+                    'KSEB/Inspectorate charges and processing under customer scope unless specified.',
+                    'Subsidy as per MNRE/ANERT program timelines and approvals.',
+                  ]);
+                  setWorkRows([
+                    { scope: 'TENAGA', details: 'MNRE portal feasibility + documentation', timeline: 'Week 1 (after advance)' },
+                    { scope: 'TENAGA', details: 'Material delivery; MMS & panel flooring', timeline: 'Weeks 1–2' },
+                    { scope: 'TENAGA', details: 'AC/DC wiring, earthing, inverter install & calibration', timeline: 'Week 3' },
+                    { scope: 'KSEB', details: 'Testing, net‑meter allocation & grid connection', timeline: '1–2 weeks post inspection' },
+                    { scope: 'Subsidy', details: 'Subsidy request and processing', timeline: '60–90 days after commissioning' },
+                  ]);
+                } else {
+                  setNotes([
+                    'On‑grid plant sized as per site conditions; final design post feasibility.',
+                    'Statutory approvals and application charges under customer scope unless specified.',
+                    'Quoted prices inclusive of GST unless stated otherwise.',
+                  ]);
+                  setWorkRows([
+                    { scope: 'TENAGA', details: 'Feasibility and planning', timeline: 'Week 1' },
+                    { scope: 'TENAGA', details: 'Material delivery; MMS & panel flooring', timeline: 'Weeks 1–2' },
+                    { scope: 'TENAGA', details: 'AC/DC wiring, earthing, inverter install & calibration', timeline: 'Week 3' },
+                    { scope: 'DISCOM', details: 'Metering & interconnection formalities (if applicable)', timeline: 'Dependent on DISCOM' },
+                  ]);
+                }
+              }}
+            >
+              Load program preset
+            </button>
+          </div>
         </div>
       )}
 
@@ -983,6 +1081,37 @@ export default function NewProposalClient() {
                         tax: taxAmt,
                         total,
                         pdf_url: keyGuess,
+                        lang,
+                        valid_till: validTill || null,
+                        cover: includeCover
+                          ? {
+                              to: coverTo || null,
+                              subject: coverSubject || null,
+                              reference: coverReference || null,
+                              paragraphs: coverParagraphs
+                                .split(/\n\n+|\r\n\r\n+/)
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                              signatory: {
+                                name: signName || null,
+                                title: signTitle || null,
+                                phone: signPhone || null,
+                              },
+                            }
+                          : null,
+                        notes: (notes || [])
+                          .filter((n) => n.trim())
+                          .map((n) => n.trim()),
+                        work_schedule:
+                          workRows.length > 0
+                            ? {
+                                rows: workRows.map((r) => ({
+                                  scope: r.scope,
+                                  details: r.details,
+                                  timeline: r.timeline,
+                                })),
+                              }
+                            : null,
                       });
                     window.location.href = `/jobs/${(jobRow as any).id}`;
                   } catch (e: any) {

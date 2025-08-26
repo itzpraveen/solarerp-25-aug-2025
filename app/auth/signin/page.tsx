@@ -85,6 +85,14 @@ export default function SignIn() {
                 className="rounded bg-gray-700 px-2 py-1 text-white"
                 onClick={async () => { await supabase!.auth.signInWithOtp({ email: 'staff@demo.local' }); }}
               >Sign in as Staff</button>
+              <button
+                className="rounded bg-emerald-700 px-2 py-1 text-white"
+                onClick={async () => { await supabase!.auth.signInWithOtp({ email: 'admin@demo.local' }); }}
+              >Admin</button>
+              <button
+                className="rounded bg-indigo-700 px-2 py-1 text-white"
+                onClick={async () => { await supabase!.auth.signInWithOtp({ email: 'tech@demo.local' }); }}
+              >Technician</button>
             </div>
           </div>
         )}

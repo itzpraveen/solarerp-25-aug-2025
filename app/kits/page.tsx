@@ -52,7 +52,7 @@ export default function KitsPage() {
         <input className="rounded border px-3 py-2 text-sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
-      <RequireOwner fallback={<Card><div className="text-sm text-gray-600">Only owners can add or edit kits.</div></Card>}>
+      <RequireOwner fallback={<Card><div className="text-sm text-gray-600">Only owners or admins can add or edit kits.</div></Card>}>
         <Card>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
             <Input placeholder="Kit name" value={form.kit_name} onChange={(e) => setForm({ ...form, kit_name: e.target.value })} />

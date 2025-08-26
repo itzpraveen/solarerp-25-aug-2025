@@ -8,7 +8,19 @@ export const invoiceStatus = pgEnum('invoice_status', ['Draft', 'Sent', 'Paid', 
 export const payMode = pgEnum('pay_mode', ['UPI', 'NEFT', 'Cash', 'Card', 'Cheque']);
 export const taskStatus = pgEnum('task_status', ['Open', 'InProgress', 'Blocked', 'Done']);
 export const priority = pgEnum('priority', ['Low', 'Medium', 'High', 'Urgent']);
-export const role = pgEnum('role', ['owner', 'staff']);
+// Expanded role set for finer RBAC
+// Note: ensure corresponding DB enum is migrated (see drizzle migration)
+export const role = pgEnum('role', [
+  'owner',
+  'admin',
+  'manager',
+  'sales',
+  'technician',
+  'accountant',
+  'viewer',
+  // keep legacy role for backward compatibility
+  'staff',
+]);
 
 export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -101,6 +113,16 @@ export const proposals = pgTable('proposals', {
   pdfUrl: text('pdf_url'),
   terms: text('terms'),
   lang: text('lang').default('en'),
+  // Persist optional long-proposal sections
+  cover: jsonb('cover').$type<{
+    to?: string;
+    subject?: string;
+    reference?: string;
+    paragraphs?: string[];
+    signatory?: { name?: string; title?: string; phone?: string };
+  }>(),
+  notes: jsonb('notes').$type<string[]>(),
+  workSchedule: jsonb('work_schedule').$type<{ rows: { scope: string; details: string; timeline: string }[] }>(),
 });
 
 export const items = pgTable('items', {

@@ -19,7 +19,7 @@ const links = [
 export default function AppHeader() {
   const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<'owner' | 'staff' | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   // Keep nav simple and predictable: always show links in header
   const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
@@ -102,7 +102,7 @@ export default function AppHeader() {
           </button>
           {email ? (
             <>
-              <span className="hidden sm:inline text-gray-600 dark:text-gray-300">{email}{role ? ` • ${role === 'owner' ? 'Owner' : 'Staff'}` : ''}</span>
+              <span className="hidden sm:inline text-gray-600 dark:text-gray-300">{email}{role ? ` • ${String(role).charAt(0).toUpperCase()}${String(role).slice(1)}` : ''}</span>
               <button onClick={signOut} className="rounded border px-2 py-1 dark:border-gray-700">Sign out</button>
             </>
           ) : (

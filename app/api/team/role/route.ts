@@ -6,7 +6,7 @@ import { logAudit } from '@/lib/audit';
 
 const BodySchema = z.object({
   userId: z.string().min(1),
-  role: z.enum(['owner', 'staff']),
+  role: z.enum(['owner', 'admin', 'manager', 'sales', 'technician', 'accountant', 'viewer', 'staff']),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const isMock = process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
     const { data: me } = await sb.from('profiles').select('user_id, tenant_id, role').maybeSingle();
     if (!isMock) {
-      if (!me?.tenant_id || (me as any).role !== 'owner') return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+      if (!me?.tenant_id || !['owner', 'admin'].includes((me as any).role)) return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
     const tenantId = ((me as any)?.tenant_id as string) || 't1';
 

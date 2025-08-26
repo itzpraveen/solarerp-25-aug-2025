@@ -13,11 +13,11 @@ export default function SettingsPage() {
   const [flash, setFlash] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<{ userId: string; name: string } | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'owner' | 'staff'>('staff');
+  const [inviteRole, setInviteRole] = useState<'owner' | 'admin' | 'manager' | 'sales' | 'technician' | 'accountant' | 'viewer' | 'staff'>('staff');
   const [inviting, setInviting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [myRole, setMyRole] = useState<'owner' | 'staff' | null>(null);
+  const [myRole, setMyRole] = useState<'owner' | 'admin' | 'manager' | 'sales' | 'technician' | 'accountant' | 'viewer' | 'staff' | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -111,7 +111,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <RequireOwner fallback={<div className="rounded border bg-white p-4 text-sm text-gray-600">Only owners can view and edit settings.</div>}>
+    <RequireOwner fallback={<div className="rounded border bg-white p-4 text-sm text-gray-600">Only owners or admins can view and edit settings.</div>}>
       {loading && <div className="rounded border bg-white p-4 text-sm text-gray-700">Loading settings…</div>}
       {flash && <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">{flash}</div>}
       {errorMsg && <div className="rounded border bg-red-50 p-3 text-sm text-red-700">{errorMsg}</div>}
@@ -120,7 +120,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Settings</h1>
           {myRole && (
-            <span className="rounded-full border px-2 py-1 text-xs text-gray-700">Your role: {myRole === 'owner' ? 'Owner' : 'Staff'}</span>
+            <span className="rounded-full border px-2 py-1 text-xs text-gray-700">Your role: {String(myRole).charAt(0).toUpperCase() + String(myRole).slice(1)}</span>
           )}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -191,13 +191,19 @@ export default function SettingsPage() {
           <div className="rounded border bg-white p-4 space-y-3">
             <h2 className="text-lg font-medium">Team & Roles</h2>
             <p className="text-sm text-gray-600">Manage roles for your team members.</p>
-            {myRole === 'owner' && (
+            {myRole && (myRole === 'owner' || myRole === 'admin') && (
               <div className="rounded border bg-gray-50 p-3 text-sm">
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                   <input className="rounded border px-3 py-2" placeholder="Member email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
                   <select className="rounded border px-2 py-2" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as any)}>
-                    <option value="staff">Staff</option>
                     <option value="owner">Owner</option>
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="sales">Sales</option>
+                    <option value="technician">Technician</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="staff">Staff (legacy)</option>
                   </select>
                   <Button onClick={invite} loading={inviting}>Invite</Button>
                 </div>
@@ -223,7 +229,7 @@ export default function SettingsPage() {
                           className="rounded border px-2 py-1"
                           value={m.role}
                           onChange={async (e) => {
-                            const role = e.target.value as 'owner' | 'staff';
+                            const role = e.target.value as any;
                             // Prevent demoting the last owner client-side
                             const ownersCount = team.filter((t) => t.role === 'owner').length;
                             if (m.role === 'owner' && role !== 'owner' && ownersCount <= 1) {
@@ -244,9 +250,15 @@ export default function SettingsPage() {
                           }}
                         >
                           <option value="owner">Owner</option>
-                          <option value="staff">Staff</option>
+                          <option value="admin">Admin</option>
+                          <option value="manager">Manager</option>
+                          <option value="sales">Sales</option>
+                          <option value="technician">Technician</option>
+                          <option value="accountant">Accountant</option>
+                          <option value="viewer">Viewer</option>
+                          <option value="staff">Staff (legacy)</option>
                         </select>
-                        {myRole === 'owner' && m.user_id !== myUserId && (
+                        {(myRole === 'owner' || myRole === 'admin') && m.user_id !== myUserId && (
                           <button className="rounded border px-2 py-1 text-xs" onClick={() => setPendingRemove({ userId: m.user_id, name: m.display_name || m.user_id })}>Remove</button>
                         )}
                       </div>
