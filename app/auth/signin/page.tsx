@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import { isPhone } from '@/lib/validation';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -72,8 +73,18 @@ export default function SignIn() {
         </div>
         <div>
           <label className="block text-sm font-medium">Phone (WhatsApp/SMS)</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="91XXXXXXXXXX" />
-          <button onClick={sendOtpSms} disabled={!phone || loading} className="mt-2 rounded bg-green-600 px-3 py-2 text-white disabled:opacity-50">Send OTP</button>
+          <input
+            type="tel"
+            inputMode="numeric"
+            className="mt-1 w-full rounded-md border px-3 py-2"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="91XXXXXXXXXX or +91XXXXXXXXXX"
+          />
+          {phone && !isPhone(phone) && (
+            <div className="mt-1 text-xs text-red-600">Enter a valid phone number.</div>
+          )}
+          <button onClick={sendOtpSms} disabled={!isPhone(phone) || loading} className="mt-2 rounded bg-green-600 px-3 py-2 text-white disabled:opacity-50">Send OTP</button>
         </div>
         {message && <p className="text-sm text-gray-600">{message}</p>}
       </div>

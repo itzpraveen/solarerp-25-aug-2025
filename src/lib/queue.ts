@@ -1,4 +1,6 @@
+import 'server-only';
 import { createClient } from '@supabase/supabase-js';
+import { getBaseUrl } from '@/lib/baseUrl';
 
 export type BackgroundJob = {
   id: string;
@@ -29,12 +31,7 @@ export async function processDueJobs() {
       switch (job.type) {
         case 'whatsapp_template': {
           const { to, templateName, variables } = job.payload || {};
-          const base =
-            process.env.NEXT_PUBLIC_BASE_URL && process.env.NEXT_PUBLIC_BASE_URL.trim() !== ''
-              ? process.env.NEXT_PUBLIC_BASE_URL
-              : process.env.VERCEL_URL && !process.env.VERCEL_URL.startsWith('http')
-                ? `https://${process.env.VERCEL_URL}`
-                : process.env.VERCEL_URL || 'http://localhost:3000';
+          const base = getBaseUrl();
           await fetch(`${base}/api/whatsapp/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

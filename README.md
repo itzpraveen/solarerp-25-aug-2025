@@ -19,6 +19,8 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
 - Backend: Supabase (Postgres + Auth + Storage + Realtime)
 - ORM/Migrations: Drizzle ORM + drizzle-kit (SQL migrations included)
 - PDF: Puppeteer + @sparticuz/chromium-min in a Vercel Node Function
+- PDF: Puppeteer + @sparticuz/chromium-min in a Vercel Node Function
+  - Separate English/Malayalam templates via language selector; files saved with -en/-ml suffix
 - Scheduling: Vercel Cron → POST /api/cron/daily
 - Messaging: WhatsApp Cloud API
 - Tests: Vitest (unit), Playwright (smoke)
@@ -113,6 +115,7 @@ POST `http://localhost:3000/api/pdf/invoice`
 {
   "tenantId": "6f3df3d0-1111-2222-3333-444455556666",
   "payload": {
+    "lang": "en",
     "company": { "name": "Tenaga Energy Solutions LLP", "address": "Malappuram, Kerala", "phone": "+91-98xxxxxxx", "email": "sales@tenaga.example", "upi": "tenaga@upi" },
     "customer": { "name": "Harilal", "phone": "+91-9xxxxxxxxx", "place": "Mampad", "address": "Mampad PO" },
     "meta": { "quoteNo": "Q19_5KW_SOLAR_PLANT_Harilal_Mampad", "dateISO": "2025-06-21", "validTillISO": "2025-07-01", "program": "PM Surya", "systemCategory": "On-grid", "plantBrand": "Havells", "capacityKW": 5 },
@@ -129,6 +132,28 @@ POST `http://localhost:3000/api/pdf/invoice`
   }
 }
 ```
+
+### Malayalam Font (optional, recommended)
+
+To ensure Malayalam text renders correctly on PDFs, provide a font:
+- Add the TTF under `public/fonts/NotoSansMalayalam-Regular.ttf` and set `NEXT_PUBLIC_ML_FONT_URL=https://<your-domain>/fonts/NotoSansMalayalam-Regular.ttf`, or
+- Set `PDF_ML_FONT_BASE64` to the base64 of the TTF (large; URL is preferred).
+
+Renderer automatically embeds this font when `payload.lang` is `"ml"`. Generated PDFs are saved with `-en`/`-ml` suffixes.
+
+Local dev fallback: if neither env is set and `NODE_ENV !== 'production'`, the renderer uses `http://localhost:3000/fonts/NotoSansMalayalam-Regular.ttf` automatically. Place the TTF in `public/fonts/` for this to work.
+
+### Proposals Language Column
+
+`proposals.lang` tracks the language used to generate the PDF.
+- SQL: `drizzle/0002_add_proposals_lang.sql` (apply in Supabase SQL editor), or
+- Run Drizzle push after updating `schema.ts`.
+
+### Base URL Helper
+
+Server code that calls internal APIs uses a central base URL resolver:
+- `src/lib/baseUrl.ts` reads `NEXT_PUBLIC_BASE_URL`, `VERCEL_URL`, or falls back to `http://localhost:3000`.
+- Set `NEXT_PUBLIC_BASE_URL` in Vercel to your canonical origin for reliable internal calls.
 
 ## WhatsApp Cloud API
 

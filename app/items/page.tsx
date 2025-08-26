@@ -26,10 +26,20 @@ export default function ItemsPage() {
   };
   useEffect(() => { load(); }, []);
 
+  function validateItemPayload(p: any) {
+    if (!p.item_code || !p.name) return 'Code and name are required';
+    const gst = Number(p.gst_rate ?? 0);
+    if (Number.isNaN(gst) || gst < 0 || gst > 100) return 'GST % must be between 0 and 100';
+    const mrp = Number(p.mrp ?? 0);
+    if (Number.isNaN(mrp) || mrp < 0) return 'MRP must be 0 or greater';
+    return null;
+  }
+
   const add = async () => {
-    if (!form.item_code || !form.name) return alert('Code and name are required');
+    const v = validateItemPayload(form);
+    if (v) { setErr(v); return; }
     setAdding(true);
-    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     if (pErr || !prof?.tenant_id) { setAdding(false); return alert('Profile not ready'); }
     const { error } = await supabase.from('items').insert({
       item_code: form.item_code,
@@ -37,8 +47,8 @@ export default function ItemsPage() {
       name: form.name,
       category: form.category || null,
       unit: form.unit || null,
-      gst_rate: form.gst_rate || 0,
-      mrp: form.mrp || 0,
+      gst_rate: Number(form.gst_rate) || 0,
+      mrp: Number(form.mrp) || 0,
       preferred_vendor: form.preferred_vendor || null,
     });
     setAdding(false);
@@ -98,7 +108,9 @@ export default function ItemsPage() {
                     <td className="p-2"><Input value={editForm.preferred_vendor || ''} onChange={(e) => setEditForm({ ...editForm, preferred_vendor: e.target.value })} /></td>
                     <td className="p-2 whitespace-nowrap">
                       <Button size="sm" onClick={async () => {
-                        await supabase.from('items').update({ name: editForm.name, category: editForm.category, unit: editForm.unit, gst_rate: editForm.gst_rate, mrp: editForm.mrp, preferred_vendor: editForm.preferred_vendor }).eq('item_code', it.item_code);
+                        const v = validateItemPayload({ ...editForm, item_code: it.item_code });
+                        if (v) { setErr(v); return; }
+                        await supabase.from('items').update({ name: editForm.name, category: editForm.category, unit: editForm.unit, gst_rate: Number(editForm.gst_rate) || 0, mrp: Number(editForm.mrp) || 0, preferred_vendor: editForm.preferred_vendor }).eq('item_code', it.item_code);
                         setEditing(null); load();
                       }}>Save</Button>
                       <Button variant="outline" size="sm" className="ml-2" onClick={() => setEditing(null)}>Cancel</Button>

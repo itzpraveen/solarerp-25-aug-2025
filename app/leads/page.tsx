@@ -19,6 +19,7 @@ export default function LeadsPage() {
   const [convertForm, setConvertForm] = useState<any>({ address: '', system_type: 'On-grid', capacity_kw: 1, location: '', roof_type: '' });
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const load = async () => {
     const { data, error } = await supabase
@@ -42,15 +43,22 @@ export default function LeadsPage() {
     setLeads(data || []);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    // Avoid querying before auth session is ready to prevent noisy 401 errors
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) load();
+    });
+  }, []);
 
   const add = async () => {
     setErr(null);
     if (!required(name)) return setErr('Name is required');
     if (!isPhone(phone)) return setErr('Valid phone required');
-    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
-    if (pErr || !prof?.tenant_id) return setErr('Profile not ready');
+    setAdding(true);
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+    if (pErr || !prof?.tenant_id) { setAdding(false); return setErr('Profile not ready'); }
     const { error } = await supabase.from('leads').insert({ tenant_id: prof!.tenant_id, date: new Date().toISOString().slice(0,10), name, phone, interested_capacity_kw: capacity, status: 'New' });
+    setAdding(false);
     if (error) return setErr(error.message);
     setName(''); setPhone(''); setCapacity(1);
     load();
@@ -71,7 +79,7 @@ export default function LeadsPage() {
           <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Input type="number" min={0} step={0.1} placeholder="Capacity kW" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
           <div className="flex gap-2">
-            <Button onClick={add}>Add Lead</Button>
+            <Button onClick={add} loading={adding}>Add Lead</Button>
             <a className="rounded border px-3 py-2 text-sm" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csvLeads)} download="leads.csv">Export CSV</a>
           </div>
         </div>
@@ -142,7 +150,7 @@ export default function LeadsPage() {
                           <Input placeholder="Roof Type" value={convertForm.roof_type} onChange={(e) => setConvertForm({ ...convertForm, roof_type: e.target.value })} />
                           <div className="md:col-span-6 flex gap-2">
                             <Button size="sm" onClick={async () => {
-                              const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+                              const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
                               const { data: cust } = await supabase.from('customers').insert({ tenant_id: prof!.tenant_id, name: l.name, phone: l.phone, address: convertForm.address }).select('id').single();
                               const { data: job } = await supabase
                                 .from('jobs')
