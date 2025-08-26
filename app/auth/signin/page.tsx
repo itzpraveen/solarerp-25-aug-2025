@@ -73,7 +73,7 @@ export default function SignIn() {
     <div className="mx-auto max-w-md space-y-6">
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <div className="space-y-4">
-        {process.env.NEXT_PUBLIC_E2E_MOCK === '1' && (
+        {process.env.NEXT_PUBLIC_E2E_MOCK === '1' && process.env.NEXT_PUBLIC_DEMO_UI === '1' && (
           <div className="rounded border bg-yellow-50 p-3 text-sm text-gray-800">
             <div className="mb-2 font-medium">Demo quick sign-in (mock)</div>
             <div className="flex gap-2">
