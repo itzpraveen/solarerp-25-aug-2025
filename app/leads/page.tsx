@@ -7,6 +7,7 @@ import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
 import { isPhone, required } from '@/lib/validation';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
+import BranchSelect from '~/components/BranchSelect';
 
 export default function LeadsPage() {
   const supabase = supabaseBrowser();
@@ -14,6 +15,7 @@ export default function LeadsPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [capacity, setCapacity] = useState<number>(1);
+  const [source, setSource] = useState<string>('');
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [convertingId, setConvertingId] = useState<string | null>(null);
@@ -29,12 +31,54 @@ export default function LeadsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
+  const [branchId, setBranchId] = useState<string | 'all'>('all');
+  const [branchNames, setBranchNames] = useState<Record<string, string>>({});
+  const [kpis, setKpis] = useState<any | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .maybeSingle();
+      if (!prof?.tenant_id) return;
+      const { data: br } = await supabase
+        .from('branches')
+        .select('id,name')
+        .eq('tenant_id', (prof as any).tenant_id)
+        .order('name');
+      const map: Record<string, string> = {};
+      for (const b of (br as any[]) || []) map[b.id] = b.name || '—';
+      setBranchNames(map);
+    })();
+  }, []);
+
+  // Load KPI aggregates server-side to avoid large client fetches
+  useEffect(() => {
+    (async () => {
+      setKpiLoading(true);
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        if (!token) { setKpis(null); setKpiLoading(false); return; }
+        const url = branchId === 'all' ? '/api/leads/kpis' : `/api/leads/kpis?branchId=${encodeURIComponent(branchId)}`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const out = await res.json();
+        if (res.ok && out?.ok) setKpis(out);
+        else setKpis(null);
+      } catch {
+        setKpis(null);
+      } finally {
+        setKpiLoading(false);
+      }
+    })();
+  }, [branchId]);
 
   const load = async () => {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .order('date', { ascending: false });
+    let q = supabase.from('leads').select('*').order('date', { ascending: false });
+    if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
+    const { data, error } = await q;
     if (error) {
       // Surface server-side error details and show a friendly UI error
       try {
@@ -62,7 +106,7 @@ export default function LeadsPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) load();
     });
-  }, []);
+  }, [branchId]);
 
   const add = async () => {
     setErr(null);
@@ -84,25 +128,29 @@ export default function LeadsPage() {
         date: new Date().toISOString().slice(0, 10),
         name,
         phone,
+        source: source || null,
         interested_capacity_kw: capacity,
         status: 'New',
+        branch_id: branchId !== 'all' ? (branchId as string) : null,
       });
     setAdding(false);
     if (error) return setErr(error.message);
     setName('');
     setPhone('');
     setCapacity(1);
+    setSource('');
     load();
   };
 
   const csvLeads =
-    'Date,Name,Phone,Capacity,Status\n' +
+    'Date,Name,Phone,Source,Capacity,Status\n' +
     leads
       .map((l) =>
         [
           l.date || '',
           l.name || '',
           l.phone || '',
+          l.source || '',
           l.interested_capacity_kw || '',
           l.status || '',
         ].join(','),
@@ -111,16 +159,71 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Leads</h1>
+        <div className="min-w-[220px]">
+          <BranchSelect value={branchId} onChange={setBranchId} />
+        </div>
       </div>
+      {/* KPI tiles (server-side aggregates) */}
+      {!kpiLoading && kpis && (
+        kpis.scope === 'all' ? (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            {kpis.perBranch.map((b: any) => (
+              <div key={b.branchId} className="rounded border bg-white p-3">
+                <div className="text-sm font-medium">{b.name}</div>
+                <div className="mt-1 grid grid-cols-2 gap-1 text-xs">
+                  <div className="text-gray-600">Leads: {b.total}</div>
+                  <div className={b.dueToday > 0 ? 'text-red-600' : 'text-gray-600'}>Due today: {b.dueToday}</div>
+                  <div className={b.overdue > 0 ? 'text-red-600' : 'text-gray-600'}>Overdue: {b.overdue}</div>
+                  <div className="text-gray-600">New this week: {b.newWeek}</div>
+                </div>
+              </div>
+            ))}
+            {(kpis.unassigned?.total || 0) > 0 && (
+              <div className="rounded border bg-white p-3">
+                <div className="text-sm font-medium">Unassigned</div>
+                <div className="mt-1 grid grid-cols-2 gap-1 text-xs">
+                  <div className="text-gray-600">Leads: {kpis.unassigned.total}</div>
+                  <div className={kpis.unassigned.dueToday > 0 ? 'text-red-600' : 'text-gray-600'}>Due today: {kpis.unassigned.dueToday}</div>
+                  <div className={kpis.unassigned.overdue > 0 ? 'text-red-600' : 'text-gray-600'}>Overdue: {kpis.unassigned.overdue}</div>
+                  <div className="text-gray-600">New this week: {kpis.unassigned.newWeek}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            <div className="rounded border bg-white p-3 text-center">
+              <div className="text-xs text-gray-500">Total</div>
+              <div className="text-lg font-semibold">{kpis.total}</div>
+            </div>
+            <div className="rounded border bg-white p-3 text-center">
+              <div className="text-xs text-gray-500">Due today</div>
+              <div className={`text-lg font-semibold ${kpis.dueToday > 0 ? 'text-red-600' : ''}`}>{kpis.dueToday}</div>
+            </div>
+            <div className="rounded border bg-white p-3 text-center">
+              <div className="text-xs text-gray-500">Overdue</div>
+              <div className={`text-lg font-semibold ${kpis.overdue > 0 ? 'text-red-600' : ''}`}>{kpis.overdue}</div>
+            </div>
+            <div className="rounded border bg-white p-3 text-center">
+              <div className="text-xs text-gray-500">New this week</div>
+              <div className="text-lg font-semibold">{kpis.newWeek}</div>
+            </div>
+            <div className="rounded border bg-white p-3 text-center">
+              <div className="text-xs text-gray-500">Converted</div>
+              <div className="text-lg font-semibold">{kpis.converted}</div>
+            </div>
+          </div>
+        )
+      )}
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
         </div>
       )}
       <Card>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
           <Input
             placeholder="Name"
             value={name}
@@ -131,6 +234,20 @@ export default function LeadsPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
+          <select
+            className="rounded border px-3 py-2"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          >
+            <option value="">Source…</option>
+            <option>Phone</option>
+            <option>Walk-in</option>
+            <option>Referral</option>
+            <option>Website</option>
+            <option>WhatsApp</option>
+            <option>Facebook</option>
+            <option>Other</option>
+          </select>
           <Input
             type="number"
             min={0}
@@ -180,6 +297,7 @@ export default function LeadsPage() {
                   <th className="p-2">Date</th>
                   <th className="p-2">Name</th>
                   <th className="p-2">Phone</th>
+                  <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
                   <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Status</th>
@@ -228,6 +346,27 @@ export default function LeadsPage() {
                             />
                           </td>
                           <td className="p-2">
+                            <select
+                              className="rounded border px-3 py-2 w-full"
+                              value={editForm.source || ''}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  source: e.target.value,
+                                })
+                              }
+                            >
+                              <option value="">Source…</option>
+                              <option>Phone</option>
+                              <option>Walk-in</option>
+                              <option>Referral</option>
+                              <option>Website</option>
+                              <option>WhatsApp</option>
+                              <option>Facebook</option>
+                              <option>Other</option>
+                            </select>
+                          </td>
+                          <td className="p-2">
                             <Input
                               type="number"
                               value={editForm.interested_capacity_kw || 0}
@@ -265,6 +404,7 @@ export default function LeadsPage() {
                                   .update({
                                     name: editForm.name,
                                     phone: editForm.phone,
+                                    source: editForm.source || null,
                                     interested_capacity_kw:
                                       editForm.interested_capacity_kw,
                                   })
@@ -289,6 +429,7 @@ export default function LeadsPage() {
                         <>
                           <td className="p-2">{l.name || '—'}</td>
                           <td className="p-2">{l.phone || '—'}</td>
+                          <td className="p-2">{l.source || '—'}</td>
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
                           </td>
@@ -481,6 +622,7 @@ export default function LeadsPage() {
                                       location: convertForm.location || null,
                                       roof_type: convertForm.roof_type || null,
                                       date_lead: (l as any)?.date || today,
+                                      branch_id: (l as any)?.branch_id || (branchId !== 'all' ? branchId : null),
                                     })
                                     .select('id')
                                     .single();
