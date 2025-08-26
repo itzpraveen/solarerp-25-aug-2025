@@ -16,6 +16,9 @@ export default function LeadsPage() {
   const [phone, setPhone] = useState('');
   const [capacity, setCapacity] = useState<number>(1);
   const [source, setSource] = useState<string>('');
+  const [place, setPlace] = useState<string>('');
+  const [remarks, setRemarks] = useState<string>('');
+  const [nextFollowUp, setNextFollowUp] = useState<string>('');
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [convertingId, setConvertingId] = useState<string | null>(null);
@@ -133,6 +136,9 @@ export default function LeadsPage() {
         phone,
         source: source || null,
         interested_capacity_kw: capacity,
+        address: place || null,
+        notes: remarks || null,
+        next_follow_up_date: nextFollowUp || null,
         status: 'New',
         branch_id: branchId !== 'all' ? (branchId as string) : null,
       });
@@ -142,6 +148,9 @@ export default function LeadsPage() {
     setPhone('');
     setCapacity(1);
     setSource('');
+    setPlace('');
+    setRemarks('');
+    setNextFollowUp('');
     load();
   };
 
@@ -226,7 +235,7 @@ export default function LeadsPage() {
         </div>
       )}
       <Card>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
           <Input
             placeholder="Name"
             value={name}
@@ -236,6 +245,11 @@ export default function LeadsPage() {
             placeholder="Phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+          />
+          <Input
+            placeholder="Place/Address"
+            value={place}
+            onChange={(e) => setPlace(e.target.value)}
           />
           <select
             className="rounded border px-3 py-2"
@@ -259,6 +273,17 @@ export default function LeadsPage() {
             value={capacity}
             onChange={(e) => setCapacity(Number(e.target.value))}
           />
+          <Input
+            type="date"
+            placeholder="Next follow-up"
+            value={nextFollowUp}
+            onChange={(e) => setNextFollowUp(e.target.value)}
+          />
+          <Input
+            placeholder="Remarks"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+          />
           <div className="flex gap-2">
             <Button onClick={add} loading={adding}>
               Add Lead
@@ -272,6 +297,7 @@ export default function LeadsPage() {
             >
               Export CSV
             </a>
+            <a className="rounded border px-3 py-2 text-sm" href="/api/leads/template">Template (.xlsx)</a>
           </div>
         </div>
       </Card>
@@ -364,7 +390,7 @@ export default function LeadsPage() {
           <div className="rounded border bg-white overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left">
+                <tr className="border-b bg-gray-50 text-left sticky top-0">
                   <th className="p-2">
                     <input
                       type="checkbox"
@@ -379,10 +405,13 @@ export default function LeadsPage() {
                   <th className="p-2">Date</th>
                   <th className="p-2">Name</th>
                   <th className="p-2">Phone</th>
+                  <th className="p-2">Place</th>
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
                   <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Status</th>
+                  <th className="p-2">Branch</th>
+                  <th className="p-2">Remarks</th>
                   <th className="p-2">Actions</th>
                 </tr>
               </thead>
@@ -424,6 +453,14 @@ export default function LeadsPage() {
                                   ...editForm,
                                   phone: e.target.value,
                                 })
+                              }
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              value={editForm.address || ''}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, address: e.target.value })
                               }
                             />
                           </td>
@@ -477,6 +514,15 @@ export default function LeadsPage() {
                           <td className="p-2 text-xs text-gray-600">
                             {l.status || '—'}
                           </td>
+                          <td className="p-2 text-xs text-gray-600">
+                            {l.branch_id ? branchNames[l.branch_id] || '—' : '—'}
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              value={editForm.notes || ''}
+                              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                            />
+                          </td>
                           <td className="p-2 whitespace-nowrap">
                             <Button
                               size="sm"
@@ -489,6 +535,9 @@ export default function LeadsPage() {
                                     source: editForm.source || null,
                                     interested_capacity_kw:
                                       editForm.interested_capacity_kw,
+                                    address: editForm.address || null,
+                                    notes: editForm.notes || null,
+                                    next_follow_up_date: editForm.next_follow_up_date || null,
                                   })
                                   .eq('id', l.id);
                                 setEditing(null);
@@ -511,6 +560,7 @@ export default function LeadsPage() {
                         <>
                           <td className="p-2">{l.name || '—'}</td>
                           <td className="p-2">{l.phone || '—'}</td>
+                          <td className="p-2">{l.address || l.place || '—'}</td>
                           <td className="p-2">{l.source || '—'}</td>
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
@@ -526,6 +576,18 @@ export default function LeadsPage() {
                           </td>
                           <td className="p-2 text-xs text-gray-600">
                             {l.status || '—'}
+                          </td>
+                          <td className="p-2 text-xs">
+                            {l.branch_id ? (
+                              <span className="inline-block rounded-full border px-2 py-0.5 text-gray-700">
+                                {branchNames[l.branch_id] || '—'}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="p-2 truncate max-w-[240px]">
+                            <span title={l.notes || ''}>{l.notes || '—'}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             <Button
@@ -570,6 +632,28 @@ export default function LeadsPage() {
                               }}
                             >
                               Followed up
+                            </Button>
+                            {l.phone && (
+                              <a
+                                href={`https://wa.me/${String(l.phone).replace(/\D+/g,'')}`}
+                                target="_blank"
+                                className="ml-2 rounded border px-2 py-1 text-sm"
+                              >
+                                WhatsApp
+                              </a>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-2"
+                              onClick={async () => {
+                                const d = prompt('Set next follow-up (YYYY-MM-DD):', l.next_follow_up_date || todayStr);
+                                if (!d) return;
+                                await supabase.from('leads').update({ next_follow_up_date: d }).eq('id', l.id);
+                                load();
+                              }}
+                            >
+                              Set Next
                             </Button>
                           </td>
                         </>
