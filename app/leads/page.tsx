@@ -35,6 +35,9 @@ export default function LeadsPage() {
   const [branchNames, setBranchNames] = useState<Record<string, string>>({});
   const [kpis, setKpis] = useState<any | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any | null>(null);
+  const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>('create');
 
   useEffect(() => {
     (async () => {
@@ -271,6 +274,85 @@ export default function LeadsPage() {
             </a>
           </div>
         </div>
+      </Card>
+      {/* Import from Excel */}
+      <Card>
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Import leads from Excel (.xlsx)</div>
+            <div className="text-xs text-gray-600">Columns supported: Name, Phone, Email, Source, Capacity (kW), Date, Next Follow-up, Branch</div>
+            <div className="text-xs text-gray-600">Branch column maps by name. If missing, uses selected branch above. Enable create to auto-create branches by name.</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-sm">Dedupe:</label>
+              <select className="rounded border px-2 py-1 text-sm" value={dedupeMode} onChange={(e) => setDedupeMode(e.target.value as any)}>
+                <option value="create">Create anyway</option>
+                <option value="skip">Skip duplicates</option>
+                <option value="update">Update existing</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm">
+                <input id="createBranches" type="checkbox" defaultChecked />
+                Auto-create branches
+              </label>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input id="leadFile" type="file" accept=".xlsx" className="text-sm" />
+            <Button
+              onClick={async () => {
+                const el = document.getElementById('leadFile') as HTMLInputElement | null;
+                const cb = document.getElementById('createBranches') as HTMLInputElement | null;
+                const f = el?.files?.[0];
+                if (!f) { alert('Pick an .xlsx file'); return; }
+                setImporting(true); setImportResult(null);
+                try {
+                  const fd = new FormData();
+                  fd.append('file', f);
+                  fd.append('mode', dedupeMode);
+                  if (branchId !== 'all') fd.append('branchId', branchId as string);
+                  fd.append('createBranches', cb?.checked ? 'true' : 'false');
+                  const { data: session } = await supabase.auth.getSession();
+                  const token = session.session?.access_token;
+                  const res = await fetch('/api/leads/import', {
+                    method: 'POST',
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    body: fd,
+                  });
+                  const out = await res.json();
+                  if (!res.ok || !out?.ok) throw new Error(out?.error || 'Import failed');
+                  setImportResult(out);
+                  load();
+                } catch (e: any) {
+                  setImportResult({ ok: false, error: e?.message || String(e) });
+                } finally {
+                  setImporting(false);
+                }
+              }}
+              loading={importing}
+            >
+              Import
+            </Button>
+          </div>
+        </div>
+        {importResult && (
+          <div className={`mt-2 rounded border ${importResult.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} p-2 text-sm`}>
+            {importResult.ok ? (
+              <div>
+                Imported {importResult.created} created, {importResult.updated} updated, {importResult.skipped} skipped.
+                {importResult.errors?.length ? (
+                  <div className="mt-1 text-xs text-red-700">Errors: {importResult.errors.length} (first 3 shown)
+                    <ul className="list-disc pl-5">
+                      {importResult.errors.slice(0,3).map((e:any, i:number) => (
+                        <li key={i}>Row {e.row}: {e.error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-red-700">{importResult.error || 'Import failed'}</div>
+            )}
+          </div>
+        )}
       </Card>
       {leads.length === 0 ? (
         <EmptyState
