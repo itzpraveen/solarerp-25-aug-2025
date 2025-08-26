@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { isPhone } from '@/lib/validation';
+import Input from '~/components/ui/Input';
+import Button from '~/components/ui/Button';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -88,15 +90,15 @@ export default function SignIn() {
         )}
         <div>
           <label className="block text-sm font-medium">Email</label>
-          <input className="mt-1 w-full rounded-md border px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-          <button onClick={sendMagicLink} disabled={!email || loading} className="mt-2 rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-50">Send magic link</button>
+          <Input className="mt-1" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <Button onClick={sendMagicLink} disabled={!email || loading} className="mt-2">Send magic link</Button>
         </div>
         <div>
           <label className="block text-sm font-medium">Phone (WhatsApp/SMS)</label>
-          <input
+          <Input
             type="tel"
             inputMode="numeric"
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className="mt-1"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="91XXXXXXXXXX or +91XXXXXXXXXX"
@@ -104,7 +106,7 @@ export default function SignIn() {
           {phone && !isPhone(phone) && (
             <div className="mt-1 text-xs text-red-600">Enter a valid phone number.</div>
           )}
-          <button onClick={sendOtpSms} disabled={!isPhone(phone) || loading} className="mt-2 rounded bg-green-600 px-3 py-2 text-white disabled:opacity-50">Send OTP</button>
+          <Button onClick={sendOtpSms} disabled={!isPhone(phone) || loading} className="mt-2" variant="secondary">Send OTP</Button>
         </div>
         {message && <p className="text-sm text-gray-600">{message}</p>}
       </div>

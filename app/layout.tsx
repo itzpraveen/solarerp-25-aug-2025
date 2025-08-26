@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import AppHeader from '~/components/AppHeader';
 import AuthGuard from '~/components/AuthGuard';
 
@@ -13,6 +14,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+          (function() {
+            try {
+              var stored = localStorage.getItem('theme');
+              var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              var theme = stored === 'dark' || (!stored && prefersDark) ? 'dark' : 'light';
+              if (theme === 'dark') document.documentElement.classList.add('dark');
+            } catch (e) {}
+          })();
+        `}
+        </Script>
         <AuthGuard />
         <div className="min-h-screen">
           <AppHeader />
