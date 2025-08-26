@@ -1,6 +1,14 @@
 {
   "functions": {
-    "app/api/pdf/invoice/route.ts": { "memory": 1024, "maxDuration": 60 }
+    "app/api/pdf/invoice/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60,
+      "includeFiles": [
+        "node_modules/@sparticuz/chromium-min/bin/**",
+        "node_modules/@sparticuz/chromium-min/swiftshader/**",
+        "node_modules/@sparticuz/chromium-min/locales/**"
+      ]
+    }
   },
   "crons": [
     { "path": "/api/cron/daily", "schedule": "0 3 * * *" }
