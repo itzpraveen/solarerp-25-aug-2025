@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import PipelineBoard from 'components/PipelineBoard';
 import Button from '~/components/ui/Button';
 import Card from '~/components/ui/Card';
@@ -9,6 +10,7 @@ type Customer = { id: string; name: string };
 
 export default function JobsPage() {
   const supabase = supabaseBrowser();
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [custId, setCustId] = useState('');
   const [systemType, setSystemType] = useState('On-grid');
@@ -37,7 +39,7 @@ export default function JobsPage() {
         .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: custId, system_type: systemType, status: 'Lead', capacity_kw: capacity, location: location || null, roof_type: roof || null, date_lead: new Date().toISOString().slice(0,10) })
         .select('id')
         .single();
-      window.location.href = `/jobs/${(job as any).id}`;
+      router.push(`/jobs/${(job as any).id}`);
     } catch (e: any) {
       setMsg(String(e?.message || e));
     } finally {
@@ -50,8 +52,8 @@ export default function JobsPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Jobs</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => (window.location.href = '/customers')}>Customers</Button>
-          <Button size="sm" onClick={() => (window.location.href = '/leads')}>Leads</Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/customers')}>Customers</Button>
+          <Button size="sm" onClick={() => router.push('/leads')}>Leads</Button>
         </div>
       </div>
       <Card title="Quick Create Job">
