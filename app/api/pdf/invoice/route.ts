@@ -60,7 +60,13 @@ export async function POST(req: NextRequest) {
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
       const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
-      // 1) Always prefer explicit env paths if present (both prod and dev)
+      // 0) First try @sparticuz/chromium helper (works on Vercel/AWS)
+      try {
+        const p = await chromium.executablePath();
+        if (p) return p;
+      } catch {}
+
+      // 1) Prefer explicit env/known paths
       const envCandidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
         process.env.CHROME_PATH,
@@ -74,12 +80,7 @@ export async function POST(req: NextRequest) {
         try { if (p && fs.existsSync(p)) return p; } catch {}
       }
 
-      // 2) Serverless helper path from @sparticuz/chromium (Vercel/AWS)
-      if (isServerless) {
-        try { const p = await chromium.executablePath(); if (p) return p; } catch {}
-      }
-
-      // 3) Try common local Chrome/Chromium paths (dev workstations)
+      // 2) Try common local Chrome/Chromium paths (dev workstations)
       const localCandidates = [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
         try { if (fs.existsSync(p)) return p; } catch {}
       }
 
-      // 4) Final fallback: try chromium helper even on dev
+      // 3) Final fallback: try chromium helper again
       try { const p = await chromium.executablePath(); if (p) return p; } catch {}
       // Log for debugging on server
       console.error('api/pdf/invoice chrome-resolve-failed', debug);
