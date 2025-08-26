@@ -63,13 +63,7 @@ export async function POST(req: NextRequest) {
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
       const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
-      // 0) First try @sparticuz/chromium helper (works on Vercel/AWS)
-      try {
-        const p = await chromium.executablePath();
-        if (p) return p;
-      } catch {}
-
-      // 0.b) If remote pack URL is provided, use -min to fetch+extract pack on demand
+      // 0) If remote pack URL is provided, use -min to fetch+extract pack on demand (preferred when set)
       try {
         const pack = process.env.CHROMIUM_PACK_URL || process.env.CHROMIUM_MIN_PACK_URL;
         if (pack) {
@@ -79,7 +73,13 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
 
-      // 1) Prefer explicit env/known paths
+      // 1) Otherwise, try @sparticuz/chromium helper (works on Vercel/AWS)
+      try {
+        const p = await chromium.executablePath();
+        if (p) return p;
+      } catch {}
+
+      // 2) Prefer explicit env/known paths
       const envCandidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
         process.env.CHROME_PATH,
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
         try { if (p && fs.existsSync(p)) return p; } catch {}
       }
 
-      // 2) Try common local Chrome/Chromium paths (dev workstations)
+      // 3) Try common local Chrome/Chromium paths (dev workstations)
       const localCandidates = [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         try { if (fs.existsSync(p)) return p; } catch {}
       }
 
-      // 3) Final fallback: try chromium helper again
+      // 4) Final fallback: try chromium helper again
       try { const p = await chromium.executablePath(); if (p) return p; } catch {}
       // Log for debugging on server
       console.error('api/pdf/invoice chrome-resolve-failed', debug);
