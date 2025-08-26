@@ -4,7 +4,7 @@
     "app/api/pdf/invoice/route.ts": {
       "memory": 1024,
       "maxDuration": 60,
-      "includeFiles": "node_modules/@sparticuz/chromium/**"
+      "includeFiles": "node_modules/@sparticuz/**"
     }
   },
   "crons": [

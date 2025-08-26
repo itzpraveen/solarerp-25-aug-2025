@@ -19,10 +19,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     // Match the API route handler for PDF generation
     'app/api/pdf/invoice/route': [
-      './node_modules/@sparticuz/chromium/**',
+      './node_modules/@sparticuz/**',
     ],
     'app/api/pdf/invoice/route.ts': [
-      './node_modules/@sparticuz/chromium/**',
+      './node_modules/@sparticuz/**',
     ],
   },
 };
