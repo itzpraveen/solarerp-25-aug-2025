@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
     const chromium = await import('@sparticuz/chromium').then(m => m.default || (m as any));
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
+      const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
       // 1) Always prefer explicit env paths if present (both prod and dev)
       const envCandidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
         // Common custom layer path (AWS Lambda)
         '/opt/chromium',
       ].filter(Boolean) as string[];
+      debug.envCandidates = envCandidates;
       for (const p of envCandidates) {
         try { if (p && fs.existsSync(p)) return p; } catch {}
       }
@@ -86,26 +88,29 @@ export async function POST(req: NextRequest) {
         '/usr/bin/chromium',
         '/opt/google/chrome/chrome',
       ];
+      debug.localCandidates = localCandidates;
       for (const p of localCandidates) {
         try { if (fs.existsSync(p)) return p; } catch {}
       }
 
       // 4) Final fallback: try chromium helper even on dev
       try { const p = await chromium.executablePath(); if (p) return p; } catch {}
+      // Log for debugging on server
+      console.error('api/pdf/invoice chrome-resolve-failed', debug);
       return null;
     }
 
     const executablePath = await resolveExecutablePath();
     if (!executablePath) {
       const id = Math.random().toString(36).slice(2, 10);
-      console.error('api/pdf/invoice chrome-missing', { id, candidatesTried: true });
+      console.error('api/pdf/invoice chrome-missing', { id });
       return NextResponse.json(
         {
           ok: false,
           error: 'Chrome/Chromium executable not found',
           id,
           hint:
-            'Install Google Chrome or set CHROME_PATH/PUPPETEER_EXECUTABLE_PATH. For dev without Chrome, set NEXT_PUBLIC_E2E_MOCK=1 to bypass rendering.',
+            'Install Google Chrome locally or set PUPPETEER_EXECUTABLE_PATH/CHROME_PATH. On Vercel, ensure @sparticuz/chromium is bundled and optionally set PUPPETEER_EXECUTABLE_PATH=/var/task/node_modules/@sparticuz/chromium/bin/chromium. For dev without Chrome, set NEXT_PUBLIC_E2E_MOCK=1.',
         },
         { status: 500 },
       );
