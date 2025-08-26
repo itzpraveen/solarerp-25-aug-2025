@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
       './node_modules/@sparticuz/chromium-min/swiftshader/**',
       './node_modules/@sparticuz/chromium-min/locales/**',
     ],
+    'app/api/pdf/invoice/route.ts': [
+      './node_modules/@sparticuz/chromium-min/bin/**',
+      './node_modules/@sparticuz/chromium-min/swiftshader/**',
+      './node_modules/@sparticuz/chromium-min/locales/**',
+    ],
   },
 };
 
