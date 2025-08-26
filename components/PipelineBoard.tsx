@@ -22,18 +22,43 @@ export default function PipelineBoard() {
 
   const load = async () => {
     setLoading(true);
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session) {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        setJobs([]);
+        return;
+      }
+      // Fetch jobs first (avoid nested select dependency on FK introspection)
+      const { data: jobsRaw, error: jErr } = await supabase
+        .from('jobs')
+        .select('id, tenant_id, customer_id, status, capacity_kw, system_type, location')
+        .order('created_at', { ascending: false });
+      if (jErr) throw jErr;
+
+      const rows = (jobsRaw as Job[]) || [];
+      const customerIds = Array.from(new Set(rows.map(r => r.customer_id).filter(Boolean)));
+      if (customerIds.length === 0) {
+        setJobs(rows);
+        return;
+      }
+      const { data: custs, error: cErr } = await supabase
+        .from('customers')
+        .select('id, name')
+        .in('id', customerIds as string[]);
+      if (cErr) throw cErr;
+      const nameById = new Map<string, string>();
+      for (const c of (custs as any[]) || []) nameById.set(c.id, c.name || '—');
+      const withNames = rows.map(r => ({
+        ...r,
+        customers: [{ name: nameById.get(r.customer_id) || '—' }],
+      })) as Job[];
+      setJobs(withNames);
+    } catch (_e) {
+      // Silent fail to keep UI usable; could add toast if desired
       setJobs([]);
+    } finally {
       setLoading(false);
-      return;
     }
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('id, tenant_id, customer_id, status, capacity_kw, system_type, location, customers(name)')
-      .order('created_at', { ascending: false });
-    if (!error) setJobs(data || []);
-    setLoading(false);
   };
 
   useEffect(() => {

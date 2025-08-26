@@ -68,7 +68,7 @@ export default function JobDetailPage() {
       {tab === 'overview' && (
         <Card title="Overview">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="text-sm">Customer: {job?.customers?.name}</div>
+            <div className="text-sm">Customer: {(Array.isArray(job?.customers) ? job?.customers?.[0]?.name : (job as any)?.customers?.name) || '—'}</div>
             <div className="text-sm">System: {job?.system_type} • {job?.capacity_kw} kW</div>
             <div className="text-sm flex items-center gap-2">
               <span>Status:</span>
