@@ -57,6 +57,11 @@ export async function POST(req: NextRequest) {
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
     // Lazy-load heavy deps to keep the bundle of other routes lean
     const chromium = await import('@sparticuz/chromium').then(m => m.default || (m as any));
+    try {
+      // Prefer legacy headless and disable WebGL to reduce lib requirements
+      (chromium as any).setHeadlessMode = true;
+      (chromium as any).setGraphicsMode = false;
+    } catch {}
     // Optional remote-pack fallback using -min when provided via env
     const chromiumMin = async () =>
       await import('@sparticuz/chromium-min').then((m) => m.default || (m as any));
@@ -135,7 +140,23 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     const executablePath = await resolveExecutablePath();
-    try { console.log('api/pdf/invoice execPath', executablePath); } catch {}
+    try {
+      console.log('api/pdf/invoice execPath', executablePath);
+      // Surface whether expected lib paths exist at runtime
+      const checks = [
+        '/tmp/libnss3.so',
+        '/tmp/chromium-pack/libnss3.so',
+        '/tmp/chromium-pack/aws/libnss3.so',
+        '/tmp/chromium-pack/lib/libnss3.so',
+        '/opt/chromium/libnss3.so',
+        '/opt/chromium/lib/libnss3.so',
+      ];
+      console.log('api/pdf/invoice lib checks', Object.fromEntries(checks.map(p => [p, fs.existsSync(p)])));
+    } catch {}
+    try {
+      process.env.CHROME_PATH = executablePath || process.env.CHROME_PATH || '';
+      process.env.PUPPETEER_EXECUTABLE_PATH = executablePath || process.env.PUPPETEER_EXECUTABLE_PATH || '';
+    } catch {}
     if (!executablePath) {
       const id = Math.random().toString(36).slice(2, 10);
       console.error('api/pdf/invoice chrome-missing', { id });
