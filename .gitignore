@@ -25,3 +25,7 @@ tsconfig.tsbuildinfo
 *.swp
 .idea/
 .vscode/
+
+# Temp files
+tmp/
+*.pdf
