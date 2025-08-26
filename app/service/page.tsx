@@ -20,7 +20,7 @@ export default function ServiceTickets() {
     setErr(null);
     const { data, error } = await supabase
       .from('service_tickets')
-      .select('*')
+      .select('*, customers(name), jobs(id)')
       .order('"date"', { ascending: false });
     if (error) setErr(error.message);
     setTickets(data || []);
@@ -62,12 +62,21 @@ export default function ServiceTickets() {
         <EmptyState title="No service tickets" description="Log post-install issues here for tracking and accountability." />
       ) : (
         <ul className="space-y-2">
-          {tickets.map((t) => (
-            <li key={t.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
-              <span>{t.summary || '—'}</span>
-              <span className="text-xs text-gray-600">{t.status}</span>
-            </li>
-          ))}
+          {tickets.map((t) => {
+            const cname = Array.isArray(t.customers) ? (t.customers?.[0]?.name || '—') : (t as any)?.customers?.name || '—';
+            return (
+              <li key={t.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{t.summary || '—'}</div>
+                  <div className="text-xs text-gray-600 truncate">{cname}{t.jobs?.id ? ` • Job ${String(t.jobs.id).slice(0,8)}` : ''}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-600">{t.status}</span>
+                  <a className="text-blue-600 text-sm" href={`/service/${t.id}`}>Open</a>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

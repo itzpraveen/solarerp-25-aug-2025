@@ -12,6 +12,7 @@ export default function NewProposalClient() {
   const [kitName, setKitName] = useState<string>('');
   const [price, setPrice] = useState<number>(0);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [pdfKey, setPdfKey] = useState<string | null>(null);
   const [customer, setCustomer] = useState<any | null>(null);
   const [job, setJob] = useState<any | null>(null);
   const [settings, setSettings] = useState<any | null>(null);
@@ -159,6 +160,7 @@ export default function NewProposalClient() {
       const out = await res.json();
       if (!res.ok || !out.ok) throw new Error(out?.error || 'PDF generation failed');
       setSignedUrl(out.url);
+      setPdfKey(out.key);
       if (jobId) {
         const addOnSum = addOns.reduce((s, a) => s + (a.amount || 0), 0);
         const beforeTax = (Number(price) || 0) + addOnSum;
@@ -208,6 +210,72 @@ export default function NewProposalClient() {
                 ))}
               </select>
             </div>
+            {signedUrl && pdfKey && leadId && (
+              <div className="mt-3">
+                <button
+                  className="rounded bg-blue-600 px-3 py-2 text-white"
+                  onClick={async () => {
+                    try {
+                      const l = (leads || []).find((x) => x.id === leadId);
+                      if (!l) return;
+                      const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+                      const tenantId = (prof as any)!.tenant_id as string;
+                      // Reuse existing customer by phone if available
+                      let customerId: string | null = null;
+                      if (l.phone) {
+                        const { data: existing } = await supabase
+                          .from('customers')
+                          .select('id')
+                          .eq('tenant_id', tenantId)
+                          .eq('phone', l.phone)
+                          .maybeSingle();
+                        if (existing?.id) customerId = existing.id as string;
+                      }
+                      if (!customerId) {
+                        const { data: cust } = await supabase
+                          .from('customers')
+                          .insert({ tenant_id: tenantId, name: l.name, phone: l.phone || null, address: l.address || null })
+                          .select('id')
+                          .single();
+                        customerId = (cust as any)!.id as string;
+                      }
+                      const today = new Date().toISOString().slice(0,10);
+                      const { data: job } = await supabase
+                        .from('jobs')
+                        .insert({
+                          tenant_id: tenantId,
+                          customer_id: customerId!,
+                          lead_id: l.id,
+                          system_type: 'On-grid',
+                          status: 'Quoted',
+                          capacity_kw: l.interested_capacity_kw || null,
+                          location: l.address || null,
+                          date_lead: (l as any)?.date || today,
+                          date_quote: today,
+                        })
+                        .select('id')
+                        .single();
+                      // Persist proposal row and attach
+                      const addOnSum = addOns.reduce((s, a) => s + (a.amount || 0), 0);
+                      const beforeTax = (Number(price) || 0) + addOnSum;
+                      const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
+                      const total = beforeTax + taxAmt;
+                      await supabase
+                        .from('proposals')
+                        .insert({ tenant_id: tenantId, job_id: (job as any)!.id, date: today, kit_name: kitName, price_before_tax: beforeTax, tax: taxAmt, total, pdf_url: pdfKey!, lang })
+                        .select('id')
+                        .single();
+                      await supabase.from('leads').update({ status: 'Quoted' }).eq('id', l.id);
+                      window.location.href = `/jobs/${(job as any)!.id}?tab=proposals`;
+                    } catch (e) {
+                      alert(String((e as any)?.message || e));
+                    }
+                  }}
+                >
+                  Create Job from Lead + Attach
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div>

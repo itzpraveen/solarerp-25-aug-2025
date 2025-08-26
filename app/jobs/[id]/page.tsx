@@ -175,6 +175,9 @@ export default function JobDetailPage() {
               setFlash('Saved'); setTimeout(() => setFlash(null), 1500);
             }}>Save Changes</Button>
           </div>
+          <div className="mt-6">
+            <ServiceForJob jobId={params.id} />
+          </div>
         </Card>
       )}
 
@@ -184,6 +187,76 @@ export default function JobDetailPage() {
       {tab === 'proposals' && <Proposals jobId={params.id} />}
       {tab === 'activity' && <Activity jobId={params.id} />}
     </div>
+  );
+}
+
+function ServiceForJob({ jobId }: { jobId: string }) {
+  const supabase = supabaseBrowser();
+  const [rows, setRows] = useState<any[]>([]);
+  const [summary, setSummary] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string>('');
+
+  const load = async () => {
+    setErr(null); setLoading(true);
+    try {
+      const { data: t } = await supabase
+        .from('service_tickets')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('"date"', { ascending: false });
+      setRows(t || []);
+      const { data: j } = await supabase
+        .from('jobs')
+        .select('customer_id')
+        .eq('id', jobId)
+        .single();
+      setCustomerId((j as any)?.customer_id || '');
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [jobId]);
+
+  const add = async () => {
+    if (!summary.trim()) return;
+    const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+    await supabase
+      .from('service_tickets')
+      .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: customerId || null, job_id: jobId, date: new Date().toISOString().slice(0,10), summary: summary.trim(), status: 'Open', priority: 'Medium' });
+    setSummary('');
+    load();
+  };
+
+  return (
+    <Card title="Service Tickets">
+      {err && <div className="mb-2 rounded border bg-red-50 p-2 text-xs text-red-700">{err}</div>}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+        <input className="md:col-span-4 rounded border px-3 py-2" placeholder="Quick add summary…" value={summary} onChange={(e) => setSummary(e.target.value)} />
+        <Button onClick={add}>Add</Button>
+      </div>
+      <ul className="mt-3 space-y-2 text-sm">
+        {loading ? (
+          <li className="text-gray-600">Loading…</li>
+        ) : rows.length === 0 ? (
+          <li className="text-gray-600">No service tickets</li>
+        ) : (
+          rows.map((r) => (
+            <li key={r.id} className="flex items-center justify-between rounded border bg-white p-3">
+              <span className="truncate">{r.summary || '—'}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-600">{r.status}</span>
+                <a className="text-blue-600" href={`/service/${r.id}`}>Open</a>
+              </div>
+            </li>
+          ))
+        )}
+      </ul>
+    </Card>
   );
 }
 
