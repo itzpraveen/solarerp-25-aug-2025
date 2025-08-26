@@ -142,6 +142,13 @@ POST `http://localhost:3000/api/pdf/invoice`
 }
 ```
 
+Optional extensions supported by the renderer (use only what you need):
+- `cover`: { `to`, `subject`, `reference`, `paragraphs[]`, `signatory` } — cover letter page (auto-subject falls back to “Quotation for <kW> <system> … (PMSG Subsidy)” for PM Surya).
+- `workSchedule`: rows of `{ scope, details, timeline }` — tabular schedule page.
+- `notes[]`: extra bullet notes (e.g., production estimates, inclusions/exclusions).
+
+See `tmp/q19_harilal_payload.json` for a real-world example based on the client “Harilal, Mampad”.
+
 ### Malayalam Font (optional, recommended)
 
 To ensure Malayalam text renders correctly on PDFs, provide a font:
