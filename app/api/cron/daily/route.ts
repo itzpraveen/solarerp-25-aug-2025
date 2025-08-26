@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
+import { env } from '@/lib/env';
 import { enqueueJob, processDueJobs } from '@/lib/queue';
+import { secureEqual } from '@/lib/secureCompare';
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization') || '';
-  const secret = process.env.CRON_SECRET;
-  if (!secret || auth !== `Bearer ${secret}`) {
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const secret = process.env.CRON_SECRET || '';
+  if (!secret || !secureEqual(token, secret)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -31,34 +34,39 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 3) Create follow-up tasks 7/14 days after date_kseb_submit if status unchanged
-  const seven = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
-  const fourteen = dayjs().subtract(14, 'day').format('YYYY-MM-DD');
+  // 3) Create follow-up tasks N days after date_kseb_submit if status unchanged (configurable)
+  const offsets = (env.ksebFollowupDaysCsv || '7,14')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const offsetMap = new Map<number, string>(
+    offsets.map((n) => [n, dayjs().subtract(n, 'day').format('YYYY-MM-DD')])
+  );
   const { data: jobs } = await supabase
     .from('jobs')
     .select('id, tenant_id, date_kseb_submit, status')
     .in('status', ['KSEB_Submitted']);
   for (const j of jobs || []) {
-    if (j.date_kseb_submit === seven) {
-      await enqueueJob(j.tenant_id, 'create_followup_task', {
-        tenant_id: j.tenant_id,
-        job_id: j.id,
-        title: 'Follow-up KSEB (7 days) ',
-        due_date: dayjs().format('YYYY-MM-DD'),
-      });
-    }
-    if (j.date_kseb_submit === fourteen) {
-      await enqueueJob(j.tenant_id, 'create_followup_task', {
-        tenant_id: j.tenant_id,
-        job_id: j.id,
-        title: 'Follow-up KSEB (14 days) ',
-        due_date: dayjs().format('YYYY-MM-DD'),
-      });
+    for (const n of offsets) {
+      if (j.date_kseb_submit === offsetMap.get(n)) {
+        await enqueueJob(j.tenant_id, 'create_followup_task', {
+          tenant_id: j.tenant_id,
+          job_id: j.id,
+          title: `Follow-up KSEB (${n} days) `,
+          due_date: dayjs().format('YYYY-MM-DD'),
+        });
+      }
     }
   }
 
-  // 4) Process due jobs
-  await processDueJobs();
+  try {
+    // 4) Process due jobs
+    await processDueJobs();
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/cron/daily', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+  }
 }

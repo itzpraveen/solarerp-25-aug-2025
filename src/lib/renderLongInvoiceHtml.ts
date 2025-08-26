@@ -1,4 +1,5 @@
 export type LongInvoiceData = {
+  lang?: 'en' | 'ml';
   company: { name: string; logoUrl?: string; address?: string; phone?: string; email?: string; upi?: string };
   customer: { name: string; phone?: string; email?: string; address?: string; place?: string };
   meta: {
@@ -30,6 +31,106 @@ export type LongInvoiceData = {
 };
 
 export function renderLongInvoiceHtml(data: LongInvoiceData) {
+  const lang: 'en' | 'ml' = (data.lang === 'ml' ? 'ml' : 'en');
+  const L = {
+    en: {
+      quotation: 'Quotation',
+      client: 'Client',
+      place: 'Place',
+      plant: 'Plant',
+      brand: 'Brand',
+      capacity: 'Capacity',
+      quoteNo: 'Quote No',
+      date: 'Date',
+      validTill: 'Valid till',
+      estimate: 'Estimate',
+      description: 'Description',
+      amount: 'Amount',
+      projectCost: 'Project Cost',
+      subtotal: 'Sub‑total',
+      tax: 'Tax',
+      grandTotal: 'GRAND TOTAL',
+      timeline: 'Project Timeline',
+      lead: 'Lead',
+      followUp: 'Follow‑up',
+      quoted: 'Quotation',
+      won: 'Won',
+      ksebSubmitted: 'KSEB Submitted',
+      installed: 'Installed',
+      netMetered: 'Net‑Metered',
+      handover: 'Handover',
+      closed: 'Closed',
+      reminders: 'Reminders',
+      boq: 'Bill of Quantities (BOQ)',
+      item: 'Item',
+      qty: 'Qty',
+      unit: 'Unit',
+      make: 'Make',
+      notes: 'Notes',
+      assumptions: 'Assumptions',
+      warranty: 'Warranty',
+      priceSchedule: 'Price Schedule & Terms',
+      line: 'Line',
+      paymentTerms: 'Payment Terms',
+      bankUpi: 'Bank / UPI',
+      accountName: 'Account Name',
+      accountNo: 'Account No',
+      bank: 'Bank',
+      branch: 'Branch',
+      offerValidity: 'Offer validity',
+      daysFromQuote: 'days from date of quotation.',
+      preparedBy: 'Prepared By',
+    },
+    ml: {
+      quotation: 'ക്വോട്ടേഷൻ',
+      client: 'ഉപഭോക്താവ്',
+      place: 'സ്ഥലം',
+      plant: 'പ്ലാന്റ്',
+      brand: 'ബ്രാൻഡ്',
+      capacity: 'ശേഷി',
+      quoteNo: 'ക്വോട്ട് നമ്പർ',
+      date: 'തീയതി',
+      validTill: 'കാലാവധി',
+      estimate: 'ചെലവ്',
+      description: 'വിവരണം',
+      amount: 'തുക',
+      projectCost: 'പ്രോജക്റ്റ് ചെലവ്',
+      subtotal: 'ഉപമൊത്തം',
+      tax: 'നികുതി',
+      grandTotal: 'ആകെ തുക',
+      timeline: 'സമയരേഖ',
+      lead: 'ലീഡ്',
+      followUp: 'ഫോളോ‑അപ്പ്',
+      quoted: 'ക്വോട്ടേഷൻ',
+      won: 'ജയം',
+      ksebSubmitted: 'KSEB സമർപ്പിച്ചു',
+      installed: 'സ്ഥാപിച്ചു',
+      netMetered: 'നെറ്റ്‑മീറ്റർ',
+      handover: 'ഹാൻഡോവർ',
+      closed: 'അടച്ചു',
+      reminders: 'റിമൈൻഡറുകൾ',
+      boq: 'വസ്തു പട്ടിക',
+      item: 'ഇനം',
+      qty: 'അളവ്',
+      unit: 'യൂണിറ്റ്',
+      make: 'മെക്ക്',
+      notes: 'കുറിപ്പുകൾ',
+      assumptions: 'അവകാശവാദങ്ങൾ',
+      warranty: 'വാറന്റി',
+      priceSchedule: 'വില പട്ടികയും നിബന്ധനകളും',
+      line: 'ലൈൻ',
+      paymentTerms: 'പേയ്മെന്റ് നിബന്ധനകൾ',
+      bankUpi: 'ബാങ്ക് / UPI',
+      accountName: 'അക്കൗണ്ട് പേര്',
+      accountNo: 'അക്കൗണ്ട് നമ്പർ',
+      bank: 'ബാങ്ക്',
+      branch: 'ശാഖ',
+      offerValidity: 'ഓഫർ സാധുത',
+      daysFromQuote: 'ദിവസം (ക്വോട്ടേഷൻ തീയതി മുതൽ).',
+      preparedBy: 'തയ്യാറാക്കിയത്',
+    },
+  } as const;
+  const S = L[lang];
   const inr = (v?: number) =>
     typeof v === 'number' ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v) : '';
 
@@ -41,14 +142,31 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   const timelineRow = (label: string, dt?: string) =>
     `<tr><td>${label}</td><td>${dt ? new Date(dt).toLocaleDateString('en-IN') : '-'}</td></tr>`;
 
+  const mlFontBase64 = process.env.PDF_ML_FONT_BASE64;
+  const devDefaultUrl = `http://localhost:${process.env.PORT || 3000}/fonts/NotoSansMalayalam-Regular.ttf`;
+  const mlFontUrl =
+    process.env.NEXT_PUBLIC_ML_FONT_URL ||
+    (process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL}/fonts/NotoSansMalayalam-Regular.ttf` : undefined) ||
+    (process.env.NODE_ENV !== 'production' ? devDefaultUrl : undefined);
+  const mlFontCss = lang === 'ml'
+    ? `@font-face { font-family: 'ML'; src: ${mlFontBase64 ? `url("data:font/ttf;base64,${mlFontBase64}") format("truetype")` : mlFontUrl ? `url("${mlFontUrl}") format("truetype")` : 'local("Noto Sans Malayalam")'}; font-weight: normal; font-style: normal; }
+       .ml { font-family: 'ML', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans', Arial; }`
+    : '';
+
+  const bodyFontCss = lang === 'ml'
+    ? `.body { font-family: 'ML', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans', Arial; }`
+    : `.body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans', Arial; }`;
+
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <title>${data.meta.quoteNo} - ${data.customer.name}</title>
 <style>
+  ${mlFontCss}
   @page { size: A4; margin: 18mm 14mm; }
-  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans', Arial; color: #111; }
+  ${bodyFontCss}
+  body { color: #111; }
   h1,h2,h3 { margin: 0.2rem 0 0.4rem; }
   .muted { color: #555; }
   .grid { display: grid; gap: 8px; }
@@ -65,12 +183,12 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   footer { position: fixed; bottom: -10mm; left: 0; right: 0; font-size: 11px; color:#666; text-align:center; }
 </style>
 </head>
-<body>
+<body class="body">
 
 <section class="header">
   <div class="row">
     <div>
-      <div class="kicker">Quotation / ക്വോട്ടേഷൻ</div>
+      <div class="kicker">${S.quotation}</div>
       <h1>${data.company.name || ''}</h1>
       <div class="muted">${data.company.address || ''}</div>
       <div class="muted">${data.company.phone || ''} ${data.company.email ? ' | ' + data.company.email : ''}</div>
@@ -80,15 +198,15 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   <hr />
   <div class="grid" style="grid-template-columns: 1fr 1fr;">
     <div class="card accent">
-      <strong>CLIENT / ഉപഭോക്താവ്</strong>: ${data.customer.name}<br/>
-      <strong>PLACE / സ്ഥലം</strong>: ${data.customer.place || ''}<br/>
-      <strong>PLANT / ബ്രാൻഡ്</strong>: ${data.meta.plantBrand || ''}<br/>
-      <strong>CAPACITY / ശേഷി</strong>: ${data.meta.capacityKW} kW
+      <strong>${S.client}</strong>: ${data.customer.name}<br/>
+      <strong>${S.place}</strong>: ${data.customer.place || ''}<br/>
+      <strong>${S.plant} / ${S.brand}</strong>: ${data.meta.plantBrand || ''}<br/>
+      <strong>${S.capacity}</strong>: ${data.meta.capacityKW} kW
     </div>
     <div>
-      <div><strong>Quote No</strong>: ${data.meta.quoteNo}</div>
-      <div><strong>Date</strong>: ${new Date(data.meta.dateISO).toLocaleDateString('en-IN')}</div>
-      ${data.meta.validTillISO ? `<div><strong>Valid till</strong>: ${new Date(data.meta.validTillISO).toLocaleDateString('en-IN')}</div>` : ''}
+      <div><strong>${S.quoteNo}</strong>: ${data.meta.quoteNo}</div>
+      <div><strong>${S.date}</strong>: ${new Date(data.meta.dateISO).toLocaleDateString('en-IN')}</div>
+      ${data.meta.validTillISO ? `<div><strong>${S.validTill}</strong>: ${new Date(data.meta.validTillISO).toLocaleDateString('en-IN')}</div>` : ''}
       <div class="row" style="margin-top:6px; gap:6px;">
         <span class="tag">${data.meta.program}</span>
         <span class="tag">${data.meta.systemCategory}</span>
@@ -99,44 +217,44 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
 </section>
 
 <section class="page-break card">
-  <h2>Estimate (ചെലവ്)</h2>
+  <h2>${S.estimate}</h2>
   <table class="table">
-    <thead><tr><th>Description</th><th class="right">Amount (₹)</th></tr></thead>
+    <thead><tr><th>${S.description}</th><th class="right">${S.amount} (₹)</th></tr></thead>
     <tbody>
-      <tr><td><strong>Project Cost</strong></td><td class="right">${inr(data.money.projectCost)}</td></tr>
+      <tr><td><strong>${S.projectCost}</strong></td><td class="right">${inr(data.money.projectCost)}</td></tr>
       ${data.money.addOns?.map(a => `<tr><td>${a.label}</td><td class="right">${inr(a.amount)}</td></tr>`).join('') || ''}
-      <tr><td class="right"><em>Sub‑total</em></td><td class="right"><em>${inr(subtotal)}</em></td></tr>
-      <tr><td class="right">Tax (${data.money.taxRatePct || 0}%)</td><td class="right">${inr(tax)}</td></tr>
-      <tr><td><strong>GRAND TOTAL</strong></td><td class="right"><strong>${inr(grandTotal)}</strong></td></tr>
+      <tr><td class="right"><em>${S.subtotal}</em></td><td class="right"><em>${inr(subtotal)}</em></td></tr>
+      <tr><td class="right">${S.tax} (${data.money.taxRatePct || 0}%)</td><td class="right">${inr(tax)}</td></tr>
+      <tr><td><strong>${S.grandTotal}</strong></td><td class="right"><strong>${inr(grandTotal)}</strong></td></tr>
     </tbody>
   </table>
-  ${data.malayalamNote ? `<p class="muted" style="margin-top:10px;">${data.malayalamNote}</p>` : ''}
+  ${lang === 'ml' && data.malayalamNote ? `<p class="muted" style="margin-top:10px;">${data.malayalamNote}</p>` : ''}
 </section>
 
 <section class="page-break card">
-  <h2>Project Timeline (സമയരേഖ)</h2>
+  <h2>${S.timeline}</h2>
   <table class="table">
     <tbody>
-      ${timelineRow('Lead', data.pipeline.leadAt)}
-      ${timelineRow('Follow‑up', data.pipeline.followUpAt)}
-      ${timelineRow('Quotation', data.pipeline.quotedAt)}
-      ${timelineRow('Won', data.pipeline.wonAt)}
-      ${timelineRow('KSEB Submitted', data.pipeline.ksebSubmittedAt)}
-      ${timelineRow('Installed', data.pipeline.installedAt)}
-      ${timelineRow('Net‑Metered', data.pipeline.netMeteredAt)}
-      ${timelineRow('Handover', data.pipeline.handoverAt)}
-      ${timelineRow('Closed', data.pipeline.closedAt)}
+      ${timelineRow(S.lead, data.pipeline.leadAt)}
+      ${timelineRow(S.followUp, data.pipeline.followUpAt)}
+      ${timelineRow(S.quoted, data.pipeline.quotedAt)}
+      ${timelineRow(S.won, data.pipeline.wonAt)}
+      ${timelineRow(S.ksebSubmitted, data.pipeline.ksebSubmittedAt)}
+      ${timelineRow(S.installed, data.pipeline.installedAt)}
+      ${timelineRow(S.netMetered, data.pipeline.netMeteredAt)}
+      ${timelineRow(S.handover, data.pipeline.handoverAt)}
+      ${timelineRow(S.closed, data.pipeline.closedAt)}
     </tbody>
   </table>
-  ${data.pipeline.reminders?.length ? `<h3>Reminders</h3>
+  ${data.pipeline.reminders?.length ? `<h3>${S.reminders}</h3>
   <ul>${data.pipeline.reminders.map(r => `<li>${r.label} — ${new Date(r.dueISO).toLocaleDateString('en-IN')}</li>`).join('')}</ul>` : ''}
 </section>
 
 ${data.boq?.rows?.length ? `
 <section class="page-break card">
-  <h2>Bill of Quantities (BOQ / വസ്തു പട്ടിക)</h2>
+  <h2>${S.boq}</h2>
   <table class="table">
-    <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Make</th><th>Notes</th></tr></thead>
+    <thead><tr><th>${S.item}</th><th>${S.qty}</th><th>${S.unit}</th><th>${S.make}</th><th>${S.notes}</th></tr></thead>
     <tbody>
       ${data.boq.rows.map(r => `<tr>
         <td>${r.item}</td><td>${r.qty}</td><td>${r.unit || ''}</td><td>${r.make || ''}</td><td>${r.notes || ''}</td>
@@ -146,30 +264,30 @@ ${data.boq?.rows?.length ? `
 </section>` : ''}
 
 <section class="page-break card">
-  <h2>Assumptions (അവകാശവാദങ്ങൾ)</h2>
+  <h2>${S.assumptions}</h2>
   <ul>${(data.assumptions || []).map(x => `<li>${x}</li>`).join('')}</ul>
-  ${data.warranty?.length ? `<h2>Warranty (വാറന്റി)</h2><ul>${data.warranty.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+  ${data.warranty?.length ? `<h2>${S.warranty}</h2><ul>${data.warranty.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
 </section>
 
 <section class="page-break card">
-  <h2>Price Schedule & Terms (വില പട്ടികയും നിബന്ധനകളും)</h2>
+  <h2>${S.priceSchedule}</h2>
   ${data.priceSchedule?.lines?.length ? `
   <table class="table">
-    <thead><tr><th>Line</th><th class="right">Amount</th><th>Notes</th></tr></thead>
+    <thead><tr><th>${S.line}</th><th class="right">${S.amount}</th><th>${S.notes}</th></tr></thead>
     <tbody>
       ${data.priceSchedule.lines.map(l => `<tr><td>${l.label}</td><td class="right">${inr(l.amount)}</td><td>${l.note || ''}</td></tr>`).join('')}
     </tbody>
   </table>` : ''}
-  ${data.paymentTerms?.length ? `<h3>Payment Terms</h3><ul>${data.paymentTerms.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
-  ${data.bank ? `<h3>Bank / UPI</h3>
-    <p><strong>Account Name:</strong> ${data.bank.accountName || ''}<br/>
-    <strong>Account No:</strong> ${data.bank.accountNo || ''}<br/>
+  ${data.paymentTerms?.length ? `<h3>${S.paymentTerms}</h3><ul>${data.paymentTerms.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+  ${data.bank ? `<h3>${S.bankUpi}</h3>
+    <p><strong>${S.accountName}:</strong> ${data.bank.accountName || ''}<br/>
+    <strong>${S.accountNo}:</strong> ${data.bank.accountNo || ''}<br/>
     <strong>IFSC:</strong> ${data.bank.ifsc || ''}<br/>
-    <strong>Bank:</strong> ${data.bank.bank || ''} ${data.bank.branch ? ' | ' + data.bank.branch : ''}<br/>
+    <strong>${S.bank}:</strong> ${data.bank.bank || ''} ${data.bank.branch ? ' | ' + data.bank.branch : ''}<br/>
     ${data.company.upi ? `<strong>UPI:</strong> ${data.company.upi}` : ''}</p>` : ''}
-  <p class="muted">Offer validity: ${data.priceSchedule?.offerValidityDays ?? 10} days from date of quotation.</p>
+  <p class="muted">${S.offerValidity}: ${data.priceSchedule?.offerValidityDays ?? 10} ${S.daysFromQuote}</p>
   ${data.signatures ? `<div class="row"><div>
-      <div class="kicker">Prepared By</div>
+      <div class="kicker">${S.preparedBy}</div>
       <div>${data.signatures.preparedBy || ''}</div>
       <div>${data.signatures.contactPerson || ''} ${data.signatures.contactNumber ? ' | ' + data.signatures.contactNumber : ''}</div>
   </div></div>` : ''}

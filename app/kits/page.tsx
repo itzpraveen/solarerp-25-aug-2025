@@ -29,7 +29,7 @@ export default function KitsPage() {
     if (!form.kit_name.trim()) return setErr('Kit name is required');
     if (form.capacity_kw <= 0) return setErr('Capacity must be > 0');
     if (form.selling_price < 0) return setErr('Price must be ≥ 0');
-    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     if (pErr || !prof?.tenant_id) return setErr('Profile not ready');
     const { error } = await supabase.from('kits').upsert({
       tenant_id: prof!.tenant_id,
@@ -74,7 +74,12 @@ export default function KitsPage() {
                   <Input type="number" value={editForm.selling_price || 0} onChange={(e) => setEditForm({ ...editForm, selling_price: Number(e.target.value) })} />
                   <Input value={editForm.description || ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
                   <div className="md:col-span-4 flex gap-2">
-                    <Button size="sm" onClick={async () => { await supabase.from('kits').update({ capacity_kw: editForm.capacity_kw, selling_price: editForm.selling_price, description: editForm.description }).eq('kit_name', k.kit_name); setEditing(null); load(); }}>Save</Button>
+                    <Button size="sm" onClick={async () => {
+                      if ((Number(editForm.capacity_kw) || 0) <= 0) { setErr('Capacity must be > 0'); return; }
+                      if ((Number(editForm.selling_price) || 0) < 0) { setErr('Price must be ≥ 0'); return; }
+                      await supabase.from('kits').update({ capacity_kw: Number(editForm.capacity_kw) || 0, selling_price: Number(editForm.selling_price) || 0, description: editForm.description }).eq('kit_name', k.kit_name);
+                      setEditing(null); load();
+                    }}>Save</Button>
                     <Button variant="outline" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
                   </div>
                 </div>

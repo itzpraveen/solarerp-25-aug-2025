@@ -6,6 +6,7 @@ import AuthGuard from '~/components/AuthGuard';
 export const metadata: Metadata = {
   title: 'SolarERP (Kerala) – MVP',
   description: 'Minimal ERP for a solo solar entrepreneur in Kerala',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

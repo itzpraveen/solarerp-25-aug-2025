@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import { JOB_STATUSES, statusLabel } from '@/lib/status';
+import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 import Spinner from '~/components/ui/Spinner';
 
 type Job = {
   id: string;
   customer_id: string;
   tenant_id: string;
-  status: string;
+  status: JobStatus;
   capacity_kw: string | null;
   system_type: string;
   location: string | null;
@@ -22,6 +22,12 @@ export default function PipelineBoard() {
 
   const load = async () => {
     setLoading(true);
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('jobs')
       .select('id, tenant_id, customer_id, status, capacity_kw, system_type, location, customers(name)')
@@ -34,7 +40,8 @@ export default function PipelineBoard() {
     load();
   }, []);
 
-  const onDrop = async (jobId: string, newStatus: string) => {
+  const onDrop = async (jobId: string, newStatus: JobStatus) => {
+    if (!confirm(`Move job to "${statusLabel(newStatus)}"?`)) return;
     const { data: session } = await supabase.auth.getSession();
     const token = session.session?.access_token;
     await fetch('/api/jobs/updateStatus', {
@@ -47,7 +54,7 @@ export default function PipelineBoard() {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
-      {JOB_STATUSES.map((col) => (
+      {JOB_STATUSES.map((col: JobStatus) => (
         <div
           key={col}
           className="rounded-lg border bg-white shadow-sm"
@@ -58,7 +65,7 @@ export default function PipelineBoard() {
         }}
         >
           <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gray-50/80 px-3 py-2 text-sm font-medium backdrop-blur">
-            <span>{statusLabel(col as any)}</span>
+            <span>{statusLabel(col)}</span>
             <span className="text-xs text-gray-500">{jobs.filter((j) => j.status === col).length}</span>
           </div>
           <div className="space-y-2 p-2 min-h-[260px]">

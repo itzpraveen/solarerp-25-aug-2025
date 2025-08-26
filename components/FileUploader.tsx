@@ -8,8 +8,9 @@ export default function FileUploader({ onUploaded }: { onUploaded: (signedUrl: s
 
   const upload = async () => {
     if (!file) return;
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
-    const key = `${prof!.tenant_id}/${crypto.randomUUID()}-${file.name}`;
+    const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+    if (!prof?.tenant_id) return alert('Profile not ready');
+    const key = `${prof.tenant_id}/${crypto.randomUUID()}-${file.name}`;
     const { error } = await supabase.storage.from('documents').upload(key, file);
     if (!error) {
       const { data } = await supabase.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);

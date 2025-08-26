@@ -1,12 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-import { headers } from 'next/headers';
+import { getMockClient } from '@/lib/supabaseMock';
 
-// Create a Supabase client bound to the incoming request's Bearer token.
-// Expects the client to send `Authorization: Bearer <access_token>`.
-export async function supabaseFromAuthHeader() {
-  // In Next.js 15, headers() must be awaited to avoid sync dynamic API warnings
-  const h = await headers();
-  const auth = h.get('authorization') || h.get('Authorization') || '';
+function isMock() {
+  return process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
+}
+
+// Create a Supabase client bound to the provided Authorization header.
+// Pass `req.headers.get('authorization')` from a route handler.
+export function supabaseFromAuthHeader(authHeader?: string | null) {
+  // In mock mode, always return the in-memory mock client regardless of token
+  if (isMock()) return getMockClient() as any;
+  const auth = authHeader || '';
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {

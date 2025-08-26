@@ -19,7 +19,7 @@ export default function CustomerDetail() {
   }, [params.id]);
 
   const createJob = async () => {
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').single();
+    const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
     const { data: j } = await supabase
       .from('jobs')
       .insert({ tenant_id: prof!.tenant_id, customer_id: params.id, system_type: 'On-grid', status: 'Lead', capacity_kw: 1 })
