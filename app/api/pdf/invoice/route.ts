@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
+export const maxDuration = 60; // Ensure enough time on Vercel
 
 import { renderLongInvoiceHtml, LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
@@ -57,9 +58,11 @@ export async function POST(req: NextRequest) {
     const chromium = await import('@sparticuz/chromium-min').then(m => m.default || (m as any));
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
+      // In serverless (Vercel/AWS), always use chromium-min
       if (isServerless) {
-        return chromium.executablePath();
+        try { return await chromium.executablePath(); } catch {}
       }
+      // Try environment-provided candidates (local dev)
       const candidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
         process.env.CHROME_PATH,
@@ -73,6 +76,7 @@ export async function POST(req: NextRequest) {
       for (const p of candidates) {
         try { if (p && fs.existsSync(p)) return p; } catch {}
       }
+      // Final fallback: try chromium-min even on dev (works on many platforms)
       try { return await chromium.executablePath(); } catch {}
       return null;
     }
@@ -81,17 +85,29 @@ export async function POST(req: NextRequest) {
     if (!executablePath) {
       const id = Math.random().toString(36).slice(2, 10);
       console.error('api/pdf/invoice chrome-missing', { id, candidatesTried: true });
-      return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Chrome/Chromium executable not found',
+          id,
+          hint:
+            'Install Google Chrome or set CHROME_PATH/PUPPETEER_EXECUTABLE_PATH. For dev without Chrome, set NEXT_PUBLIC_E2E_MOCK=1 to bypass rendering.',
+        },
+        { status: 500 },
+      );
     }
 
+    // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
     const browser = await puppeteer.launch({
-      args: isServerless ? chromium.args : [],
-      defaultViewport: isServerless ? chromium.defaultViewport : null,
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport ?? null,
       executablePath,
       headless: true,
     });
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // Safer content load strategy on serverless: avoid hanging on external resources
+    page.setDefaultNavigationTimeout(20_000);
+    await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
     await page.emulateMediaType('screen');
 
     const pdf = await page.pdf({
@@ -110,7 +126,19 @@ export async function POST(req: NextRequest) {
       contentType: 'application/pdf',
       upsert: true,
     });
-    if (error) throw error;
+    if (error) {
+      const id = Math.random().toString(36).slice(2, 10);
+      console.error('api/pdf/invoice upload-failed', { id, tenantId, key, error });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Failed to upload PDF to storage',
+          id,
+          hint: "Ensure Supabase bucket 'documents' exists and your storage policies allow writes to '<tenant_id>/*'",
+        },
+        { status: 500 },
+      );
+    }
 
     const { data: signed } = await sb.storage
       .from('documents')
@@ -119,7 +147,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
+    const msg = typeof e?.message === 'string' ? e.message : String(e);
     console.error('api/pdf/invoice', { id, error: e });
-    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+    // Provide a more descriptive error for easier debugging in UI
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'PDF generation failed',
+        id,
+        cause: msg.slice(0, 500),
+      },
+      { status: 500 },
+    );
   }
 }

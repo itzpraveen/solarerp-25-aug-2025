@@ -43,8 +43,10 @@ export type MockDb = {
 function seedDb(): MockDb {
   const tenantId = 't1';
   const users = [
-    { id: 'u-admin', email: 'owner@demo.local' },
+    { id: 'u-owner', email: 'owner@demo.local' },
     { id: 'u-staff', email: 'staff@demo.local' },
+    { id: 'u-admin', email: 'admin@demo.local' },
+    { id: 'u-tech', email: 'tech@demo.local' },
   ];
   const customers = [
     {
@@ -107,18 +109,10 @@ function seedDb(): MockDb {
     users,
     tenants: [{ id: tenantId, name: 'Demo Co' }],
     profiles: [
-      {
-        user_id: users[0].id,
-        tenant_id: tenantId,
-        role: 'owner',
-        display_name: 'Admin User',
-      },
-      {
-        user_id: users[1].id,
-        tenant_id: tenantId,
-        role: 'staff',
-        display_name: 'Staff User',
-      },
+      { user_id: users[0].id, tenant_id: tenantId, role: 'owner', display_name: 'Owner User' },
+      { user_id: users[1].id, tenant_id: tenantId, role: 'staff', display_name: 'Staff User' },
+      { user_id: users[2].id, tenant_id: tenantId, role: 'admin', display_name: 'Admin User' },
+      { user_id: users[3].id, tenant_id: tenantId, role: 'technician', display_name: 'Tech User' },
     ],
     settings: [
       {

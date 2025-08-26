@@ -8,7 +8,7 @@ import { getDbRef } from '@/lib/supabaseMock';
 
 const BodySchema = z.object({
   email: z.string().email(),
-  role: z.enum(['owner', 'staff']).default('staff'),
+  role: z.enum(['owner', 'admin', 'manager', 'sales', 'technician', 'accountant', 'viewer', 'staff']).default('staff'),
 });
 
 function isMock() {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const { data: me } = await sb.from('profiles').select('tenant_id, role').maybeSingle();
     if (!me?.tenant_id) return NextResponse.json({ ok: false, error: 'Profile not ready' }, { status: 400 });
-    if ((me as any).role !== 'owner') return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+    if (!['owner', 'admin'].includes((me as any).role)) return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
 
     const tenantId = (me as any).tenant_id as string;
 

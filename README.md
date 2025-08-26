@@ -109,6 +109,26 @@ See `drizzle/0001_init.sql` and `src/db/schema.ts` for enums and tables. Highlig
 
 Cross-schema FK: `profiles.user_id → auth.users(id) on delete cascade` (in migration).
 
+## User Roles & Permissions
+
+The app supports multiple roles per tenant via `profiles.role`:
+
+- Owner: full access; can manage Settings, Team, Items, Kits.
+- Admin: same as Owner for day-to-day ops, including Team/Settings.
+- Manager: manage Jobs/Leads/Service; view Invoices.
+- Sales: manage Leads; view Jobs.
+- Technician: view assigned Service/Jobs; update own service notes.
+- Accountant: manage Invoices/Payments.
+- Viewer: read-only across most modules.
+- Staff (legacy): general staff role retained for backward compatibility.
+
+Policies enforce that only Owner/Admin can write to Items, Kits, and Settings. Other tables remain tenant-scoped via RLS.
+
+Migrations:
+
+- Apply `drizzle/0011_rbac_roles.sql` to expand the `role` enum and broaden owner-only policies to also allow Admin.
+- If your migration runner wraps statements in a transaction and `ALTER TYPE ... ADD VALUE` fails, run the file in Supabase SQL Editor.
+
 ## PDF Long Invoice/Quotation
 
 - HTML renderer: `src/lib/renderLongInvoiceHtml.ts` (exact implementation per spec)
