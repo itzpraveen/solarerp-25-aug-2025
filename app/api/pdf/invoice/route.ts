@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
     // Lazy-load heavy deps to keep the bundle of other routes lean
     const chromium = await import('@sparticuz/chromium').then(m => m.default || (m as any));
+    // Optional remote-pack fallback using -min when provided via env
+    const chromiumMin = async () =>
+      await import('@sparticuz/chromium-min').then((m) => m.default || (m as any));
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
       const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
@@ -64,6 +67,16 @@ export async function POST(req: NextRequest) {
       try {
         const p = await chromium.executablePath();
         if (p) return p;
+      } catch {}
+
+      // 0.b) If remote pack URL is provided, use -min to fetch+extract pack on demand
+      try {
+        const pack = process.env.CHROMIUM_PACK_URL || process.env.CHROMIUM_MIN_PACK_URL;
+        if (pack) {
+          const cmin: any = await chromiumMin();
+          const p: string | null = await cmin.executablePath(pack);
+          if (p) return p;
+        }
       } catch {}
 
       // 1) Prefer explicit env/known paths
@@ -129,12 +142,14 @@ export async function POST(req: NextRequest) {
 
     // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
     // Prefer chromium's defaults for serverless envs
+    const launchEnv = { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH };
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport ?? null,
       executablePath,
       headless: (chromium as any).headless ?? true,
       dumpio: true,
+      env: launchEnv,
     });
     const page = await browser.newPage();
     // Safer content load strategy on serverless: avoid hanging on external resources
