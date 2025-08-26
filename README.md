@@ -98,6 +98,17 @@ After connecting your Supabase project, set these in Supabase → Authentication
 
 Magic-link login uses these values. If not set, links may redirect to `http://localhost:3000` on production.
 
+### Mock Mode and Demo UI
+
+For local demos and E2E, a mock in-memory backend can be enabled.
+
+- `NEXT_PUBLIC_E2E_MOCK=1`: enable mock backend (no network calls).
+- `NEXT_PUBLIC_DEMO_UI=1`: show “Demo quick sign-in” buttons on `/auth/signin`.
+
+Notes:
+- In mock mode, the app starts with no session by default; click a demo sign-in button to authenticate.
+- For production/staging, do not set these flags.
+
 ## Data Model
 
 See `drizzle/0001_init.sql` and `src/db/schema.ts` for enums and tables. Highlights:
@@ -230,6 +241,17 @@ Templates expected:
 - Items/Kits: Owner can add/edit; staff read-only.
 - Proposals: List shows signed links; open PDF; share via WhatsApp (requires WhatsApp env vars and template).
 - Cron: `POST /api/cron/daily` with `Authorization: Bearer $CRON_SECRET` updates overdue invoices, enqueues reminders, and processes due jobs.
+
+### Tenant Cleanup (Admin)
+
+Remove a tenant and its stored documents:
+
+1) Ensure envs are set: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (service role).
+2) Delete by name or id:
+- By name: `SEED_TENANT_NAME="Demo Tenant" npm run tenant:delete` (or `npm run tenant:delete -- --name "Demo Tenant"`)
+- By id: `SEED_TENANT_ID="<tenant-uuid>" npm run tenant:delete` (or `npm run tenant:delete -- --tenant <uuid>`) 
+
+The script removes all objects under `documents/<tenant_id>/` (batched), then deletes the row from `tenants` (cascades via FKs).
 
 ## One-click Deploy
 
