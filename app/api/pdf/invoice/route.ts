@@ -131,6 +131,13 @@ export async function POST(req: NextRequest) {
     await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
     await page.emulateMediaType('screen');
 
+    // Ensure dynamic linker can find Chromium's unpacked libs (aws.tar.br extracts to /tmp)
+    try {
+      const ld = process.env.LD_LIBRARY_PATH || '';
+      const extra = ['/tmp', '/tmp/swiftshader'].join(':');
+      process.env.LD_LIBRARY_PATH = ld ? `${extra}:${ld}` : extra;
+    } catch {}
+
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
