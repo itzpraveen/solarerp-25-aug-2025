@@ -117,7 +117,17 @@ export async function POST(req: NextRequest) {
     // Ensure dynamic linker can find Chromium's unpacked libs BEFORE launch
     try {
       const ld = process.env.LD_LIBRARY_PATH || '';
-      const extra = ['/tmp', '/tmp/swiftshader'].join(':');
+      const extraParts = [
+        '/tmp',
+        '/tmp/swiftshader',
+        // When using chromium-min pack, libs may live here
+        '/tmp/chromium-pack',
+        '/tmp/chromium-pack/swiftshader',
+        // Common AWS Lambda layer paths
+        '/opt/chromium',
+        '/opt/chromium/swiftshader',
+      ];
+      const extra = Array.from(new Set(extraParts.filter(Boolean))).join(':');
       process.env.LD_LIBRARY_PATH = ld ? `${extra}:${ld}` : extra;
       // Helpful defaults for font/config caches in ephemeral fs
       if (!process.env.XDG_CACHE_HOME) process.env.XDG_CACHE_HOME = '/tmp';
@@ -125,6 +135,7 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     const executablePath = await resolveExecutablePath();
+    try { console.log('api/pdf/invoice execPath', executablePath); } catch {}
     if (!executablePath) {
       const id = Math.random().toString(36).slice(2, 10);
       console.error('api/pdf/invoice chrome-missing', { id });
@@ -144,11 +155,12 @@ export async function POST(req: NextRequest) {
     // Prefer chromium's defaults for serverless envs
     const launchEnv = { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH };
     const browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [...(chromium.args || []), '--no-sandbox', '--disable-dev-shm-usage'],
       defaultViewport: chromium.defaultViewport ?? null,
       executablePath,
       headless: (chromium as any).headless ?? true,
       dumpio: true,
+      userDataDir: '/tmp/chrome-user-data',
       env: launchEnv,
     });
     const page = await browser.newPage();
