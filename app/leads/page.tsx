@@ -6,6 +6,7 @@ import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
 import { isPhone, required } from '@/lib/validation';
+import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 
 export default function LeadsPage() {
   const supabase = supabaseBrowser();
@@ -18,6 +19,7 @@ export default function LeadsPage() {
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertForm, setConvertForm] = useState<any>({
     address: '',
+    program_type: 'PM_Surya',
     system_type: 'On-grid',
     capacity_kw: 1,
     location: '',
@@ -26,6 +28,7 @@ export default function LeadsPage() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const load = async () => {
     const { data, error } = await supabase
@@ -178,6 +181,7 @@ export default function LeadsPage() {
                   <th className="p-2">Name</th>
                   <th className="p-2">Phone</th>
                   <th className="p-2">Capacity (kW)</th>
+                  <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Actions</th>
                 </tr>
@@ -237,6 +241,18 @@ export default function LeadsPage() {
                               }
                             />
                           </td>
+                          <td className="p-2">
+                            <Input
+                              type="date"
+                              value={editForm.next_follow_up_date || ''}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  next_follow_up_date: e.target.value,
+                                })
+                              }
+                            />
+                          </td>
                           <td className="p-2 text-xs text-gray-600">
                             {l.status || '—'}
                           </td>
@@ -276,6 +292,15 @@ export default function LeadsPage() {
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
                           </td>
+                          <td className="p-2">
+                            <span className={
+                              l.next_follow_up_date && l.next_follow_up_date <= todayStr
+                                ? 'text-red-600 font-medium'
+                                : 'text-gray-700'
+                            }>
+                              {l.next_follow_up_date || '—'}
+                            </span>
+                          </td>
                           <td className="p-2 text-xs text-gray-600">
                             {l.status || '—'}
                           </td>
@@ -299,6 +324,7 @@ export default function LeadsPage() {
                                 setConvertingId(l.id);
                                 setConvertForm({
                                   address: '',
+                                  program_type: 'PM_Surya',
                                   system_type: 'On-grid',
                                   capacity_kw: l.interested_capacity_kw || 1,
                                   location: '',
@@ -308,14 +334,28 @@ export default function LeadsPage() {
                             >
                               Convert
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-2"
+                              onClick={async () => {
+                                await supabase
+                                  .from('leads')
+                                  .update({ last_contacted_at: todayStr })
+                                  .eq('id', l.id);
+                                load();
+                              }}
+                            >
+                              Followed up
+                            </Button>
                           </td>
                         </>
                       )}
                     </tr>
                     {convertingId === l.id && (
                       <tr className="bg-gray-50" key={`${l.id}-convert`}>
-                        <td className="p-2" colSpan={7}>
-                          <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
+                        <td className="p-2" colSpan={8}>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
                             <Input
                               className="md:col-span-2"
                               placeholder="Address"
@@ -329,6 +369,24 @@ export default function LeadsPage() {
                             />
                             <select
                               className="rounded border px-3 py-2"
+                              value={convertForm.program_type}
+                              onChange={(e) => {
+                                const p = e.target.value as ProgramType;
+                                const allowed = PROGRAM_ALLOWED_SYSTEMS[p];
+                                setConvertForm((prev: any) => ({
+                                  ...prev,
+                                  program_type: p,
+                                  system_type: allowed.includes(prev.system_type)
+                                    ? prev.system_type
+                                    : allowed[0],
+                                }));
+                              }}
+                            >
+                              <option value="PM_Surya">PM Surya</option>
+                              <option value="Commercial">Commercial</option>
+                            </select>
+                            <select
+                              className="rounded border px-3 py-2"
                               value={convertForm.system_type}
                               onChange={(e) =>
                                 setConvertForm({
@@ -337,11 +395,9 @@ export default function LeadsPage() {
                                 })
                               }
                             >
-                              <option>On-grid</option>
-                              <option>Hybrid</option>
-                              <option>Off-grid</option>
-                              <option>Inverter & Battery</option>
-                              <option>Solar Water Heater</option>
+                              {PROGRAM_ALLOWED_SYSTEMS[convertForm.program_type as ProgramType].map((s) => (
+                                <option key={s}>{s}</option>
+                              ))}
                             </select>
                             <Input
                               type="number"
@@ -419,6 +475,7 @@ export default function LeadsPage() {
                                       customer_id: customerId!,
                                       lead_id: l.id,
                                       system_type: convertForm.system_type,
+                                      program_type: convertForm.program_type,
                                       status: 'Lead',
                                       capacity_kw: convertForm.capacity_kw,
                                       location: convertForm.location || null,

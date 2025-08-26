@@ -71,6 +71,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 3b) Lead follow-up reminders: enqueue WhatsApp template when next_follow_up_date is due
+  const { data: leads } = await supabase
+    .from('leads')
+    .select('tenant_id, id, name, phone, next_follow_up_date, status')
+    .not('status', 'in', ['Converted', 'Closed'])
+    .lte('next_follow_up_date', today);
+  for (const l of leads || []) {
+    if (!l.phone) continue;
+    await enqueueJob(l.tenant_id, 'whatsapp_template', {
+      to: l.phone,
+      templateName: 'lead_followup',
+      variables: [l.name || 'Customer'],
+    });
+  }
+
   try {
     // 4) Process due jobs
     await processDueJobs();

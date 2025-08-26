@@ -21,8 +21,18 @@ export type LongInvoiceData = {
   };
   kit?: { name?: string; items?: { name: string; qty: string; make?: string }[] };
   boq?: { rows: { item: string; qty: string; unit?: string; make?: string; notes?: string }[] };
+  // Optional cover letter and extra sections for long proposals
+  cover?: {
+    to?: string;
+    subject?: string;
+    reference?: string;
+    paragraphs?: string[]; // free-form paragraphs
+    signatory?: { name?: string; title?: string; phone?: string };
+  };
   assumptions?: string[];
+  notes?: string[]; // general notes section
   warranty?: string[];
+  workSchedule?: { rows: { scope: string; details: string; timeline: string }[] };
   priceSchedule?: { lines: { label: string; amount?: number; note?: string }[]; offerValidityDays?: number };
   paymentTerms?: string[];
   bank?: { accountName?: string; accountNo?: string; ifsc?: string; bank?: string; branch?: string };
@@ -43,6 +53,9 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       quoteNo: 'Quote No',
       date: 'Date',
       validTill: 'Valid till',
+      to: 'To',
+      subject: 'Subject',
+      reference: 'Reference',
       estimate: 'Estimate',
       description: 'Description',
       amount: 'Amount',
@@ -51,6 +64,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       tax: 'Tax',
       grandTotal: 'GRAND TOTAL',
       timeline: 'Project Timeline',
+      workSchedule: 'Work Schedule',
       lead: 'Lead',
       followUp: 'Follow‑up',
       quoted: 'Quotation',
@@ -68,6 +82,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       make: 'Make',
       notes: 'Notes',
       assumptions: 'Assumptions',
+      generalNotes: 'Notes',
       warranty: 'Warranty',
       priceSchedule: 'Price Schedule & Terms',
       line: 'Line',
@@ -91,6 +106,9 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       quoteNo: 'ക്വോട്ട് നമ്പർ',
       date: 'തീയതി',
       validTill: 'കാലാവധി',
+      to: 'ആര്‍ക്ക്',
+      subject: 'വിഷയം',
+      reference: 'റഫറൻസ്',
       estimate: 'ചെലവ്',
       description: 'വിവരണം',
       amount: 'തുക',
@@ -99,6 +117,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       tax: 'നികുതി',
       grandTotal: 'ആകെ തുക',
       timeline: 'സമയരേഖ',
+      workSchedule: 'ജോലി ഷെഡ്യൂൾ',
       lead: 'ലീഡ്',
       followUp: 'ഫോളോ‑അപ്പ്',
       quoted: 'ക്വോട്ടേഷൻ',
@@ -116,6 +135,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       make: 'മെക്ക്',
       notes: 'കുറിപ്പുകൾ',
       assumptions: 'അവകാശവാദങ്ങൾ',
+      generalNotes: 'കുറിപ്പുകൾ',
       warranty: 'വാറന്റി',
       priceSchedule: 'വില പട്ടികയും നിബന്ധനകളും',
       line: 'ലൈൻ',
@@ -216,6 +236,20 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   </div>
 </section>
 
+${data.cover ? `
+<section class="page-break card">
+  <h2>${S.quotation}</h2>
+  ${data.cover.to ? `<p><strong>${S.to}:</strong> ${data.cover.to}</p>` : ''}
+  <p><strong>${S.subject}:</strong> ${data.cover.subject || `Quotation for ${data.meta.capacityKW} kW ${data.meta.systemCategory} Solar Power Plant ${data.meta.program === 'PM Surya' ? '(PMSG Subsidy)' : ''}`}</p>
+  ${data.cover.reference ? `<p><strong>${S.reference}:</strong> ${data.cover.reference}</p>` : ''}
+  ${(data.cover.paragraphs || []).map(p => `<p>${p}</p>`).join('')}
+  ${data.cover.signatory ? `<div style="margin-top: 12px;">
+    <div>${data.cover.signatory.name || ''}</div>
+    <div class="muted">${data.cover.signatory.title || ''}</div>
+    ${data.cover.signatory.phone ? `<div class="muted">${data.cover.signatory.phone}</div>` : ''}
+  </div>` : ''}
+</section>` : ''}
+
 <section class="page-break card">
   <h2>${S.estimate}</h2>
   <table class="table">
@@ -263,11 +297,28 @@ ${data.boq?.rows?.length ? `
   </table>
 </section>` : ''}
 
+${data.workSchedule?.rows?.length ? `
+<section class="page-break card">
+  <h2>${S.workSchedule}</h2>
+  <table class="table">
+    <thead><tr><th>Scope</th><th>Details</th><th>Timeline</th></tr></thead>
+    <tbody>
+      ${data.workSchedule.rows.map(r => `<tr><td>${r.scope}</td><td>${r.details}</td><td>${r.timeline}</td></tr>`).join('')}
+    </tbody>
+  </table>
+</section>` : ''}
+
 <section class="page-break card">
   <h2>${S.assumptions}</h2>
   <ul>${(data.assumptions || []).map(x => `<li>${x}</li>`).join('')}</ul>
   ${data.warranty?.length ? `<h2>${S.warranty}</h2><ul>${data.warranty.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
 </section>
+
+${(data.notes && data.notes.length) ? `
+<section class="page-break card">
+  <h2>${S.generalNotes}</h2>
+  <ul>${data.notes.map(n => `<li>${n}</li>`).join('')}</ul>
+</section>` : ''}
 
 <section class="page-break card">
   <h2>${S.priceSchedule}</h2>

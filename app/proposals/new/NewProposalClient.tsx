@@ -35,6 +35,7 @@ export default function NewProposalClient() {
   const [generating, setGenerating] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
   const [leadId, setLeadId] = useState<string>('');
+  const [program, setProgram] = useState<'PM_Surya' | 'Commercial'>('PM_Surya');
 
   useEffect(() => {
     (async () => {
@@ -68,6 +69,7 @@ export default function NewProposalClient() {
           .single();
         setJob(j);
         setCustomer((j as any)?.customers?.[0] || null);
+        if ((j as any)?.program_type) setProgram(((j as any).program_type as 'PM_Surya' | 'Commercial'));
         if (k && k.length) {
           setKitName(k[0].kit_name);
           setPrice(Number(k[0].selling_price || 0));
@@ -107,14 +109,31 @@ export default function NewProposalClient() {
   }, [kitName]);
 
   useEffect(() => {
-    // Default quote number and validity 10 days
-    const q = `Q${new Date().toISOString().slice(0, 10).replaceAll('-', '')}_${job?.capacity_kw || ''}kW_${customer?.name || 'Customer'}`;
-    setQuoteNo(q);
+    // Default quote number using settings template
     const dt = new Date();
-    dt.setDate(dt.getDate() + 10);
-    setValidTill(dt.toISOString().slice(0, 10));
+    const yy = String(dt.getFullYear()).slice(-2);
+    const yyyy = String(dt.getFullYear());
+    const kw = String(job?.capacity_kw || '');
+    const system = String(job?.system_type || 'On-grid');
+    const name = String((customer?.name || 'Customer')).replace(/\s+/g, ' ').trim();
+    const place = String(job?.location || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const prefix = (settings?.quote_prefix || 'q').toString();
+    const fmt = (settings?.quote_format || '{YY}_{KW}KW_SOLAR PLANT_{NAME}').toString();
+    const body = fmt
+      .replaceAll('{YY}', yy)
+      .replaceAll('{YYYY}', yyyy)
+      .replaceAll('{KW}', kw)
+      .replaceAll('{SYSTEM}', system)
+      .replaceAll('{NAME}', name)
+      .replaceAll('{PLACE}', place);
+    setQuoteNo(`${prefix}${body}`);
+    const v = new Date();
+    v.setDate(v.getDate() + 10);
+    setValidTill(v.toISOString().slice(0, 10));
     setPlantBrand('');
-  }, [job, customer]);
+  }, [job, customer, settings]);
 
   const generate = async () => {
     setErrorMsg(null);
@@ -136,9 +155,9 @@ export default function NewProposalClient() {
       return;
     }
 
-    const payload: LongInvoiceData = {
-      lang,
-      company: {
+      const payload: LongInvoiceData = {
+        lang,
+        company: {
         name: (job?.tenants?.name as string) || 'My Company',
         address: companyAddress || 'Kerala',
         phone: companyPhone || '',
@@ -156,7 +175,7 @@ export default function NewProposalClient() {
         quoteNo: quoteNo || `Q-${Date.now()}`,
         dateISO: new Date().toISOString(),
         validTillISO: validTill || undefined,
-        program: 'PM Surya',
+        program: program === 'PM_Surya' ? 'PM Surya' : 'Commercial',
         systemCategory: job?.system_type || 'On-grid',
         plantBrand: plantBrand || '—',
         capacityKW: Number(job?.capacity_kw || 0),
@@ -637,6 +656,20 @@ export default function NewProposalClient() {
       {selectedKit?.description && (
         <p className="text-sm text-gray-600">{selectedKit.description}</p>
       )}
+      {!jobId && (
+        <div className="rounded border bg-white p-4">
+          <div className="text-sm font-medium mb-2">Program</div>
+          <select
+            className="rounded border px-3 py-2 text-sm"
+            value={program}
+            onChange={(e) => setProgram(e.target.value as 'PM_Surya' | 'Commercial')}
+          >
+            <option value="PM_Surya">PM Surya</option>
+            <option value="Commercial">Commercial</option>
+          </select>
+        </div>
+      )}
+
       {signedUrl && (
         <div className="rounded border bg-white p-4">
           <h3 className="font-semibold">PDF</h3>
@@ -686,6 +719,7 @@ export default function NewProposalClient() {
                         customer_id: custId!,
                         lead_id: leadId,
                         system_type: 'On-grid',
+                        program_type: program,
                         status: 'Lead',
                         capacity_kw: lead?.interested_capacity_kw || 1,
                         location: lead?.address || null,
