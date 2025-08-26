@@ -89,6 +89,15 @@ Verify server is healthy: `GET /api/health` should return `{ ok: true }`.
 - Ensure `vercel.json` is present; it grants extra memory/duration to the PDF function and configures a cron at 03:00 UTC.
 - Set a cron secret and configure Vercel Cron to call `POST /api/cron/daily` with `Authorization: Bearer $CRON_SECRET`
 
+### Supabase Auth URL Configuration (Important)
+
+After connecting your Supabase project, set these in Supabase → Authentication → URL Configuration:
+
+- Site URL: your production domain, e.g. `https://<your-project>.vercel.app` (or your custom domain)
+- Additional Redirect URLs: include your production domain(s) and `http://localhost:3000` for development
+
+Magic-link login uses these values. If not set, links may redirect to `http://localhost:3000` on production.
+
 ## Data Model
 
 See `drizzle/0001_init.sql` and `src/db/schema.ts` for enums and tables. Highlights:
