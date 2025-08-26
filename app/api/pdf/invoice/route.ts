@@ -56,14 +56,16 @@ export async function POST(req: NextRequest) {
     // Prefer serverless chromium on Vercel/AWS; fall back to local Chrome in dev
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
     // Lazy-load heavy deps to keep the bundle of other routes lean
-    const chromium = await import('@sparticuz/chromium').then(m => m.default || (m as any));
+    const chromium = await import('@sparticuz/chromium-min').then(m => m.default || (m as any));
     const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
       // 1) Always prefer explicit env paths if present (both prod and dev)
       const envCandidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
         process.env.CHROME_PATH,
-        // Common packaged path on Vercel/AWS when traced into the function
+        // Common packaged path on Vercel/AWS when traced into the function (min build)
+        '/var/task/node_modules/@sparticuz/chromium-min/bin/chromium',
+        // Legacy/common path when using the non-min package
         '/var/task/node_modules/@sparticuz/chromium/bin/chromium',
         // Common custom layer path (AWS Lambda)
         '/opt/chromium',
