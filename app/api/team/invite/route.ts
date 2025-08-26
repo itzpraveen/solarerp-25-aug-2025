@@ -18,7 +18,7 @@ function isMock() {
 export async function POST(req: NextRequest) {
   try {
     const ip = ipFromHeaders(req.headers);
-    const { ok } = takeToken(`team:invite:${ip}`, 30, 60_000);
+    const { ok } = await takeToken(`team:invite:${ip}`, 30, 60_000);
     if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
     // Ensure caller is authenticated and is an owner
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));

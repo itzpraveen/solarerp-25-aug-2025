@@ -13,7 +13,11 @@ export async function POST(req: NextRequest) {
   try {
     // Basic rate limit: 10/min per IP (configurable)
     const ip = ipFromHeaders(req.headers);
-    const { ok } = takeToken(`wa:${ip}`, Number(process.env.RATE_LIMIT_WHATSAPP_PER_MIN || 10), 60_000);
+    const { ok } = await takeToken(
+      `wa:${ip}`,
+      Number(process.env.RATE_LIMIT_WHATSAPP_PER_MIN || 10),
+      60_000,
+    );
     if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please try later.' }, { status: 429 });
 
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));

@@ -17,7 +17,11 @@ export async function POST(req: NextRequest) {
   try {
     // Basic rate limit: 5/min per IP (configurable). Best-effort, single-instance only.
     const ip = ipFromHeaders(req.headers);
-    const { ok, remaining } = takeToken(`pdf:${ip}`, Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5), 60_000);
+    const { ok, remaining } = await takeToken(
+      `pdf:${ip}`,
+      Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5),
+      60_000,
+    );
     if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please try later.' }, { status: 429 });
 
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));

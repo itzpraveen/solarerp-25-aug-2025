@@ -82,12 +82,25 @@ Both require env vars: `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY
 
 Verify server is healthy: `GET /api/health` should return `{ ok: true }`.
 
-6) Deploy to Vercel
+6) Deploy to Vercel (Production)
 
 - Import repo into Vercel
-- Add env vars listed above in Vercel → Project Settings → Environment Variables
-- Ensure `vercel.json` is present; it grants extra memory/duration to the PDF function and configures a cron at 03:00 UTC.
-- Set a cron secret and configure Vercel Cron to call `POST /api/cron/daily` with `Authorization: Bearer $CRON_SECRET`
+- Add environment variables (Project Settings → Environment Variables):
+  - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+  - `CRON_SECRET` (recommended) and/or `CRON_ALLOW_VERCEL_HEADER=1` if you prefer trusting `x-vercel-cron`
+  - `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` (if using WhatsApp send/webhook)
+  - `NEXT_PUBLIC_BASE_URL` set to your canonical origin (e.g., `https://yourdomain.com`)
+  - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` for distributed rate limiting (recommended)
+- Ensure only the root `vercel.json` exists (this repo includes it). It gives extra memory/duration for the PDF function and configures a cron at 03:00 UTC.
+- Cron: Vercel Cron sends GET with `x-vercel-cron` header. Either:
+  - Set `CRON_ALLOW_VERCEL_HEADER=1` to accept GETs with that header, or
+  - Keep `CRON_SECRET` and trigger with a secure POST from an external scheduler.
+
+Security checklist (production):
+- Do NOT commit `.env`. Rotate any previously committed keys immediately in Supabase and third parties, then remove from git history.
+- Use distributed rate limiting via Upstash (vars above). Without it, limits are per-instance only.
+- Avoid logging PII. Webhook logs are summarized by default.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. Never expose in client code.
 
 ### Supabase Auth URL Configuration (Important)
 

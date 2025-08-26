@@ -16,9 +16,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   // Light protection to avoid abuse; do not block Meta calls if you expect bursts
   const ip = ipFromHeaders(req.headers);
-  const { ok } = takeToken(`wa-webhook:${ip}`, 60, 60_000); // 60/min per IP
+  const { ok } = await takeToken(`wa-webhook:${ip}`, 60, 60_000); // 60/min per IP
   if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
   const body = await req.json().catch(() => ({}));
-  console.log('WhatsApp webhook', JSON.stringify(body));
+  try {
+    const summary = {
+      object: (body as any)?.object,
+      entry_len: Array.isArray((body as any)?.entry) ? (body as any)?.entry.length : 0,
+    };
+    console.log('WhatsApp webhook received', summary);
+  } catch {}
   return NextResponse.json({ ok: true });
 }
