@@ -27,6 +27,7 @@ export default function NewProposalClient() {
   const [companyLogo, setCompanyLogo] = useState<string>('');
   const [plantBrand, setPlantBrand] = useState<string>('');
   const [mlNote, setMlNote] = useState<string>('');
+  const [lang, setLang] = useState<'en' | 'ml'>('en');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
@@ -103,6 +104,7 @@ export default function NewProposalClient() {
     if (!quoteNo.trim()) { setErrorMsg('Quote number is required'); return; }
 
     const payload: LongInvoiceData = {
+      lang,
       company: {
         name: (job?.tenants?.name as string) || 'My Company',
         address: companyAddress || 'Kerala',
@@ -142,7 +144,7 @@ export default function NewProposalClient() {
       paymentTerms: ['70% Advance', '20% on installation', '10% on commissioning'],
       bank: undefined,
       signatures: undefined,
-      malayalamNote: mlNote || undefined,
+      malayalamNote: lang === 'ml' ? (mlNote || undefined) : undefined,
     };
 
     setGenerating(true);
@@ -152,7 +154,7 @@ export default function NewProposalClient() {
       const res = await fetch('/api/pdf/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ tenantId, payload, pathKey: `${tenantId}/${payload.meta.quoteNo}.pdf` })
+        body: JSON.stringify({ tenantId, payload })
       });
       const out = await res.json();
       if (!res.ok || !out.ok) throw new Error(out?.error || 'PDF generation failed');
@@ -162,7 +164,23 @@ export default function NewProposalClient() {
         const beforeTax = (Number(price) || 0) + addOnSum;
         const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
         const total = beforeTax + taxAmt;
-        await supabase.from('proposals').insert({ tenant_id: tenantId, job_id: jobId, date: new Date().toISOString().slice(0,10), kit_name: kitName, price_before_tax: beforeTax, tax: taxAmt, total, pdf_url: out.key });
+        const { data: created } = await supabase
+          .from('proposals')
+          .insert({ tenant_id: tenantId, job_id: jobId, date: new Date().toISOString().slice(0,10), kit_name: kitName, price_before_tax: beforeTax, tax: taxAmt, total, pdf_url: out.key, lang })
+          .select('id, total, pdf_url')
+          .single();
+        // Audit: proposal created
+        try {
+          const { data: user } = await supabase.auth.getUser();
+          await supabase.from('audit_logs').insert({
+            tenant_id: tenantId,
+            user_id: (user?.user as any)?.id || null,
+            action: 'proposals.create',
+            entity: 'jobs',
+            entity_id: jobId,
+            metadata: { proposalId: (created as any)?.id, total: (created as any)?.total, pdfKey: (created as any)?.pdf_url },
+          });
+        } catch {}
       }
     } catch (e: any) {
       setErrorMsg(String(e?.message || e));
@@ -192,6 +210,13 @@ export default function NewProposalClient() {
             </div>
           </div>
         )}
+        <div>
+          <label className="block text-sm font-medium">Language</label>
+          <select className="mt-1 w-full rounded border px-3 py-2" value={lang} onChange={(e) => setLang(e.target.value as 'en' | 'ml')}>
+            <option value="en">English</option>
+            <option value="ml">Malayalam</option>
+          </select>
+        </div>
         <div>
           <label className="block text-sm font-medium">Kit</label>
           <select className="mt-1 w-full rounded border px-3 py-2" value={kitName} onChange={(e) => setKitName(e.target.value)}>

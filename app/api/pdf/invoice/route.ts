@@ -3,8 +3,7 @@ export const runtime = 'nodejs';
 
 import { renderLongInvoiceHtml, LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
-import chromium from '@sparticuz/chromium-min';
-import puppeteer from 'puppeteer-core';
+import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import fs from 'node:fs';
 import { z } from 'zod';
 
@@ -16,6 +15,11 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Basic rate limit: 5/min per IP (configurable). Best-effort, single-instance only.
+    const ip = ipFromHeaders(req.headers);
+    const { ok, remaining } = takeToken(`pdf:${ip}`, Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5), 60_000);
+    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please try later.' }, { status: 429 });
+
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     // In mock mode, sb will be a mock client even without Authorization
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -29,12 +33,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    // Short-circuit in mock mode: return a fake signed URL without rendering
-    if (process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1') {
-      const safeQuote = String((payload as any).meta.quoteNo || '')
+    // Helper: sanitize filename
+    const sanitize = (s: string) =>
+      String(s || '')
         .replace(/\s+/g, '_')
         .replace(/[^A-Za-z0-9_\-]/g, '_');
-      const key = pathKey || `${tenantId}/${safeQuote}.pdf`;
+
+    // Short-circuit in mock mode: return a fake signed URL without rendering
+    if (process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1') {
+      const lang = (payload as any)?.lang === 'ml' ? 'ml' : 'en';
+      const safeQuote = sanitize((payload as any).meta.quoteNo || 'quote');
+      const key = `${tenantId}/${safeQuote}-${lang}.pdf`;
       await sb.storage.from('documents').upload(key, new Uint8Array(), { contentType: 'application/pdf', upsert: true } as any);
       const { data: signed } = await sb.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);
       return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
@@ -44,6 +53,9 @@ export async function POST(req: NextRequest) {
 
     // Prefer serverless chromium on Vercel/AWS; fall back to local Chrome in dev
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
+    // Lazy-load heavy deps to keep the bundle of other routes lean
+    const chromium = await import('@sparticuz/chromium-min').then(m => m.default || (m as any));
+    const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
     async function resolveExecutablePath() {
       if (isServerless) {
         return chromium.executablePath();
@@ -67,7 +79,9 @@ export async function POST(req: NextRequest) {
 
     const executablePath = await resolveExecutablePath();
     if (!executablePath) {
-      return NextResponse.json({ ok: false, error: 'Chromium/Chrome not found. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH to a local Chrome binary.' }, { status: 500 });
+      const id = Math.random().toString(36).slice(2, 10);
+      console.error('api/pdf/invoice chrome-missing', { id, candidatesTried: true });
+      return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
     }
 
     const browser = await puppeteer.launch({
@@ -87,11 +101,10 @@ export async function POST(req: NextRequest) {
     });
     await browser.close();
 
-    // Sanitize object key to avoid slashes/special chars
-    const safeQuote = String((payload as any).meta.quoteNo || '')
-      .replace(/\s+/g, '_')
-      .replace(/[^A-Za-z0-9_\-]/g, '_');
-    const key = pathKey || `${tenantId}/${safeQuote}.pdf`;
+    // Sanitize object key and suffix by language to keep EN/ML separate
+    const lang = (payload as any)?.lang === 'ml' ? 'ml' : 'en';
+    const safeQuote = sanitize((payload as any).meta.quoteNo || 'quote');
+    const key = `${tenantId}/${safeQuote}-${lang}.pdf`;
 
     const { error } = await sb.storage.from('documents').upload(key, pdf, {
       contentType: 'application/pdf',
@@ -105,7 +118,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/pdf/invoice', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
   }
 }

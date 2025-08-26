@@ -33,12 +33,5 @@ export const supabaseBrowser = () => {
 };
 
 export const supabaseAdmin = () => {
-  if (isMock()) {
-    if (!mockClient) mockClient = getMockClient() as unknown as SupabaseClient;
-    return mockClient;
-  }
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  throw new Error('supabaseAdmin moved to server-only module: import { supabaseAdmin } from "@/lib/supabaseAdmin"');
 };

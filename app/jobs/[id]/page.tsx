@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import Image from 'next/image';
+import { useParams, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Breadcrumbs from '~/components/Breadcrumbs';
 import Button from '~/components/ui/Button';
-import { JOB_STATUSES, statusLabel } from '@/lib/status';
+import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 
 type Job = any;
 
@@ -13,7 +14,8 @@ export default function JobDetailPage() {
   const params = useParams<{ id: string }>();
   const supabase = supabaseBrowser();
   const [job, setJob] = useState<Job | null>(null);
-  const [tab, setTab] = useState<'overview' | 'finance' | 'docs' | 'tasks' | 'proposals'>('overview');
+  const [tab, setTab] = useState<'overview' | 'finance' | 'docs' | 'tasks' | 'proposals' | 'activity'>('overview');
+  const search = useSearchParams();
   const [edit, setEdit] = useState<any | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -39,6 +41,14 @@ export default function JobDetailPage() {
     })();
   }, [params.id]);
 
+  useEffect(() => {
+    const t = search.get('tab');
+    if (t && ['overview','finance','docs','tasks','proposals','activity'].includes(t)) {
+      setTab(t as any);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -48,8 +58,8 @@ export default function JobDetailPage() {
       {flash && <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">{flash}</div>}
       <Breadcrumbs items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]} />
       <div className="flex flex-wrap gap-2">
-        {(['overview', 'finance', 'docs', 'tasks', 'proposals'] as const).map((t) => (
-          <Button key={t} variant={tab === t ? 'primary' : 'outline'} size="sm" onClick={() => setTab(t)}>
+        {(['overview', 'finance', 'docs', 'tasks', 'proposals', 'activity'] as const).map((t) => (
+          <Button key={t} variant={tab === t ? 'primary' : 'outline'} size="sm" onClick={() => { setTab(t); const url = `${location.pathname}?tab=${t}`; window.history.replaceState(null, '', url); }}>
             {t[0].toUpperCase() + t.slice(1)}
           </Button>
         ))}
@@ -66,7 +76,7 @@ export default function JobDetailPage() {
                 className="rounded border px-2 py-1 text-sm"
                 value={job?.status}
                 onChange={async (e) => {
-                  const newStatus = e.target.value;
+                  const newStatus = e.target.value as JobStatus;
                   if (!confirm(`Change status to ${newStatus}?`)) return;
                   const { data: session } = await supabase.auth.getSession();
                   const token = session.session?.access_token;
@@ -95,8 +105,8 @@ export default function JobDetailPage() {
                   setJob(refreshed as any);
                 }}
               >
-                {JOB_STATUSES.map((s) => (
-                  <option key={s} value={s}>{statusLabel(s as any)}</option>
+                {JOB_STATUSES.map((s: JobStatus) => (
+                  <option key={s} value={s}>{statusLabel(s)}</option>
                 ))}
               </select>
             </div>
@@ -172,6 +182,7 @@ export default function JobDetailPage() {
       {tab === 'docs' && <Docs jobId={params.id} />}
       {tab === 'tasks' && <Tasks jobId={params.id} />}
       {tab === 'proposals' && <Proposals jobId={params.id} />}
+      {tab === 'activity' && <Activity jobId={params.id} />}
     </div>
   );
 }
@@ -208,6 +219,21 @@ function Finance({ jobId }: { jobId: string }) {
               <select className="rounded border px-2 py-1 text-xs" value={i.status || 'Draft'} onChange={async (e) => {
                 const newStatus = e.target.value as any;
                 await supabase.from('invoices').update({ status: newStatus }).eq('id', i.id);
+                // Audit: invoice status update
+                const [{ data: prof }, { data: user }] = await Promise.all([
+                  supabase.from('profiles').select('tenant_id').maybeSingle(),
+                  supabase.auth.getUser(),
+                ]);
+                if (prof?.tenant_id) {
+                  await supabase.from('audit_logs').insert({
+                    tenant_id: (prof as any).tenant_id,
+                    user_id: (user?.user as any)?.id || null,
+                    action: 'invoices.update_status',
+                    entity: 'jobs',
+                    entity_id: jobId,
+                    metadata: { invoiceId: i.id, newStatus },
+                  });
+                }
                 const { data: inv } = await supabase.from('invoices').select('*').eq('job_id', jobId);
                 setInvoices(inv || []);
               }}>
@@ -230,7 +256,21 @@ function Finance({ jobId }: { jobId: string }) {
               <button className="rounded bg-blue-600 px-3 py-2 text-white text-sm" onClick={async () => {
                 const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
                 const due = new Date(); due.setDate(due.getDate() + 7);
-                await supabase.from('invoices').insert({ tenant_id: prof!.tenant_id, job_id: jobId, date: new Date().toISOString().slice(0,10), invoice_type: invType, amount_before_tax: invAmt, tax: 0, total: invAmt, due_date: due.toISOString().slice(0,10), status: 'Draft' });
+                const { data: created } = await supabase
+                  .from('invoices')
+                  .insert({ tenant_id: prof!.tenant_id, job_id: jobId, date: new Date().toISOString().slice(0,10), invoice_type: invType, amount_before_tax: invAmt, tax: 0, total: invAmt, due_date: due.toISOString().slice(0,10), status: 'Draft' })
+                  .select('id, total, invoice_type')
+                  .single();
+                // Audit: invoice created
+                const { data: user } = await supabase.auth.getUser();
+                await supabase.from('audit_logs').insert({
+                  tenant_id: (prof as any)!.tenant_id,
+                  user_id: (user?.user as any)?.id || null,
+                  action: 'invoices.create',
+                  entity: 'jobs',
+                  entity_id: jobId,
+                  metadata: { invoiceId: (created as any)?.id, total: (created as any)?.total, type: (created as any)?.invoice_type },
+                });
                 const { data: inv } = await supabase.from('invoices').select('*').eq('job_id', jobId);
                 setInvoices(inv || []);
                 setShowInv(false); setInvAmt(0);
@@ -259,12 +299,185 @@ function Finance({ jobId }: { jobId: string }) {
             const { data: inv } = await supabase.from('invoices').select('id').eq('job_id', jobId).order('date', { ascending: false }).limit(1).maybeSingle();
             if (!inv) return alert('Create an invoice first');
             const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
-            await supabase.from('payments').insert({ tenant_id: prof!.tenant_id, invoice_id: inv.id, date: (payDate || new Date().toISOString().slice(0,10)), mode: payMode, amount: payAmt, reference: payRef || null });
+            const { data: created } = await supabase
+              .from('payments')
+              .insert({ tenant_id: prof!.tenant_id, invoice_id: inv.id, date: (payDate || new Date().toISOString().slice(0,10)), mode: payMode, amount: payAmt, reference: payRef || null })
+              .select('id, amount')
+              .single();
+            // Audit: payment recorded
+            const { data: user } = await supabase.auth.getUser();
+            await supabase.from('audit_logs').insert({
+              tenant_id: (prof as any)!.tenant_id,
+              user_id: (user?.user as any)?.id || null,
+              action: 'payments.create',
+              entity: 'jobs',
+              entity_id: jobId,
+              metadata: { paymentId: (created as any)?.id, amount: (created as any)?.amount },
+            });
             const { data: pay } = await supabase.from('payments').select('*, invoices(total)').in('invoice_id', [inv.id]);
             setPayments(pay || []);
             setPayAmt(0); setPayDate(''); setPayRef('');
           }}>Record Payment</button>
         </div>
+      </Card>
+    </div>
+  );
+}
+
+function Activity({ jobId }: { jobId: string }) {
+  const supabase = supabaseBrowser();
+  const [rows, setRows] = useState<any[]>([]);
+  const [users, setUsers] = useState<Record<string, { display_name?: string | null }>>({});
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const { data, error } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .eq('entity', 'jobs')
+          .eq('entity_id', jobId)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        const list = (data as any[]) || [];
+        setRows(list);
+        const userIds = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean)));
+        if (userIds.length) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('user_id, display_name')
+            .in('user_id', userIds as string[]);
+          const map: Record<string, { display_name?: string | null }> = {};
+          for (const p of (profs as any[]) || []) map[p.user_id] = { display_name: p.display_name };
+          setUsers(map);
+        } else {
+          setUsers({});
+        }
+      } catch (e: any) {
+        setErr(String(e?.message || e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [jobId]);
+
+  const who = (id?: string | null) => (id ? (users[id!]?.display_name || id.slice(0, 8)) : 'System');
+  const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : '');
+  const goTab = (t: string) => {
+    const url = `${location.pathname}?tab=${t}`;
+    window.history.replaceState(null, '', url);
+    window.location.href = url;
+  };
+  const openProposalKey = async (key?: string | null) => {
+    if (!key) return;
+    const { data } = await supabase.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+  };
+
+  return (
+    <div className="space-y-3">
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
+      <Card title="Activity">
+        {loading ? (
+          <div className="text-sm text-gray-600">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="text-sm text-gray-600">No activity yet</div>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {rows.map((r) => {
+              let content: any = r.action || '—';
+              let action: any = null;
+              switch (r.action) {
+                case 'jobs.update_status':
+                  content = `Status changed to ${r.metadata?.newStatus || '—'}`;
+                  break;
+                case 'invoices.create':
+                  content = `Invoice created (${r.metadata?.type || '—'}) • ₹${r.metadata?.total ?? '—'}`;
+                  action = <button className="text-xs text-blue-600" onClick={() => goTab('finance')}>Finance</button>;
+                  break;
+                case 'invoices.update_status':
+                  content = `Invoice marked ${r.metadata?.newStatus || '—'}`;
+                  action = <button className="text-xs text-blue-600" onClick={() => goTab('finance')}>Finance</button>;
+                  break;
+                case 'payments.create':
+                  content = `Payment recorded • ₹${r.metadata?.amount ?? '—'}`;
+                  action = <button className="text-xs text-blue-600" onClick={() => goTab('finance')}>Finance</button>;
+                  break;
+                case 'documents.upload':
+                  content = `Document uploaded (${r.metadata?.docType || 'document'})`;
+                  action = (
+                    <div className="flex items-center gap-2">
+                      <button className="text-xs text-blue-600" onClick={() => goTab('docs')}>Docs</button>
+                      {r.metadata?.fileUrl && (
+                        <a className="text-xs text-gray-700" href={r.metadata.fileUrl} target="_blank" rel="noreferrer">Open</a>
+                      )}
+                    </div>
+                  );
+                  break;
+                case 'proposals.create':
+                  content = `Proposal created • ₹${r.metadata?.total ?? '—'}`;
+                  action = (
+                    <div className="flex items-center gap-2">
+                      <button className="text-xs text-blue-600" onClick={() => goTab('proposals')}>Proposals</button>
+                      {r.metadata?.pdfKey && (
+                        <button className="text-xs text-gray-700" onClick={() => openProposalKey(r.metadata.pdfKey)}>Open</button>
+                      )}
+                    </div>
+                  );
+                  break;
+                case 'proposals.update_status':
+                  content = `Proposal ${r.metadata?.status || 'Updated'}`;
+                  action = (
+                    <div className="flex items-center gap-2">
+                      <button className="text-xs text-blue-600" onClick={() => goTab('proposals')}>Proposals</button>
+                      {r.metadata?.pdfKey && (
+                        <button className="text-xs text-gray-700" onClick={() => openProposalKey(r.metadata.pdfKey)}>Open</button>
+                      )}
+                    </div>
+                  );
+                  break;
+                case 'proposals.whatsapp_send':
+                  content = `Proposal sent via WhatsApp to ${r.metadata?.to || '—'}`;
+                  action = (
+                    <div className="flex items-center gap-2">
+                      <button className="text-xs text-blue-600" onClick={() => goTab('proposals')}>Proposals</button>
+                      {r.metadata?.pdfUrl ? (
+                        <a className="text-xs text-gray-700" href={r.metadata.pdfUrl} target="_blank" rel="noreferrer">Open</a>
+                      ) : r.metadata?.pdfKey ? (
+                        <button className="text-xs text-gray-700" onClick={() => openProposalKey(r.metadata.pdfKey)}>Open</button>
+                      ) : null}
+                    </div>
+                  );
+                  break;
+                case 'tasks.create':
+                  content = `Task created: ${r.metadata?.title || '—'}`;
+                  action = <button className="text-xs text-blue-600" onClick={() => goTab('tasks')}>Tasks</button>;
+                  break;
+                case 'tasks.update':
+                  content = `Task updated`;
+                  action = <button className="text-xs text-blue-600" onClick={() => goTab('tasks')}>Tasks</button>;
+                  break;
+                case 'tasks.delete':
+                  content = `Task deleted: ${r.metadata?.title || '—'}`;
+                  action = <button className="text-xs text-blue-600" onClick={() => goTab('tasks')}>Tasks</button>;
+                  break;
+              }
+              return (
+                <li key={r.id} className="flex items-center justify-between rounded border bg-white p-2">
+                  <span>{content}</span>
+                  <span className="flex items-center gap-3 text-xs text-gray-600">
+                    {action}
+                    <span>{who(r.user_id)} • {fmt(r.created_at)}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Card>
     </div>
   );
@@ -324,6 +537,23 @@ function Proposals({ jobId }: { jobId: string }) {
     await supabase.from('proposals').update({ terms: `[STATUS:${status}] ${rest}` }).eq('id', id);
     const { data } = await supabase.from('proposals').select('*').eq('job_id', jobId).order('"date"', { ascending: false });
     setRows(data || []);
+    // Audit: proposal status update
+    try {
+      const [{ data: prof }, { data: user }] = await Promise.all([
+        supabase.from('profiles').select('tenant_id').maybeSingle(),
+        supabase.auth.getUser(),
+      ]);
+      if (prof?.tenant_id) {
+        await supabase.from('audit_logs').insert({
+          tenant_id: (prof as any).tenant_id,
+          user_id: (user?.user as any)?.id || null,
+          action: 'proposals.update_status',
+          entity: 'jobs',
+          entity_id: jobId,
+          metadata: { proposalId: id, status, pdfKey: row?.pdf_url || null },
+        });
+      }
+    } catch {}
     if (jobUpdate === 'Won') {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
@@ -372,6 +602,23 @@ function Proposals({ jobId }: { jobId: string }) {
                           variables: [customer!.name || 'Customer', String(capacity || ''), url],
                         }),
                       });
+                      // Audit: proposal WhatsApp send
+                      try {
+                        const [{ data: prof }, { data: user }] = await Promise.all([
+                          supabase.from('profiles').select('tenant_id').maybeSingle(),
+                          supabase.auth.getUser(),
+                        ]);
+                        if (prof?.tenant_id) {
+                          await supabase.from('audit_logs').insert({
+                            tenant_id: (prof as any).tenant_id,
+                            user_id: (user?.user as any)?.id || null,
+                            action: 'proposals.whatsapp_send',
+                            entity: 'jobs',
+                            entity_id: jobId,
+                            metadata: { proposalId: r.id, to: customer!.phone, pdfUrl: url },
+                          });
+                        }
+                      } catch {}
                       setFlash('WhatsApp send enqueued'); setTimeout(() => setFlash(null), 1500);
                     }}
                   >
@@ -418,7 +665,21 @@ function Docs({ jobId }: { jobId: string }) {
     const key = `${prof!.tenant_id}/${crypto.randomUUID()}-${file.name}`;
     await supabase.storage.from('documents').upload(key, file);
     const { data: signed } = await supabase.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);
-    await supabase.from('documents').insert({ tenant_id: prof!.tenant_id, job_id: jobId, file_url: signed!.signedUrl, doc_type: docType || 'upload' });
+    const { data: doc } = await supabase
+      .from('documents')
+      .insert({ tenant_id: prof!.tenant_id, job_id: jobId, file_url: signed!.signedUrl, doc_type: docType || 'upload' })
+      .select('id, file_url, doc_type')
+      .single();
+    // Audit: document uploaded
+    const { data: user } = await supabase.auth.getUser();
+    await supabase.from('audit_logs').insert({
+      tenant_id: (prof as any)!.tenant_id,
+      user_id: (user?.user as any)?.id || null,
+      action: 'documents.upload',
+      entity: 'jobs',
+      entity_id: jobId,
+      metadata: { documentId: (doc as any)?.id, docType: (doc as any)?.doc_type, fileUrl: (doc as any)?.file_url },
+    });
     const { data } = await supabase.from('documents').select('*').eq('job_id', jobId);
     setDocs(data || []);
     setFile(null);
@@ -450,7 +711,7 @@ function Docs({ jobId }: { jobId: string }) {
               <div className="flex items-center gap-3">
                 {isImg ? (
                   <a href={url} target="_blank" rel="noreferrer">
-                    <img src={url} alt="preview" className="h-12 w-12 rounded object-cover" />
+                    <Image src={url} alt="preview" width={48} height={48} className="h-12 w-12 rounded object-cover" unoptimized />
                   </a>
                 ) : (
                   <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-600">PDF</div>
@@ -480,34 +741,279 @@ function Docs({ jobId }: { jobId: string }) {
 function Tasks({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
   const [tasks, setTasks] = useState<any[]>([]);
+  const [team, setTeam] = useState<any[]>([]);
+  const [memberMap, setMemberMap] = useState<Record<string, any>>({});
+  const [myUserId, setMyUserId] = useState<string>('');
+
+  // Add form state
   const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
+  const [assignedTo, setAssignedTo] = useState<string>('');
+  const [notes, setNotes] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Filters / sorting
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'InProgress' | 'Blocked' | 'Done'>('All');
+  const [assigneeFilter, setAssigneeFilter] = useState<'All' | 'Me' | 'Unassigned' | string>('All');
+  const [search, setSearch] = useState('');
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<any>({});
+
+  const load = async () => {
+    setErr(null);
+    const { data: t } = await supabase.from('tasks').select('*').eq('job_id', jobId);
+    setTasks(t || []);
+  };
+
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('tasks').select('*').eq('job_id', jobId);
-      setTasks(data || []);
+      setErr(null);
+      try {
+        const [{ data: user }, { data: prof }] = await Promise.all([
+          supabase.auth.getUser(),
+          supabase.from('profiles').select('tenant_id').maybeSingle(),
+        ]);
+        const uid = (user?.user as any)?.id || '';
+        setMyUserId(uid);
+        const tenantId = (prof as any)?.tenant_id;
+        const [{ data: t }, { data: members }] = await Promise.all([
+          supabase.from('tasks').select('*').eq('job_id', jobId),
+          tenantId ? supabase.from('profiles').select('user_id, display_name').eq('tenant_id', tenantId) : Promise.resolve({ data: [] as any[] }),
+        ]);
+        setTasks(t || []);
+        const list = (members as any[]) || [];
+        setTeam(list);
+        const map: Record<string, any> = {};
+        for (const m of list) map[m.user_id] = m;
+        setMemberMap(map);
+      } catch (e: any) {
+        setErr(String(e?.message || e));
+      }
     })();
   }, [jobId]);
-  const add = async () => {
-    const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
-    await supabase.from('tasks').insert({ tenant_id: prof!.tenant_id, job_id: jobId, title });
-    const { data } = await supabase.from('tasks').select('*').eq('job_id', jobId);
-    setTasks(data || []);
-    setTitle('');
+
+  const audit = async (action: string, metadata: Record<string, any>) => {
+    try {
+      const [{ data: prof }, { data: user }] = await Promise.all([
+        supabase.from('profiles').select('tenant_id').maybeSingle(),
+        supabase.auth.getUser(),
+      ]);
+      if ((prof as any)?.tenant_id) {
+        await supabase.from('audit_logs').insert({
+          tenant_id: (prof as any).tenant_id,
+          user_id: (user?.user as any)?.id || null,
+          action,
+          entity: 'jobs',
+          entity_id: jobId,
+          metadata,
+        });
+      }
+    } catch {}
   };
+
+  const add = async () => {
+    if (!title.trim()) { alert('Title is required'); return; }
+    setAdding(true);
+    setErr(null);
+    try {
+      const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+      const { data: created } = await supabase
+        .from('tasks')
+        .insert({
+        tenant_id: (prof as any)!.tenant_id,
+        job_id: jobId,
+        title: title.trim(),
+        due_date: dueDate || null,
+        priority,
+        assigned_to: assignedTo || null,
+        notes: notes || null,
+        status: 'Open',
+      })
+        .select('id, title')
+        .single();
+      await audit('tasks.create', { taskId: (created as any)?.id, title: (created as any)?.title });
+      await load();
+      setTitle(''); setDueDate(''); setPriority('Medium'); setAssignedTo(''); setNotes('');
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const updateTask = async (id: string, patch: Record<string, any>) => {
+    setErr(null);
+    await supabase.from('tasks').update(patch).eq('id', id);
+    await audit('tasks.update', { taskId: id, patch });
+    await load();
+  };
+
+  const removeTask = async (id: string) => {
+    if (!confirm('Delete this task?')) return;
+    const t = tasks.find((x) => x.id === id);
+    await supabase.from('tasks').delete().eq('id', id);
+    await audit('tasks.delete', { taskId: id, title: t?.title });
+    await load();
+  };
+
+  const statusOrder: Record<string, number> = { Open: 0, InProgress: 1, Blocked: 2, Done: 3 };
+  const priorityOrder: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+  const today = new Date().toISOString().slice(0, 10);
+
+  const filtered = tasks
+    .filter((t) => (statusFilter === 'All' ? true : t.status === statusFilter))
+    .filter((t) => {
+      if (assigneeFilter === 'All') return true;
+      if (assigneeFilter === 'Unassigned') return !t.assigned_to;
+      if (assigneeFilter === 'Me') return t.assigned_to === myUserId;
+      return t.assigned_to === assigneeFilter;
+    })
+    .filter((t) => (search.trim() ? String(t.title || '').toLowerCase().includes(search.trim().toLowerCase()) || String(t.notes || '').toLowerCase().includes(search.trim().toLowerCase()) : true))
+    .sort((a, b) => {
+      // Status, then due date asc (nulls last), then priority
+      const so = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+      if (so !== 0) return so;
+      const ad = a.due_date ? a.due_date : '9999-99-99';
+      const bd = b.due_date ? b.due_date : '9999-99-99';
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      const po = (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99);
+      if (po !== 0) return po;
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+
+  const openCount = tasks.filter((t) => t.status !== 'Done').length;
+  const overdueCount = tasks.filter((t) => t.status !== 'Done' && t.due_date && t.due_date < today).length;
+
   return (
     <div className="space-y-4">
-      <Card>
-        <div className="flex gap-2">
-          <input className="w-full rounded border px-3 py-2" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Button onClick={add}>Add</Button>
+      {err && <div className="rounded border bg-red-50 p-2 text-sm text-red-700">{err}</div>}
+
+      <Card title="Add Task">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+          <input className="md:col-span-2 rounded border px-3 py-2" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input className="rounded border px-3 py-2" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <select className="rounded border px-2 py-2 text-sm" value={priority} onChange={(e) => setPriority(e.target.value as any)}>
+            {['Low','Medium','High','Urgent'].map((p) => (<option key={p} value={p}>{p}</option>))}
+          </select>
+          <select className="rounded border px-2 py-2 text-sm" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+            <option value="">Unassigned</option>
+            {team.map((m) => (
+              <option key={m.user_id} value={m.user_id}>{m.display_name || m.user_id}</option>
+            ))}
+          </select>
+        </div>
+        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-5">
+          <textarea className="md:col-span-4 rounded border px-3 py-2" rows={2} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <Button onClick={add} loading={adding}>Add</Button>
         </div>
       </Card>
-      <ul className="space-y-2">
-        {tasks.map((t) => (
-          <li key={t.id} className="rounded border bg-white p-3 text-sm">{t.title}</li>
-        ))}
-        {tasks.length === 0 && <li className="rounded border bg-white p-3 text-sm text-gray-600">No tasks</li>}
-      </ul>
+
+      <Card
+        title={`Tasks (${filtered.length})`}
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="hidden md:inline text-xs text-gray-600">Open: {openCount}{overdueCount ? ` • Overdue: ${overdueCount}` : ''}</span>
+            <input className="rounded border px-2 py-1 text-sm" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <select className="rounded border px-2 py-1 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+              {['All','Open','InProgress','Blocked','Done'].map(s => (<option key={s} value={s}>{s}</option>))}
+            </select>
+            <select className="rounded border px-2 py-1 text-sm" value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value as any)}>
+              <option value="All">All</option>
+              <option value="Me">Assigned to me</option>
+              <option value="Unassigned">Unassigned</option>
+              {team.map((m) => (
+                <option key={m.user_id} value={m.user_id}>{m.display_name || m.user_id}</option>
+              ))}
+            </select>
+          </div>
+        }
+      >
+        <ul className="space-y-2">
+          {filtered.map((t) => {
+            const overdue = t.status !== 'Done' && t.due_date && t.due_date < today;
+            const dueSoon = t.status !== 'Done' && t.due_date && t.due_date >= today && (new Date(t.due_date).getTime() - new Date(today).getTime()) <= 2*24*60*60*1000;
+            const isEditing = editingId === t.id;
+            return (
+              <li key={t.id} className="rounded border bg-white p-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <input type="checkbox" className="mt-1" checked={t.status === 'Done'} onChange={(e) => updateTask(t.id, { status: e.target.checked ? 'Done' : 'Open' })} />
+                    <div>
+                      {!isEditing ? (
+                        <div className={"font-medium " + (t.status === 'Done' ? 'line-through text-gray-500' : '')}>{t.title || '—'}</div>
+                      ) : (
+                        <input className="rounded border px-2 py-1 w-full" value={edit.title ?? t.title ?? ''} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+                      )}
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-700">
+                        <span className={"rounded-full px-2 py-0.5 border " + (t.priority === 'Urgent' ? 'border-red-500 text-red-600' : t.priority === 'High' ? 'border-orange-500 text-orange-600' : t.priority === 'Low' ? 'border-gray-400 text-gray-600' : 'border-blue-400 text-blue-600')}>{t.priority || 'Medium'}</span>
+                        <span className={"rounded-full px-2 py-0.5 border " + (t.status === 'Blocked' ? 'border-amber-500 text-amber-600' : t.status === 'InProgress' ? 'border-sky-500 text-sky-600' : t.status === 'Done' ? 'border-emerald-500 text-emerald-600' : 'border-gray-400 text-gray-600')}>{t.status || 'Open'}</span>
+                        <span className={"rounded-full px-2 py-0.5 border " + (overdue ? 'border-red-500 text-red-600' : dueSoon ? 'border-orange-500 text-orange-600' : 'border-gray-400 text-gray-600')}>{t.due_date ? `Due ${t.due_date}` : 'No due date'}</span>
+                        <span className="rounded-full px-2 py-0.5 border border-gray-300">{t.assigned_to ? (memberMap[t.assigned_to]?.display_name || t.assigned_to) : 'Unassigned'}</span>
+                      </div>
+                      {t.notes && !isEditing && (
+                        <div className="mt-2 text-gray-700">{t.notes}</div>
+                      )}
+                      {isEditing && (
+                        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-4">
+                          <input className="rounded border px-2 py-1" type="date" value={edit.due_date ?? t.due_date ?? ''} onChange={(e) => setEdit({ ...edit, due_date: e.target.value })} />
+                          <select className="rounded border px-2 py-1" value={edit.priority ?? t.priority ?? 'Medium'} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
+                            {['Low','Medium','High','Urgent'].map(p => (<option key={p} value={p}>{p}</option>))}
+                          </select>
+                          <select className="rounded border px-2 py-1" value={edit.assigned_to ?? t.assigned_to ?? ''} onChange={(e) => setEdit({ ...edit, assigned_to: e.target.value })}>
+                            <option value="">Unassigned</option>
+                            {team.map(m => (<option key={m.user_id} value={m.user_id}>{m.display_name || m.user_id}</option>))}
+                          </select>
+                          <select className="rounded border px-2 py-1" value={edit.status ?? t.status ?? 'Open'} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+                            {['Open','InProgress','Blocked','Done'].map(s => (<option key={s} value={s}>{s}</option>))}
+                          </select>
+                          <textarea className="md:col-span-4 rounded border px-2 py-1" rows={2} value={edit.notes ?? t.notes ?? ''} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!isEditing ? (
+                      <>
+                        {t.status !== 'InProgress' && t.status !== 'Done' && (
+                          <button className="text-xs text-blue-600" onClick={() => updateTask(t.id, { status: 'InProgress' })}>Start</button>
+                        )}
+                        {t.status !== 'Blocked' && t.status !== 'Done' && (
+                          <button className="text-xs text-amber-600" onClick={() => updateTask(t.id, { status: 'Blocked' })}>Block</button>
+                        )}
+                        {t.status === 'Done' && (
+                          <button className="text-xs text-gray-600" onClick={() => updateTask(t.id, { status: 'Open' })}>Reopen</button>
+                        )}
+                        <button className="text-xs text-gray-700" onClick={() => { setEditingId(t.id); setEdit({}); }}>Edit</button>
+                        <button className="text-xs text-red-600" onClick={() => removeTask(t.id)}>Delete</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="text-xs text-gray-700" onClick={() => { setEditingId(null); setEdit({}); }}>Cancel</button>
+                        <button className="text-xs text-emerald-700" onClick={async () => {
+                          await updateTask(t.id, {
+                            title: edit.title ?? t.title,
+                            due_date: edit.due_date ?? t.due_date,
+                            priority: edit.priority ?? t.priority,
+                            assigned_to: edit.assigned_to === '' ? null : (edit.assigned_to ?? t.assigned_to),
+                            status: edit.status ?? t.status,
+                            notes: edit.notes ?? t.notes,
+                          });
+                          setEditingId(null); setEdit({});
+                        }}>Save</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+          {filtered.length === 0 && <li className="rounded border bg-white p-3 text-sm text-gray-600">No matching tasks</li>}
+        </ul>
+      </Card>
     </div>
   );
 }

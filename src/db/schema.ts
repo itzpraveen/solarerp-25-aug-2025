@@ -96,6 +96,7 @@ export const proposals = pgTable('proposals', {
   validTill: date('valid_till'),
   pdfUrl: text('pdf_url'),
   terms: text('terms'),
+  lang: text('lang').default('en'),
 });
 
 export const items = pgTable('items', {
@@ -209,4 +210,3 @@ export const settings = pgTable('settings', {
   proposalNoteMl: text('proposal_note_ml'),
   depositPercent: numeric('deposit_percent', { precision: 5, scale: 2 }).default('0'),
 });
-

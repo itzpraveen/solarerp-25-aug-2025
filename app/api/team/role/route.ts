@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
+import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
+import { logAudit } from '@/lib/audit';
 
 const BodySchema = z.object({
   userId: z.string().min(1),
@@ -9,6 +11,9 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = ipFromHeaders(req.headers);
+    const { ok } = takeToken(`team:role:${ip}`, 60, 60_000);
+    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
@@ -36,10 +41,24 @@ export async function POST(req: NextRequest) {
     }
 
     const { error } = await sb.from('profiles').update({ role }).eq('user_id', userId).eq('tenant_id', tenantId);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      const id = Math.random().toString(36).slice(2, 10);
+      console.error('api/team/role db', { id, error });
+      return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+    }
+    // Audit
+    await logAudit((sb as any), {
+      tenantId,
+      userId: (me as any)?.user_id,
+      action: 'team.change_role',
+      entity: 'profiles',
+      entityId: userId,
+      metadata: { role },
+    });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/team/role', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
   }
 }

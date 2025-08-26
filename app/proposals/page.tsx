@@ -55,7 +55,7 @@ export default function ProposalsListPage() {
             {rows.map((r) => (
               <li key={r.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
                 <div>
-                  <div className="font-medium">{r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}</div>
+                  <div className="font-medium">{r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'} {r.lang ? `• ${String(r.lang).toUpperCase()}` : ''}</div>
                   <div className="text-xs text-gray-600">Job: {r.jobs?.id || '—'} • Customer: {r.jobs?.customers?.[0]?.name || '—'}</div>
                 </div>
                 {r.pdf_url ? (
@@ -71,4 +71,3 @@ export default function ProposalsListPage() {
     </div>
   );
 }
-

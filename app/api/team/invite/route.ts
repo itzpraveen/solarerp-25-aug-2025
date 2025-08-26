@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
+import { logAudit } from '@/lib/audit';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getDbRef } from '@/lib/supabaseMock';
 
 const BodySchema = z.object({
@@ -15,6 +17,9 @@ function isMock() {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = ipFromHeaders(req.headers);
+    const { ok } = takeToken(`team:invite:${ip}`, 30, 60_000);
+    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
     // Ensure caller is authenticated and is an owner
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -73,10 +78,21 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ ok: false, error: 'Unable to invite or create user' }, { status: 500 });
 
     await admin.from('profiles').upsert({ user_id: userId, tenant_id: tenantId, role, display_name: email.split('@')[0] });
+
+    // Best-effort audit
+    await logAudit((sb as any), {
+      tenantId,
+      userId: (me as any)?.user_id,
+      action: 'team.invite',
+      entity: 'profiles',
+      entityId: userId,
+      metadata: { email, role },
+    });
+
     return NextResponse.json({ ok: true, userId });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/team/invite', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
   }
 }
-

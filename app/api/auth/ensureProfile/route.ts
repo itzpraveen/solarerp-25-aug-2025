@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
+import { logAudit } from '@/lib/audit';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = ipFromHeaders(req.headers);
+    const { ok } = takeToken(`ensureProfile:${ip}`, 20, 60_000); // 20/min per IP
+    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
     // Require authenticated caller; derive user from token
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -21,9 +26,21 @@ export async function POST(req: NextRequest) {
       .single();
     await admin.from('profiles').insert({ user_id: user.id, tenant_id: tenant!.id, role: 'owner' });
     await admin.from('settings').insert({ tenant_id: tenant!.id, currency: 'INR', primary_discom: 'KSEB', default_tax_rate: 0 });
+    // Audit best-effort (can't use admin client with RLS, but this route is trusted server code)
+    try {
+      await admin.from('audit_logs').insert({
+        tenant_id: tenant!.id,
+        user_id: user.id,
+        action: 'auth.ensure_profile',
+        entity: 'tenants',
+        entity_id: tenant!.id,
+        metadata: { email: user.email },
+      });
+    } catch {}
     return NextResponse.json({ ok: true, tenantId: tenant!.id });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/auth/ensureProfile', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { z } from 'zod';
+import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 
 const BodySchema = z.object({
   to: z.string().min(5),
@@ -10,6 +11,11 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Basic rate limit: 10/min per IP (configurable)
+    const ip = ipFromHeaders(req.headers);
+    const { ok } = takeToken(`wa:${ip}`, Number(process.env.RATE_LIMIT_WHATSAPP_PER_MIN || 10), 60_000);
+    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please try later.' }, { status: 429 });
+
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
@@ -54,7 +60,8 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true, id: data.messages?.[0]?.id });
   } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
+    const id = Math.random().toString(36).slice(2, 10);
+    console.error('api/whatsapp/send', { id, error: e });
+    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
   }
 }
