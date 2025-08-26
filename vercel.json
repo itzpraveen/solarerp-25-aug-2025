@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm install",
   "functions": {
     "app/api/pdf/invoice/route.ts": {
       "memory": 1024,
