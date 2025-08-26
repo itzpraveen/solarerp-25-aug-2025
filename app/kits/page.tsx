@@ -6,7 +6,6 @@ import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
 import RequireOwner from '~/components/RequireOwner';
-import KitItemsEditor from '~/components/KitItemsEditor';
 
 export default function KitsPage() {
   const supabase = supabaseBrowser();
@@ -16,7 +15,6 @@ export default function KitsPage() {
   const [editForm, setEditForm] = useState<any>({});
   const [search, setSearch] = useState('');
   const [err, setErr] = useState<string | null>(null);
-  const [openItemsForKit, setOpenItemsForKit] = useState<string | null>(null);
 
   const load = async () => {
     setErr(null);
@@ -68,7 +66,7 @@ export default function KitsPage() {
       ) : (
         <ul className="space-y-2">
           {kits.filter((k) => !search || `${k.kit_name} ${k.description}`.toLowerCase().includes(search.toLowerCase())).map((k) => (
-            <li key={k.kit_name} className="rounded border bg-white p-3 text-sm">
+            <li key={k.kit_name} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
               {editing === k.kit_name ? (
                 <div className="w-full grid grid-cols-1 gap-2 md:grid-cols-4">
                   <Input disabled value={editForm.kit_name} />
@@ -86,22 +84,12 @@ export default function KitsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-3">
+                <>
                   <span>{k.kit_name} • {k.capacity_kw ?? '—'} kW • ₹{k.selling_price ?? '—'}</span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setOpenItemsForKit(openItemsForKit === k.kit_name ? null : k.kit_name)}>
-                      {openItemsForKit === k.kit_name ? 'Hide Items' : 'Manage Items'}
-                    </Button>
-                    <RequireOwner>
-                      <Button variant="outline" size="sm" onClick={() => { setEditing(k.kit_name); setEditForm(k); }}>Edit</Button>
-                    </RequireOwner>
-                  </div>
-                </div>
-              )}
-              {openItemsForKit === k.kit_name && (
-                <div className="mt-3">
-                  <KitItemsEditor kitName={k.kit_name} />
-                </div>
+                  <RequireOwner>
+                    <Button variant="outline" size="sm" onClick={() => { setEditing(k.kit_name); setEditForm(k); }}>Edit</Button>
+                  </RequireOwner>
+                </>
               )}
             </li>
           ))}

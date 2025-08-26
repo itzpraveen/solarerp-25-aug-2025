@@ -7,7 +7,7 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 export async function POST(req: NextRequest) {
   try {
     const ip = ipFromHeaders(req.headers);
-    const { ok } = await takeToken(`ensureProfile:${ip}`, 20, 60_000); // 20/min per IP
+    const { ok } = takeToken(`ensureProfile:${ip}`, 20, 60_000); // 20/min per IP
     if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
     // Require authenticated caller; derive user from token
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));

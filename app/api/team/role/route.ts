@@ -12,7 +12,7 @@ const BodySchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const ip = ipFromHeaders(req.headers);
-    const { ok } = await takeToken(`team:role:${ip}`, 60, 60_000);
+    const { ok } = takeToken(`team:role:${ip}`, 60, 60_000);
     if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

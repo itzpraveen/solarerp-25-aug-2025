@@ -1,0 +1,8 @@
+  ▲ Next.js 15.0.0
+  - Local:        http://localhost:3013
+
+ ✓ Starting...
+ ⚠ Invalid next.config.ts options detected: 
+ ⚠     Unrecognized key(s) in object: 'serverExternalPackages' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ✓ Ready in 124ms
