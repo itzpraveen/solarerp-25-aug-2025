@@ -28,6 +28,14 @@ export const tenants = pgTable('tenants', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+// Company branches (per-tenant). Branch is optional on records for backward compatibility
+export const branches = pgTable('branches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
 export const profiles = pgTable('profiles', {
   userId: uuid('user_id').primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
@@ -55,6 +63,7 @@ export const customers = pgTable('customers', {
 export const leads = pgTable('leads', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),
+  branchId: uuid('branch_id'),
   date: date('date'),
   source: text('source'),
   name: text('name'),
@@ -72,6 +81,7 @@ export const leads = pgTable('leads', {
 export const jobs = pgTable('jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),
+  branchId: uuid('branch_id'),
   customerId: uuid('customer_id').notNull(),
   leadId: uuid('lead_id'),
   systemType: systemType('system_type').notNull(),
