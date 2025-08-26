@@ -37,6 +37,20 @@ export default function NewProposalClient() {
   const [leadId, setLeadId] = useState<string>('');
   const [program, setProgram] = useState<'PM_Surya' | 'Commercial'>('PM_Surya');
 
+  // Cover letter, notes, work schedule (optional advanced sections)
+  const [includeCover, setIncludeCover] = useState<boolean>(false);
+  const [coverTo, setCoverTo] = useState<string>('');
+  const [coverSubject, setCoverSubject] = useState<string>('');
+  const [coverReference, setCoverReference] = useState<string>('');
+  const [coverParagraphs, setCoverParagraphs] = useState<string>('');
+  const [signName, setSignName] = useState<string>('');
+  const [signTitle, setSignTitle] = useState<string>('');
+  const [signPhone, setSignPhone] = useState<string>('');
+  const [notes, setNotes] = useState<string[]>([]);
+  const [workRows, setWorkRows] = useState<
+    { scope: string; details: string; timeline: string }[]
+  >([]);
+
   useEffect(() => {
     (async () => {
       const { data: profile } = await supabase
@@ -155,6 +169,27 @@ export default function NewProposalClient() {
       return;
     }
 
+      const cover = includeCover
+        ? {
+            to: coverTo || undefined,
+            subject:
+              coverSubject ||
+              (program === 'PM_Surya'
+                ? `QUOTATION FOR ${Number(job?.capacity_kw || 0)} KW ON GRID SOLAR POWER PLANT (PMSG SUBSIDY)`
+                : undefined),
+            reference: coverReference || undefined,
+            paragraphs: coverParagraphs
+              .split(/\n\n+|\r\n\r\n+/)
+              .map((s) => s.trim())
+              .filter(Boolean),
+            signatory: {
+              name: signName || undefined,
+              title: signTitle || undefined,
+              phone: signPhone || undefined,
+            },
+          }
+        : undefined;
+
       const payload: LongInvoiceData = {
         lang,
         company: {
@@ -190,6 +225,17 @@ export default function NewProposalClient() {
       pipeline: {},
       kit: { name: kitName },
       boq: { rows: kitBoq },
+      ...(cover ? { cover } : {}),
+      ...(notes.length ? { notes: notes.filter((n) => n.trim()).map((n) => n.trim()) } : {}),
+      ...(workRows.length
+        ? {
+            workSchedule: {
+              rows: workRows.filter(
+                (r) => (r.scope || r.details || r.timeline).trim(),
+              ),
+            },
+          }
+        : {}),
       assumptions: ['KSEB/Inspectorate fees under customer scope.'],
       warranty: ['OEM standard warranty applies.'],
       priceSchedule: { lines: [], offerValidityDays: 10 },
@@ -417,6 +463,62 @@ export default function NewProposalClient() {
             ))}
           </select>
         </div>
+
+        {/* Quick preset for Harilal */}
+        <div className="rounded border bg-gray-50 p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <div>Prefill from client sample</div>
+            <button
+              className="rounded border px-3 py-1 text-xs"
+              type="button"
+              onClick={() => {
+                setIncludeCover(true);
+                setCoverTo('Mr Harilal, Thottinakkare, Mampad');
+                setCoverSubject(
+                  'QUOTATION FOR 5 KW ON GRID SOLAR POWER PLANT (PMSG SUBSIDY)'
+                );
+                setCoverReference('Mr Jafar');
+                setCoverParagraphs(
+                  [
+                    'We are pleased to submit our quotation tailored to your 5 kW on‑grid solar power plant requirement under the PM Surya subsidy program.',
+                    'TENAGA ENERGY SOLUTIONS LLP is empanelled with ANERT/KSEBL and offers end‑to‑end design, supply and installation with compliance to MNRE and CEA standards.',
+                  ].join('\n\n')
+                );
+                setSignName('Nithin MV');
+                setSignTitle('Designated Partner');
+                setSignPhone('9544243300');
+                setNotes([
+                  '5 kW on‑grid plant can produce ~20 units/day on average (max ~25).',
+                  'Plant future expandability up to ~6.5 kW.',
+                  'KSEBL refunds ~₹4,000 (excl. GST) after 6 months from commissioning (registration component).',
+                  'Quoted prices are inclusive of GST.',
+                  'Quotation validity: 10 days; subject to market changes thereafter.',
+                ]);
+                setWorkRows([
+                  { scope: 'TENAGA', details: 'Feasibility report (MNRE NRSP)', timeline: 'Week 1 (after advance)' },
+                  { scope: 'TENAGA', details: 'Delivery of materials', timeline: 'Week 1' },
+                  { scope: 'TENAGA', details: 'Structure fabrication, panel flooring', timeline: 'Week 2' },
+                  { scope: 'TENAGA', details: 'DC & AC wiring, earthing, inverter installation & calibration', timeline: 'Week 3' },
+                  { scope: 'TENAGA', details: 'Submit completion report & checklist; plant registration', timeline: 'Week 3' },
+                  { scope: 'KSEB', details: 'Net‑meter allocation and grid connection', timeline: '1–2 weeks post inspection' },
+                  { scope: 'Subsidy', details: 'Generate subsidy request (post commissioning)', timeline: '60–90 days after request' },
+                ]);
+                setProgram('PM_Surya');
+                setPlantBrand('RENEW/PAHAL or EMMVEE');
+                setPrice(305000);
+                setAddOns([
+                  { label: 'KSEB feasibility, registration and paperwork (5kW)', amount: 7080 },
+                  { label: '2m elevated structure (GP‑16 grade) + walkway + ladder', amount: 30000 },
+                  { label: 'Special discount', amount: -7080 },
+                ]);
+                setTaxRate(0);
+                if (!quoteNo) setQuoteNo('q19_5KW_SOLAR PLANT_Harilal Mampad');
+              }}
+            >
+              Load Harilal preset
+            </button>
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-medium">
             Price (before add-ons)
@@ -506,6 +608,139 @@ export default function NewProposalClient() {
               value={companyLogo}
               onChange={(e) => setCompanyLogo(e.target.value)}
             />
+          </div>
+        </div>
+
+        {/* Cover letter toggle + fields */}
+        <div className="rounded border bg-white p-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeCover}
+              onChange={(e) => setIncludeCover(e.target.checked)}
+            />
+            Include Cover Page
+          </label>
+          {includeCover && (
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div>
+                <label className="block text-sm">To</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={coverTo} onChange={(e) => setCoverTo(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Subject</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Reference</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={coverReference} onChange={(e) => setCoverReference(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm">Paragraphs (separate by blank line)</label>
+                <textarea className="mt-1 w-full rounded border px-3 py-2 h-28" value={coverParagraphs} onChange={(e) => setCoverParagraphs(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Signatory Name</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={signName} onChange={(e) => setSignName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Signatory Title</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={signTitle} onChange={(e) => setSignTitle(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Signatory Phone</label>
+                <input className="mt-1 w-full rounded border px-3 py-2" value={signPhone} onChange={(e) => setSignPhone(e.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Notes section */}
+        <div>
+          <label className="block text-sm font-medium">Notes</label>
+          <div className="mt-1 space-y-2">
+            {notes.map((n, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  className="w-full rounded border px-3 py-2"
+                  value={n}
+                  onChange={(e) =>
+                    setNotes(notes.map((x, j) => (i === j ? e.target.value : x)))
+                  }
+                />
+                <button
+                  className="rounded border px-3 py-2"
+                  type="button"
+                  onClick={() => setNotes(notes.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              className="rounded border px-3 py-2"
+              type="button"
+              onClick={() => setNotes([...notes, ''])}
+            >
+              Add note
+            </button>
+          </div>
+        </div>
+
+        {/* Work schedule */}
+        <div>
+          <label className="block text-sm font-medium">Work Schedule</label>
+          <div className="mt-1 space-y-2">
+            {workRows.map((r, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                <input
+                  className="rounded border px-3 py-2"
+                  placeholder="Scope (TENAGA/KSEB/Subsidy)"
+                  value={r.scope}
+                  onChange={(e) =>
+                    setWorkRows(
+                      workRows.map((x, j) => (i === j ? { ...x, scope: e.target.value } : x)),
+                    )
+                  }
+                />
+                <input
+                  className="rounded border px-3 py-2"
+                  placeholder="Details"
+                  value={r.details}
+                  onChange={(e) =>
+                    setWorkRows(
+                      workRows.map((x, j) => (i === j ? { ...x, details: e.target.value } : x)),
+                    )
+                  }
+                />
+                <div className="flex gap-2">
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    placeholder="Timeline (e.g., Week 1)"
+                    value={r.timeline}
+                    onChange={(e) =>
+                      setWorkRows(
+                        workRows.map((x, j) => (i === j ? { ...x, timeline: e.target.value } : x)),
+                      )
+                    }
+                  />
+                  <button
+                    className="rounded border px-3 py-2"
+                    type="button"
+                    onClick={() => setWorkRows(workRows.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              className="rounded border px-3 py-2"
+              type="button"
+              onClick={() => setWorkRows([...workRows, { scope: '', details: '', timeline: '' }])}
+            >
+              Add row
+            </button>
           </div>
         </div>
         <div>
