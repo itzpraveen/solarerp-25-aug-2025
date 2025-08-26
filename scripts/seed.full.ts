@@ -1,18 +1,31 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 
 type Id = string;
 
 async function main() {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url) throw new Error('Missing env NEXT_PUBLIC_SUPABASE_URL');
+  if (!key) throw new Error('Missing env SUPABASE_SERVICE_ROLE_KEY');
+  const supabase = createClient(url, key);
 
   const TENANT_ID: Id = process.env.SEED_TENANT_ID || (await (async () => {
-    const { data } = await supabase.from('tenants').insert({ name: 'Demo Tenant' }).select('id').single();
-    return data!.id as string;
+    const { data, error } = await supabase
+      .from('tenants')
+      .insert({ name: 'Demo Tenant' })
+      .select('id')
+      .single();
+    if (error || !data?.id) {
+      throw new Error(`Failed to create tenant: ${error?.message || 'unknown error'}. Have you applied migrations?`);
+    }
+    return data.id as string;
   })());
 
   // Settings with company profile
-  await supabase.from('settings').upsert({
+  let res = await supabase.from('settings').upsert({
     tenant_id: TENANT_ID,
     currency: 'INR',
     default_tax_rate: 0,
@@ -25,6 +38,7 @@ async function main() {
     company_address: 'Kakkanad, Kochi, Kerala',
     company_logo_url: 'https://dummyimage.com/200x80/cccccc/000000&text=Demo+Solar',
   });
+  if (res.error) console.warn('settings upsert warning:', res.error.message);
 
   // Items
   const items = [
@@ -37,7 +51,8 @@ async function main() {
     { item_code: 'MMS-GI', name: 'MMS GI Structure', unit: 'Set', gst_rate: 0, mrp: 18000, preferred_vendor: 'Local Fabrication' },
     { item_code: 'CTMTR', name: 'Net Meter (CT)', unit: 'Nos', gst_rate: 0, mrp: 40000, preferred_vendor: 'KSEB' },
   ];
-  await supabase.from('items').upsert(items.map(i => ({ ...i, tenant_id: TENANT_ID })));
+  res = await supabase.from('items').upsert(items.map(i => ({ ...i, tenant_id: TENANT_ID })));
+  if (res.error) console.warn('items upsert warning:', res.error.message);
 
   // Kits + kit items
   const kits = [
@@ -45,7 +60,8 @@ async function main() {
     { kit_name: 'On-grid 3 kW', capacity_kw: 3, selling_price: 185000 },
     { kit_name: 'On-grid 5 kW', capacity_kw: 5, selling_price: 265000 },
   ];
-  await supabase.from('kits').upsert(kits.map(k => ({ ...k, tenant_id: TENANT_ID })));
+  res = await supabase.from('kits').upsert(kits.map(k => ({ ...k, tenant_id: TENANT_ID })));
+  if (res.error) console.warn('kits upsert warning:', res.error.message);
 
   const kitItems = [
     { kit_name: 'On-grid 5 kW', item_code: 'MOD-550', qty: 10 },
@@ -56,7 +72,8 @@ async function main() {
     { kit_name: 'On-grid 5 kW', item_code: 'EARTH', qty: 1 },
     { kit_name: 'On-grid 5 kW', item_code: 'MMS-GI', qty: 1 },
   ];
-  await supabase.from('kit_items').upsert(kitItems);
+  res = await supabase.from('kit_items').upsert(kitItems);
+  if (res.error) console.warn('kit_items upsert warning:', res.error.message);
 
   // Customers
   const customers = [
@@ -68,12 +85,13 @@ async function main() {
   ];
   const custIds: Id[] = [];
   for (const c of customers) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('customers')
       .insert({ tenant_id: TENANT_ID, ...c })
       .select('id')
       .single();
-    custIds.push(data!.id);
+    if (error || !data?.id) throw new Error(`Failed to insert customer ${c.name}: ${error?.message || 'unknown error'}`);
+    custIds.push(data.id);
   }
 
   // Leads
@@ -101,7 +119,7 @@ async function main() {
       date_meter: ['Net_Metered','Handover'].includes(s) ? todayOffset(-3 + i * 2) : null,
       date_handover: s === 'Handover' ? todayOffset(0) : null,
     };
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .insert({
         tenant_id: TENANT_ID,
@@ -117,13 +135,16 @@ async function main() {
       })
       .select('id')
       .single();
-    jobIds.push(data!.id);
+    if (error || !data?.id) throw new Error(`Failed to insert job for status ${s}: ${error?.message || 'unknown error'}`);
+    jobIds.push(data.id);
   }
 
   // Proposals for first two jobs
+  const createdProposalKeys: string[] = [];
   for (let i = 0; i < Math.min(2, jobIds.length); i++) {
     const j = jobIds[i];
-    await supabase.from('proposals').insert({
+    const key = `${TENANT_ID}/Q${Date.now()}_${i}.pdf`;
+    const { error } = await supabase.from('proposals').insert({
       tenant_id: TENANT_ID,
       job_id: j,
       date: todayOffset(-5 + i),
@@ -131,35 +152,65 @@ async function main() {
       price_before_tax: 265000,
       tax: 0,
       total: 265000,
-      pdf_url: `${TENANT_ID}/Q${Date.now()}_${i}.pdf`,
+      pdf_url: key,
     });
+    if (error) console.warn('proposal insert warning:', error.message);
+    else createdProposalKeys.push(key);
   }
 
   // Invoices + payments
   if (jobIds[3]) {
-    const { data: inv } = await supabase
+    const { data: inv, error: invErr } = await supabase
       .from('invoices')
       .insert({ tenant_id: TENANT_ID, job_id: jobIds[3], invoice_type: 'Deposit', date: todayOffset(-10), amount_before_tax: 60000, tax: 0, total: 60000, status: 'Paid', due_date: todayOffset(-9) })
       .select('id')
       .single();
-    await supabase.from('payments').insert({ tenant_id: TENANT_ID, invoice_id: inv!.id, date: todayOffset(-9), mode: 'UPI', amount: 60000, reference: 'UPI-REF-123', received_by: 'Owner' });
+    if (invErr || !inv?.id) {
+      console.warn('invoice insert warning for jobIds[3]:', invErr?.message || 'unknown error');
+    } else {
+      const { error: payErr } = await supabase.from('payments').insert({ tenant_id: TENANT_ID, invoice_id: inv.id, date: todayOffset(-9), mode: 'UPI', amount: 60000, reference: 'UPI-REF-123', received_by: 'Owner' });
+      if (payErr) console.warn('payment insert warning:', payErr.message);
+    }
   }
   if (jobIds[4]) {
-    await supabase.from('invoices').insert({ tenant_id: TENANT_ID, job_id: jobIds[4], invoice_type: 'Final', date: todayOffset(-3), amount_before_tax: 140000, tax: 0, total: 140000, status: 'Sent', due_date: todayOffset(4) });
+    const { error: inv2Err } = await supabase.from('invoices').insert({ tenant_id: TENANT_ID, job_id: jobIds[4], invoice_type: 'Final', date: todayOffset(-3), amount_before_tax: 140000, tax: 0, total: 140000, status: 'Sent', due_date: todayOffset(4) });
+    if (inv2Err) console.warn('invoice insert warning for jobIds[4]:', inv2Err.message);
   }
 
   // Documents
   if (jobIds[0]) {
-    await supabase.from('documents').insert({ tenant_id: TENANT_ID, job_id: jobIds[0], doc_type: 'site_photo', file_url: 'https://dummyimage.com/1200x800/eeeeee/000000&text=Site+Photo' });
+    const { error: docErr } = await supabase.from('documents').insert({ tenant_id: TENANT_ID, job_id: jobIds[0], doc_type: 'site_photo', file_url: 'https://dummyimage.com/1200x800/eeeeee/000000&text=Site+Photo' });
+    if (docErr) console.warn('document insert warning:', docErr.message);
   }
 
   // Tasks
   if (jobIds[1]) {
-    await supabase.from('tasks').insert({ tenant_id: TENANT_ID, job_id: jobIds[1], title: 'Call customer for KSEB feasibility', due_date: todayOffset(2), status: 'Open' });
+    const { error: taskErr } = await supabase.from('tasks').insert({ tenant_id: TENANT_ID, job_id: jobIds[1], title: 'Call customer for KSEB feasibility', due_date: todayOffset(2), status: 'Open' });
+    if (taskErr) console.warn('task insert warning:', taskErr.message);
   }
 
   // Service ticket
-  await supabase.from('service_tickets').insert({ tenant_id: TENANT_ID, customer_id: custIds[0], job_id: jobIds[0], date: todayOffset(0), issue_type: 'Low Generation', priority: 'Medium', status: 'Open', summary: 'Check earthing' });
+  {
+    const { error: svcErr } = await supabase.from('service_tickets').insert({ tenant_id: TENANT_ID, customer_id: custIds[0], job_id: jobIds[0], date: todayOffset(0), issue_type: 'Low Generation', priority: 'Medium', status: 'Open', summary: 'Check earthing' });
+    if (svcErr) console.warn('service_tickets insert warning:', svcErr.message);
+  }
+
+  // Upload placeholder PDFs for created proposals (optional but helpful for demos)
+  const mockPath = path.resolve(process.cwd(), 'uploads', 'mock.pdf');
+  if (createdProposalKeys.length) {
+    if (!fs.existsSync(mockPath)) {
+      console.warn('uploads/mock.pdf not found; skipping PDF uploads.');
+    } else {
+      const body = fs.readFileSync(mockPath);
+      for (const key of createdProposalKeys) {
+        const { error: upErr } = await supabase.storage.from('documents').upload(key, body, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+        if (upErr) console.warn(`storage upload warning for ${key}:`, upErr.message);
+      }
+    }
+  }
 
   console.log('Seeded demo data for tenant:', TENANT_ID);
 }
@@ -174,4 +225,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-
