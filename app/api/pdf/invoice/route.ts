@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Ensure enough time on Vercel
 
 import { renderLongInvoiceHtml, LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
@@ -98,11 +99,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
+    // Prefer chromium's defaults for serverless envs
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport ?? null,
       executablePath,
-      headless: true,
+      headless: chromium.headless ?? 'new',
     });
     const page = await browser.newPage();
     // Safer content load strategy on serverless: avoid hanging on external resources
