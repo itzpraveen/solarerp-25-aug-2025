@@ -11,11 +11,9 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  // Ensure serverless Chromium and Puppeteer binaries/assets are included in the
-  // Vercel Serverless Function bundle. This avoids "Chrome executable not found"
-  // at runtime due to file tracing excluding these packages.
-  // Next 15: use serverExternalPackages instead of experimental.serverComponentsExternalPackages
-  serverExternalPackages: ['@sparticuz/chromium-min', '@sparticuz/chromium', 'puppeteer-core'],
+  // Ensure serverless Chromium binaries/assets are included in the Vercel
+  // Serverless Function bundle. We avoid externalizing these packages so the
+  // traced files are packaged with the function.
   // Extra safety: explicitly include chromium-min binaries for the PDF route.
   // This helps when dynamic imports prevent static analysis.
   outputFileTracingIncludes: {
