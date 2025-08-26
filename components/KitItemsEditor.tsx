@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Card from '@/components/ui/Card';
+import Button from '~/components/ui/Button';
+import Input from '~/components/ui/Input';
+import Card from '~/components/ui/Card';
 
 type KitItemRow = { item_code: string; qty: number; items?: { name?: string | null; unit?: string | null } };
 
@@ -76,9 +76,9 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
 
   return (
     <Card title="Kit Items">
-      {error && <div className="mb-2 rounded border bg-red-50 p-2 text-xs text-red-700">{error}</div>}
+      {error && <div className="mb-2 rounded border bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">{error}</div>}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-        <select className="rounded border px-2 py-2 text-sm" value={addCode} onChange={(e) => setAddCode(e.target.value)}>
+        <select className="rounded border px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100" value={addCode} onChange={(e) => setAddCode(e.target.value)}>
           <option value="">Select item</option>
           {items.map((it) => (
             <option key={it.item_code} value={it.item_code}>
@@ -90,15 +90,15 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
         <Button onClick={add} loading={saving}>Add</Button>
       </div>
 
-      <div className="mt-3 rounded border bg-white overflow-x-auto">
+      <div className="mt-3 overflow-x-auto rounded border bg-white dark:border-gray-800 dark:bg-gray-900">
         {loading ? (
-          <div className="p-3 text-sm text-gray-600">Loading…</div>
+          <div className="p-3 text-sm text-gray-600 dark:text-gray-400">Loading…</div>
         ) : rows.length === 0 ? (
-          <div className="p-3 text-sm text-gray-600">No items in this kit.</div>
+          <div className="p-3 text-sm text-gray-600 dark:text-gray-400">No items in this kit.</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50 text-left">
+              <tr className="border-b bg-gray-50 text-left dark:border-gray-800 dark:bg-gray-800">
                 <th className="p-2">Item</th>
                 <th className="p-2">Qty</th>
                 <th className="p-2">Unit</th>
@@ -109,7 +109,7 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
               {rows.map((r) => {
                 const info = r.items || nameByCode.get(r.item_code) || { name: r.item_code };
                 return (
-                  <tr key={r.item_code} className="border-b">
+                  <tr key={r.item_code} className="border-b dark:border-gray-800">
                     <td className="p-2">{info?.name || r.item_code}</td>
                     <td className="p-2">{Number(r.qty || 0)}</td>
                     <td className="p-2">{info?.unit || ''}</td>
@@ -126,4 +126,3 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
     </Card>
   );
 }
-

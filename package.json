@@ -19,8 +19,8 @@
     "db:migrate": "drizzle-kit push:pg",
     "db:studio": "drizzle-kit studio",
     "seed": "tsx scripts/seed.ts",
-    "seed:full": "tsx scripts/seed.full.ts"
-    ,"doctor": "tsx scripts/doctor.ts"
+    "seed:full": "tsx scripts/seed.full.ts",
+    "doctor": "tsx scripts/doctor.ts"
   },
   "dependencies": {
     "@sparticuz/chromium-min": "^119.0.2",
@@ -46,8 +46,8 @@
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^16.6.1",
     "eslint": "^9.11.1",
-    "dotenv": "^16.4.5",
     "eslint-config-next": "15.0.0",
     "jsdom": "^26.1.0",
     "postcss": "^8.4.45",
