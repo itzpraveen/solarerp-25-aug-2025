@@ -101,6 +101,16 @@ export async function POST(req: NextRequest) {
       return null;
     }
 
+    // Ensure dynamic linker can find Chromium's unpacked libs BEFORE launch
+    try {
+      const ld = process.env.LD_LIBRARY_PATH || '';
+      const extra = ['/tmp', '/tmp/swiftshader'].join(':');
+      process.env.LD_LIBRARY_PATH = ld ? `${extra}:${ld}` : extra;
+      // Helpful defaults for font/config caches in ephemeral fs
+      if (!process.env.XDG_CACHE_HOME) process.env.XDG_CACHE_HOME = '/tmp';
+      if (!process.env.FONTCONFIG_PATH) process.env.FONTCONFIG_PATH = '/tmp';
+    } catch {}
+
     const executablePath = await resolveExecutablePath();
     if (!executablePath) {
       const id = Math.random().toString(36).slice(2, 10);
@@ -124,19 +134,13 @@ export async function POST(req: NextRequest) {
       defaultViewport: chromium.defaultViewport ?? null,
       executablePath,
       headless: (chromium as any).headless ?? true,
+      dumpio: true,
     });
     const page = await browser.newPage();
     // Safer content load strategy on serverless: avoid hanging on external resources
     page.setDefaultNavigationTimeout(20_000);
     await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
     await page.emulateMediaType('screen');
-
-    // Ensure dynamic linker can find Chromium's unpacked libs (aws.tar.br extracts to /tmp)
-    try {
-      const ld = process.env.LD_LIBRARY_PATH || '';
-      const extra = ['/tmp', '/tmp/swiftshader'].join(':');
-      process.env.LD_LIBRARY_PATH = ld ? `${extra}:${ld}` : extra;
-    } catch {}
 
     const pdf = await page.pdf({
       format: 'A4',
