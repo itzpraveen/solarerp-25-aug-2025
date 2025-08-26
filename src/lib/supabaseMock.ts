@@ -165,6 +165,20 @@ class MockQuery {
         return { ...r, jobs: { id: (j as any).id, customers: [{ name: c.name || '—', phone: c.phone || '' }] } };
       });
     }
+    if (this.table === 'service_tickets') {
+      if (this._select?.includes('customers(')) {
+        rows = rows.map(r => {
+          const c = db.customers.find(cu => cu.id === r.customer_id) || {};
+          return { ...r, customers: [{ name: (c as any).name || '—' }] };
+        });
+      }
+      if (this._select?.includes('jobs(')) {
+        rows = rows.map(r => {
+          const j = db.jobs.find(jb => jb.id === r.job_id) || {};
+          return { ...r, jobs: { id: (j as any).id } };
+        });
+      }
+    }
     if (this.table === 'kit_items' && this._select?.includes('items(')) {
       rows = rows.map(r => {
         const it = db.items.find(i => i.item_code === r.item_code) || {};

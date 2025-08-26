@@ -151,14 +151,44 @@ export default function LeadsPage() {
                           <div className="md:col-span-6 flex gap-2">
                             <Button size="sm" onClick={async () => {
                               const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
-                              const { data: cust } = await supabase.from('customers').insert({ tenant_id: prof!.tenant_id, name: l.name, phone: l.phone, address: convertForm.address }).select('id').single();
+                              const tenantId = (prof as any)!.tenant_id as string;
+                              // Reuse existing customer by phone within tenant if present, else create
+                              let customerId: string | null = null;
+                              if (l.phone) {
+                                const { data: existing } = await supabase
+                                  .from('customers')
+                                  .select('id')
+                                  .eq('tenant_id', tenantId)
+                                  .eq('phone', l.phone)
+                                  .maybeSingle();
+                                if (existing?.id) customerId = existing.id as string;
+                              }
+                              if (!customerId) {
+                                const { data: cust } = await supabase
+                                  .from('customers')
+                                  .insert({ tenant_id: tenantId, name: l.name, phone: l.phone || null, address: convertForm.address || null })
+                                  .select('id')
+                                  .single();
+                                customerId = (cust as any)!.id as string;
+                              }
+                              const today = new Date().toISOString().slice(0,10);
                               const { data: job } = await supabase
                                 .from('jobs')
-                                .insert({ tenant_id: prof!.tenant_id, customer_id: cust!.id, system_type: convertForm.system_type, status: 'Lead', capacity_kw: convertForm.capacity_kw, location: convertForm.location, roof_type: convertForm.roof_type })
+                                .insert({
+                                  tenant_id: tenantId,
+                                  customer_id: customerId!,
+                                  lead_id: l.id,
+                                  system_type: convertForm.system_type,
+                                  status: 'Lead',
+                                  capacity_kw: convertForm.capacity_kw,
+                                  location: convertForm.location || null,
+                                  roof_type: convertForm.roof_type || null,
+                                  date_lead: (l as any)?.date || today,
+                                })
                                 .select('id')
                                 .single();
                               await supabase.from('leads').update({ status: 'Converted' }).eq('id', l.id);
-                              window.location.href = `/jobs/${job!.id}`;
+                              window.location.href = `/jobs/${(job as any)!.id}`;
                             }}>Create</Button>
                             <Button variant="outline" size="sm" onClick={() => setConvertingId(null)}>Cancel</Button>
                           </div>
