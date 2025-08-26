@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import PipelineBoard from 'components/PipelineBoard';
 import Button from '~/components/ui/Button';
 import Card from '~/components/ui/Card';
+import Input from '~/components/ui/Input';
+import Select from '~/components/ui/Select';
+import Alert from '~/components/ui/Alert';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 
 type Customer = { id: string; name: string };
@@ -26,6 +29,8 @@ export default function JobsPage() {
       setCustomers((data as any[]) || []);
     })();
   }, []);
+
+  const canCreate = custId && (Number(capacity) || 0) > 0;
 
   const createJob = async () => {
     setMsg(null);
@@ -57,24 +62,45 @@ export default function JobsPage() {
         </div>
       </div>
       <Card title="Quick Create Job">
-        {msg && <div className="mb-2 rounded border bg-red-50 p-2 text-xs text-red-700">{msg}</div>}
+        <div aria-live="polite" className="mb-2">
+          {msg && <Alert variant="error">{msg}</Alert>}
+        </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-          <select className="rounded border px-2 py-2" value={custId} onChange={(e) => setCustId(e.target.value)}>
+          <label className="sr-only" htmlFor="qc-customer">Customer</label>
+          <Select id="qc-customer" value={custId} onChange={(e) => setCustId(e.target.value)}>
             <option value="">Select customer…</option>
             {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-          </select>
-          <select className="rounded border px-2 py-2" value={systemType} onChange={(e) => setSystemType(e.target.value)}>
+          </Select>
+
+          <label className="sr-only" htmlFor="qc-system">System type</label>
+          <Select id="qc-system" value={systemType} onChange={(e) => setSystemType(e.target.value)}>
             <option>On-grid</option>
             <option>Hybrid</option>
             <option>Off-grid</option>
             <option>Inverter & Battery</option>
             <option>Solar Water Heater</option>
-          </select>
-          <input className="rounded border px-3 py-2" type="number" placeholder="Capacity kW" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
-          <input className="rounded border px-3 py-2" placeholder="Location/Place" value={location} onChange={(e) => setLocation(e.target.value)} />
+          </Select>
+
+          <label className="sr-only" htmlFor="qc-capacity">Capacity (kW)</label>
+          <Input
+            id="qc-capacity"
+            type="number"
+            min={0}
+            step={0.1}
+            placeholder="Capacity (kW)"
+            value={capacity}
+            onChange={(e) => setCapacity(Number(e.target.value))}
+          />
+
+          <label className="sr-only" htmlFor="qc-location">Location/Place</label>
+          <Input id="qc-location" placeholder="Location / Place" value={location} onChange={(e) => setLocation(e.target.value)} />
+
           <div className="flex gap-2">
-            <input className="w-full rounded border px-3 py-2" placeholder="Roof type" value={roof} onChange={(e) => setRoof(e.target.value)} />
-            <Button onClick={createJob} loading={creating}>Create</Button>
+            <label className="sr-only" htmlFor="qc-roof">Roof type</label>
+            <Input id="qc-roof" className="w-full" placeholder="Roof type (optional)" value={roof} onChange={(e) => setRoof(e.target.value)} />
+            <Button onClick={createJob} loading={creating} disabled={!canCreate}>
+              Create
+            </Button>
           </div>
         </div>
       </Card>

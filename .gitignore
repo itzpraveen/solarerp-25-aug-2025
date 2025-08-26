@@ -18,10 +18,10 @@ server-*.log
 playwright-report/
 test-results/
 coverage/
+tsconfig.tsbuildinfo
 
 # OS/editor
 .DS_Store
 *.swp
 .idea/
 .vscode/
-
