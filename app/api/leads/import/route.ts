@@ -12,6 +12,22 @@ function normalizeHeader(h: string) {
   return h.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function onlyDigits(s: string) {
+  return s.replace(/\D+/g, '');
+}
+
+function normalizePhone(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'number') return String(Math.trunc(v));
+  let s = String(v).trim();
+  // Convert scientific notation like 9.04E9
+  if (/^\d+\.\d+e\+?\d+$/i.test(s)) s = String(Number(s));
+  s = onlyDigits(s);
+  // Keep last 10–12 digits if too long
+  if (s.length > 12) s = s.slice(-12);
+  return s;
+}
+
 function toISODate(s: string | number | Date | null | undefined): string | null {
   if (!s) return null;
   try {
@@ -34,6 +50,15 @@ function toISODate(s: string | number | Date | null | undefined): string | null 
       const mm = parseInt(m[2], 10);
       let yyyy = parseInt(m[3], 10);
       if (yyyy < 100) yyyy += 2000;
+      const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+      return d.toISOString().slice(0, 10);
+    }
+    // Try leading DD/MM without year inside free text (use current year)
+    const m2 = t.match(/^(\d{1,2})[\/-](\d{1,2})\b/);
+    if (m2) {
+      const dd = parseInt(m2[1], 10);
+      const mm = parseInt(m2[2], 10);
+      const yyyy = new Date().getFullYear();
       const d = new Date(Date.UTC(yyyy, mm - 1, dd));
       return d.toISOString().slice(0, 10);
     }
@@ -123,14 +148,22 @@ export async function POST(req: NextRequest) {
       const r = normRows[i];
       try {
         const name = (r['name'] || r['lead name'] || r['customer name'] || '').toString().trim();
-        const phone = (r['phone'] || r['mobile'] || '').toString().trim();
+        const phoneRaw = r['phone'] ?? r['mobile'] ?? r['contact number'] ?? r['contact no'] ?? r['contact'] ?? '';
+        const phone = normalizePhone(phoneRaw);
         const email = (r['email'] || '').toString().trim();
         const source = (r['source'] || '').toString().trim();
-        const status = (r['status'] || 'New').toString().trim();
-        const capacity = Number(r['capacity'] || r['capacity kw'] || r['kw'] || 0) || null;
+        const status = (r['status'] || '').toString().trim() || 'New';
+        // Capacity may be free text like "3kw hybrid"; extract first number
+        const capacityText = (r['capacity'] ?? r['capacity kw'] ?? r['kw'] ?? '').toString();
+        const capMatch = capacityText.match(/(\d+(?:\.\d+)?)/);
+        const capacity = capMatch ? Number(capMatch[1]) : null;
         const date = toISODate(r['date'] || r['lead date'] || r['created'] || null);
-        const nextFollow = toISODate(r['next follow-up'] || r['next follow up'] || r['follow up'] || null);
+        const nextFollow = toISODate(
+          r['next follow-up'] || r['next follow up'] || r['follow up'] || r['followup'] || r['remarks'] || null,
+        );
         const branchName = (r['branch'] || r['branch name'] || '').toString();
+        const address = (r['address'] || r['place'] || '').toString().trim() || null;
+        const remarks = (r['remarks'] || r['quatation'] || r['quatatation'] || r['site visit'] || '').toString().trim();
         const branchId = await ensureBranchId(branchName || undefined);
 
         if (!name && !phone && !email) {
@@ -175,6 +208,8 @@ export async function POST(req: NextRequest) {
                 next_follow_up_date: nextFollow || existing.next_follow_up_date,
                 status: status || existing.status,
                 branch_id: branchId ?? existing.branch_id ?? null,
+                address: address || existing.address || null,
+                notes: remarks ? (existing.notes ? `${existing.notes}\n${remarks}` : remarks) : existing.notes ?? null,
               })
               .eq('id', existing.id);
             if (error) throw new Error(error.message);
@@ -197,6 +232,8 @@ export async function POST(req: NextRequest) {
             next_follow_up_date: nextFollow,
             status: status || 'New',
             branch_id: branchId,
+            address,
+            notes: remarks || null,
           });
         if (error) throw new Error(error.message);
         created++;
@@ -212,4 +249,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Import failed', id, cause: String(e?.message || e) }, { status: 500 });
   }
 }
-
