@@ -105,7 +105,8 @@ function seedDb(): MockDb {
     { kit_name: 'On-grid 3kW', item_code: 'INV-3KW', qty: 1 },
   ];
   return {
-    currentUserId: users[0].id,
+    // Do not auto-sign in a demo user by default; require explicit quick sign-in.
+    currentUserId: null,
     users,
     tenants: [{ id: tenantId, name: 'Demo Co' }],
     profiles: [
