@@ -2,6 +2,7 @@ import { pgTable, uuid, text, timestamp, numeric, pgEnum, jsonb, date, integer }
 
 export const systemType = pgEnum('system_type', ['On-grid', 'Hybrid', 'Off-grid', 'Inverter & Battery', 'Solar Water Heater']);
 export const jobStatus = pgEnum('job_status', ['Lead', 'Qualified', 'Quoted', 'Won', 'KSEB_Submitted', 'Material_Ordered', 'Installed', 'Net_Metered', 'Handover', 'Closed', 'Lost']);
+export const programType = pgEnum('program_type', ['PM_Surya', 'Commercial']);
 export const invoiceType = pgEnum('invoice_type', ['Deposit', 'Progress', 'Final']);
 export const invoiceStatus = pgEnum('invoice_status', ['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled']);
 export const payMode = pgEnum('pay_mode', ['UPI', 'NEFT', 'Cash', 'Card', 'Cheque']);
@@ -52,6 +53,8 @@ export const leads = pgTable('leads', {
   notes: text('notes'),
   assignedTo: uuid('assigned_to'),
   status: text('status'),
+  nextFollowUpDate: date('next_follow_up_date'),
+  lastContactedAt: date('last_contacted_at'),
 });
 
 export const jobs = pgTable('jobs', {
@@ -60,6 +63,7 @@ export const jobs = pgTable('jobs', {
   customerId: uuid('customer_id').notNull(),
   leadId: uuid('lead_id'),
   systemType: systemType('system_type').notNull(),
+  programType: programType('program_type').default('PM_Surya'),
   capacityKw: numeric('capacity_kw', { precision: 6, scale: 2 }),
   roofType: text('roof_type'),
   status: jobStatus('status').notNull().default('Lead'),
@@ -209,4 +213,6 @@ export const settings = pgTable('settings', {
   primaryDiscom: text('primary_discom').default('KSEB'),
   proposalNoteMl: text('proposal_note_ml'),
   depositPercent: numeric('deposit_percent', { precision: 5, scale: 2 }).default('0'),
+  quotePrefix: text('quote_prefix'),
+  quoteFormat: text('quote_format'),
 });
