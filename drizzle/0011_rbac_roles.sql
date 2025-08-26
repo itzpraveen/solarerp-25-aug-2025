@@ -1,8 +1,7 @@
--- Expand role enum and relax owner-only policies to include admin
-
--- Add new enum values if missing. Note: depending on migration runner,
--- ALTER TYPE may need to run outside a transaction. If drizzle runner wraps
--- in a transaction and fails, run these statements via Supabase SQL editor.
+-- Expand role enum with additional values.
+-- IMPORTANT: Do not reference new enum labels in the same transaction they
+-- are added, or Postgres will raise 55P04 (unsafe use of new enum value).
+-- This file only adds enum values. Function/policy changes moved to 0012.
 
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -57,104 +56,3 @@ DO $$ BEGIN
     ALTER TYPE role ADD VALUE 'viewer';
   END IF;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
--- Broaden the helper to treat owner or admin as administrators
-create or replace function public.is_owner_of_tenant(target_tenant uuid)
-returns boolean
-language sql
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid()
-      and p.tenant_id = target_tenant
-      and p.role in ('owner','admin')
-  );
-$$;
-
--- Recreate owner-only policies on items, kits and settings to include admin
--- ITEMS
-drop policy if exists owner_can_insert_items on public.items;
-drop policy if exists owner_can_update_items on public.items;
-drop policy if exists owner_can_delete_items on public.items;
-
-create policy owner_can_insert_items on public.items for insert
-  with check (
-    tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-    and exists (
-      select 1 from public.profiles p
-      where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role in ('owner','admin')
-    )
-  );
-
-create policy owner_can_update_items on public.items for update using (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role in ('owner','admin')
-  )
-);
-
-create policy owner_can_delete_items on public.items for delete using (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = items.tenant_id and p.role in ('owner','admin')
-  )
-);
-
--- KITS
-drop policy if exists owner_can_insert_kits on public.kits;
-drop policy if exists owner_can_update_kits on public.kits;
-drop policy if exists owner_can_delete_kits on public.kits;
-
-create policy owner_can_insert_kits on public.kits for insert with check (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role in ('owner','admin')
-  )
-);
-create policy owner_can_update_kits on public.kits for update using (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role in ('owner','admin')
-  )
-);
-create policy owner_can_delete_kits on public.kits for delete using (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = kits.tenant_id and p.role in ('owner','admin')
-  )
-);
-
--- SETTINGS
-drop policy if exists owner_can_insert_settings on public.settings;
-drop policy if exists owner_can_update_settings on public.settings;
-drop policy if exists owner_can_delete_settings on public.settings;
-
-create policy owner_can_insert_settings on public.settings for insert with check (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role in ('owner','admin')
-  )
-);
-create policy owner_can_update_settings on public.settings for update using (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role in ('owner','admin')
-  )
-);
-create policy owner_can_delete_settings on public.settings for delete using (
-  tenant_id = (select tenant_id from public.profiles where user_id = auth.uid())
-  and exists (
-    select 1 from public.profiles p
-    where p.user_id = auth.uid() and p.tenant_id = settings.tenant_id and p.role in ('owner','admin')
-  )
-);
-
