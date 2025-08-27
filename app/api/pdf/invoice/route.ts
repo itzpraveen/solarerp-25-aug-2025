@@ -220,7 +220,8 @@ export async function POST(req: NextRequest) {
       process.env.LD_LIBRARY_PATH = ld ? `${extra}:${ld}` : extra;
       // Helpful defaults for font/config caches in ephemeral fs
       if (!process.env.XDG_CACHE_HOME) process.env.XDG_CACHE_HOME = '/tmp';
-      if (!process.env.FONTCONFIG_PATH) process.env.FONTCONFIG_PATH = '/tmp';
+      // @sparticuz/chromium inflates fonts + fontconfig to /tmp/fonts
+      if (!process.env.FONTCONFIG_PATH) process.env.FONTCONFIG_PATH = '/tmp/fonts';
       if (!process.env.HOME) process.env.HOME = '/tmp';
     } catch {}
 
