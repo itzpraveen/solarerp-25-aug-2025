@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
@@ -14,6 +14,9 @@ export default function OverviewPage() {
   const [overdueInvoices, setOverdueInvoices] = useState<any[]>([]);
   const [recentProposals, setRecentProposals] = useState<any[]>([]);
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
+  const [leadSummary, setLeadSummary] = useState<
+    { total: number; open: number; dueToday: number; overdue: number } | null
+  >(null);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -64,6 +67,47 @@ export default function OverviewPage() {
           .order('date', { ascending: false })
           .limit(5);
         setRecentPayments(pay || []);
+
+        // Leads KPIs (Total/Open)
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        if (token) {
+          const url =
+            branchId === 'all'
+              ? '/api/leads/kpis'
+              : `/api/leads/kpis?branchId=${encodeURIComponent(branchId as string)}`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          const out = await res.json();
+          if (res.ok && out?.ok) {
+            if (out.scope === 'branch') {
+              setLeadSummary({
+                total: out.total || 0,
+                open: out.open || 0,
+                dueToday: out.dueToday || 0,
+                overdue: out.overdue || 0,
+              });
+            } else {
+              const per = Array.isArray(out.perBranch) ? out.perBranch : [];
+              const total =
+                per.reduce((a: number, b: any) => a + (b.total || 0), 0) +
+                (out.unassigned?.total || 0);
+              const open =
+                per.reduce((a: number, b: any) => a + (b.open || 0), 0) +
+                (out.unassigned?.open || 0);
+              const dueToday =
+                per.reduce((a: number, b: any) => a + (b.dueToday || 0), 0) +
+                (out.unassigned?.dueToday || 0);
+              const overdue =
+                per.reduce((a: number, b: any) => a + (b.overdue || 0), 0) +
+                (out.unassigned?.overdue || 0);
+              setLeadSummary({ total, open, dueToday, overdue });
+            }
+          } else {
+            setLeadSummary(null);
+          }
+        } else {
+          setLeadSummary(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -96,24 +140,66 @@ export default function OverviewPage() {
           'Installed',
           'Net_Metered',
           'Handover',
-        ].slice(0,5).map((s) => (
-          <a key={s} className="rounded border bg-white p-3 text-center hover:bg-gray-50" href="/jobs">
-            <div className="text-xs text-gray-500">{s.replace(/_/g, ' ')}</div>
-            <div className="text-lg font-semibold">{pipelineCounts[s] || 0}</div>
-          </a>
+        ]
+          .slice(0, 5)
+          .map((s) => (
+            <a
+              key={s}
+              className="rounded border bg-white p-3 text-center hover:bg-gray-50"
+              href="/jobs"
+            >
+              <div className="text-xs text-gray-500">
+                {s.replace(/_/g, ' ')}
+              </div>
+              <div className="text-lg font-semibold">
+                {pipelineCounts[s] || 0}
+              </div>
+            </a>
         ))}
       </div>
+
+      {/* Leads summary: Total and Open */}
+      {leadSummary && (
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="rounded border bg-white p-3 text-center">
+            <div className="text-xs text-gray-500">Leads Total</div>
+            <div className="text-lg font-semibold">{leadSummary.total}</div>
+          </div>
+          <div className="rounded border bg-white p-3 text-center">
+            <div className="text-xs text-gray-500">Leads Open</div>
+            <div className="text-lg font-semibold">{leadSummary.open}</div>
+          </div>
+          <div className="rounded border bg-white p-3 text-center">
+            <div className="text-xs text-gray-500">Leads Due Today</div>
+            <div className={`text-lg font-semibold ${leadSummary.dueToday > 0 ? 'text-red-600' : ''}`}>
+              {leadSummary.dueToday}
+            </div>
+          </div>
+          <div className="rounded border bg-white p-3 text-center">
+            <div className="text-xs text-gray-500">Leads Overdue</div>
+            <div className={`text-lg font-semibold ${leadSummary.overdue > 0 ? 'text-red-600' : ''}`}>
+              {leadSummary.overdue}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card title="Follow-ups Today">
           {leadsDue.length === 0 ? (
-            <div className="text-sm text-gray-600">No follow-ups due today.</div>
+            <div className="text-sm text-gray-600">
+              No follow-ups due today.
+            </div>
           ) : (
             <ul className="space-y-2 text-sm">
               {leadsDue.map((l) => (
                 <li key={l.id} className="flex items-center justify-between">
-                  <span className="truncate">{l.name || '—'} • {l.phone || '—'}</span>
-                  <a className="text-blue-600" href="/leads">Open</a>
+                  <span className="truncate">
+                    {l.name || '—'} • {l.phone || '—'}
+                  </span>
+                  <a className="text-blue-600" href="/leads">
+                    Open
+                  </a>
                 </li>
               ))}
             </ul>
@@ -127,8 +213,15 @@ export default function OverviewPage() {
             <ul className="space-y-2 text-sm">
               {overdueInvoices.map((i) => (
                 <li key={i.id} className="flex items-center justify-between">
-                  <span>₹{i.total ?? '—'} • Due {i.due_date || '—'}</span>
-                  <a className="text-blue-600" href={`/jobs/${i.job_id}?tab=finance`}>Collect</a>
+                  <span>
+                    ₹{i.total ?? '—'} • Due {i.due_date || '—'}
+                  </span>
+                  <a
+                    className="text-blue-600"
+                    href={`/jobs/${i.job_id}?tab=finance`}
+                  >
+                    Collect
+                  </a>
                 </li>
               ))}
             </ul>
@@ -142,8 +235,15 @@ export default function OverviewPage() {
             <ul className="space-y-2 text-sm">
               {recentProposals.map((p) => (
                 <li key={p.id} className="flex items-center justify-between">
-                  <span>{p.date || '—'} • ₹{p.total ?? '—'}</span>
-                  <a className="text-blue-600" href={`/jobs/${p.job_id}?tab=proposals`}>Open</a>
+                  <span>
+                    {p.date || '—'} • ₹{p.total ?? '—'}
+                  </span>
+                  <a
+                    className="text-blue-600"
+                    href={`/jobs/${p.job_id}?tab=proposals`}
+                  >
+                    Open
+                  </a>
                 </li>
               ))}
             </ul>
@@ -157,8 +257,12 @@ export default function OverviewPage() {
             <ul className="space-y-2 text-sm">
               {recentPayments.map((p) => (
                 <li key={p.id} className="flex items-center justify-between">
-                  <span>₹{p.amount ?? '—'} • {p.date || '—'}</span>
-                  <a className="text-blue-600" href="/jobs">Jobs</a>
+                  <span>
+                    ₹{p.amount ?? '—'} • {p.date || '—'}
+                  </span>
+                  <a className="text-blue-600" href="/jobs">
+                    Jobs
+                  </a>
                 </li>
               ))}
             </ul>
@@ -167,9 +271,21 @@ export default function OverviewPage() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button onClick={() => (window.location.href = '/leads')}>Add Lead</Button>
-        <Button variant="outline" onClick={() => (window.location.href = '/proposals/new')}>New Proposal</Button>
-        <Button variant="outline" onClick={() => (window.location.href = '/jobs')}>Open Pipeline</Button>
+        <Button onClick={() => (window.location.href = '/leads')}>
+          Add Lead
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => (window.location.href = '/proposals/new')}
+        >
+          New Proposal
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => (window.location.href = '/jobs')}
+        >
+          Open Pipeline
+        </Button>
       </div>
     </div>
   );
