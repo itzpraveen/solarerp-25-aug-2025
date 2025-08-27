@@ -30,6 +30,7 @@ export default function AppHeader() {
   const [branchValue, setBranchValue] = useState<string | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -78,6 +79,9 @@ export default function AppHeader() {
       setTheme(initial);
       document.documentElement.classList.toggle('dark', initial === 'dark');
     } catch {}
+    try {
+      setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.platform));
+    } catch {}
   }, []);
 
   const toggleTheme = () => {
@@ -124,28 +128,6 @@ export default function AppHeader() {
           })}
         </nav>
         <div className="flex items-center gap-3 text-sm">
-          {tenantId && (
-            <div className="hidden min-w-[160px] lg:block">
-              <BranchSelect
-                value={branchValue}
-                onChange={(v) => {
-                  setBranchValue(v);
-                  try {
-                    if (tenantId)
-                      localStorage.setItem(
-                        `pref:branch:${tenantId}`,
-                        String(v),
-                      );
-                  } catch {}
-                  window.dispatchEvent(
-                    new CustomEvent('branch-change', { detail: { value: v } }),
-                  );
-                }}
-                includeAll
-                allLabel="All"
-              />
-            </div>
-          )}
           <button
             type="button"
             aria-label="Open search"
@@ -156,7 +138,7 @@ export default function AppHeader() {
             <Search size={16} />
             <span className="hidden md:inline">Search</span>
             <span className="ml-1 hidden items-center gap-0.5 rounded border px-1 text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400 md:inline-flex">
-              Ctrl K
+              {isMac ? '⌘ K' : 'Ctrl K'}
             </span>
           </button>
           <div className="relative hidden sm:block">
