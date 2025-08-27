@@ -256,7 +256,6 @@ Templates expected:
 ## Testing
 
 - Unit: `pnpm test` – checks PDF HTML generator
-  
 
 ### Manual QA Checklist
 

@@ -4,17 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    
     "build": "next build",
     "start": "next start -p 3000",
-    
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    
     "db:generate": "drizzle-kit generate:pg",
-    "db:migrate": "drizzle-kit push:pg",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "drizzle-kit push:pg"
   },
   "dependencies": {
     "@sparticuz/chromium": "^127.0.0",

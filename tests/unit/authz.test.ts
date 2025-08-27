@@ -25,4 +25,3 @@ describe('authz.can()', () => {
     expect(can('accountant', 'jobs.edit')).toBe(false);
   });
 });
-

@@ -13,10 +13,9 @@
 - `npm run dev`: Start dev server on `:3000`.
 - `npm run build`: Production build. `npm start`: Serve built app.
 - `npm test`: Run Vitest unit tests (headless). `npm run test:ui`: interactive Vitest.
-  
 - `npm run lint` / `npm run format`: ESLint / Prettier.
 - `npm run db:generate`: Generate Drizzle migrations to `drizzle/` from `src/db/schema.ts`.
-- `npm run db:migrate`: Push migrations (requires `DATABASE_URL`). `npm run db:studio`: schema browser.
+- `npm run db:migrate`: Push migrations (requires `DATABASE_URL`).
 - Minimal scripts: `npm run dev`, `build`, `start`, `lint`, `format`, `test`, `db:*`.
 
 ## Coding Style & Naming Conventions
@@ -29,7 +28,6 @@
 ## Testing Guidelines
 
 - Unit: Vitest (jsdom). Place tests under `tests/unit/*.test.ts`. Prefer focused tests near business logic (`src/lib/*`, helpers).
-  
 - Coverage: no hard gate configured; add meaningful tests for schema and critical flows.
 
 ## Commit & Pull Request Guidelines
