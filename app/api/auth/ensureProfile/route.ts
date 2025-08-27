@@ -35,7 +35,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (profile)
       return NextResponse.json({ ok: true, tenantId: profile.tenant_id });
-
+    // If self-signups are disabled, block auto-provision and require invite
+    const allowSelf = process.env.ALLOW_SELF_SIGNUP === '1';
+    if (!allowSelf) {
+      return NextResponse.json(
+        { ok: false, error: 'Invite required' },
+        { status: 403 },
+      );
+    }
     const { data: tenant } = await admin
       .from('tenants')
       .insert({ name: user.email || 'My Company' })
