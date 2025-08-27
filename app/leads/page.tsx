@@ -12,6 +12,7 @@ import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import BranchSelect from '~/components/BranchSelect';
 import RequireOwner from '~/components/RequireOwner';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
+import Segmented from '~/components/ui/Segmented';
 
 export default function LeadsPage() {
   const supabase = supabaseBrowser();
@@ -44,11 +45,17 @@ export default function LeadsPage() {
   const [branchNames, setBranchNames] = useState<Record<string, string>>({});
   const [kpis, setKpis] = useState<any | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
+  const [jobsLeadCount, setJobsLeadCount] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any | null>(null);
   const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>(
     'create',
   );
+  // Filters
+  const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
+    'open',
+  );
+  const [dueOnly, setDueOnly] = useState(false);
   // Branches for add/edit choices
   const [branches, setBranches] = useState<any[]>([]);
   // Per-add override: use selected branch, specific branch, or unassigned
@@ -84,6 +91,7 @@ export default function LeadsPage() {
         const token = session.session?.access_token;
         if (!token) {
           setKpis(null);
+          setJobsLeadCount(null);
           setKpiLoading(false);
           return;
         }
@@ -97,8 +105,21 @@ export default function LeadsPage() {
         const out = await res.json();
         if (res.ok && out?.ok) setKpis(out);
         else setKpis(null);
+        // Also compute Jobs in Lead stage (pipeline) count for clarity
+        try {
+          let jq = supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'Lead');
+          if (branchId !== 'all') jq = jq.eq('branch_id', branchId as string);
+          const { count } = await jq;
+          setJobsLeadCount(count || 0);
+        } catch {
+          setJobsLeadCount(null);
+        }
       } catch {
         setKpis(null);
+        setJobsLeadCount(null);
       } finally {
         setKpiLoading(false);
       }
@@ -142,6 +163,13 @@ export default function LeadsPage() {
       .select('*')
       .order('date', { ascending: false });
     if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
+    if (filterMode === 'open')
+      q = q
+        .neq('status', 'Converted')
+        .neq('status', 'Closed')
+        .neq('status', 'Lost');
+    else if (filterMode === 'converted') q = q.eq('status', 'Converted');
+    if (dueOnly) q = q.eq('next_follow_up_date', todayStr);
     const { data, error } = await q;
     if (error) {
       // Surface server-side error details and show a friendly UI error
@@ -163,7 +191,56 @@ export default function LeadsPage() {
       setLoadingList(false);
       return;
     }
-    setLeads(data || []);
+    let rows: any[] = (data as any[]) || [];
+
+    // Merge job-only Lead-stage cards as read-only rows (unless Due-only or Converted filter)
+    if (!dueOnly && filterMode !== 'converted') {
+      try {
+        let jq = supabase
+          .from('jobs')
+          .select('id, customer_id, branch_id, date_lead, created_at, status, lead_id')
+          .eq('status', 'Lead')
+          .is('lead_id', null)
+          .order('created_at', { ascending: false });
+        if (branchId !== 'all') jq = jq.eq('branch_id', branchId as string);
+        const { data: jrows } = await jq;
+        const jobs = ((jrows as any[]) || []) as any[];
+        if (jobs.length > 0) {
+          const ids = Array.from(new Set(jobs.map((r) => r.customer_id).filter(Boolean)));
+          let cmap = new Map<string, any>();
+          if (ids.length > 0) {
+            const { data: custs } = await supabase
+              .from('customers')
+              .select('id, name, phone, address')
+              .in('id', ids as any);
+            for (const c of ((custs as any[]) || []) as any[]) cmap.set(c.id, c);
+          }
+          const jobLeads = jobs.map((j) => {
+            const c = cmap.get(j.customer_id) || {};
+            const date = j.date_lead || j.created_at?.slice(0, 10) || todayStr;
+            return {
+              id: `job-${j.id}`,
+              date,
+              name: c.name || '—',
+              phone: c.phone || '',
+              address: c.address || '',
+              source: 'Job',
+              interested_capacity_kw: null,
+              next_follow_up_date: null,
+              last_contacted_at: null,
+              status: 'Lead (job)',
+              branch_id: j.branch_id || null,
+              notes: '',
+              _jobOnly: true,
+              _jobId: j.id,
+            } as any;
+          });
+          rows = [...jobLeads, ...rows];
+        }
+      } catch {}
+    }
+
+    setLeads(rows);
     setLoadingList(false);
   };
 
@@ -172,7 +249,7 @@ export default function LeadsPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) load();
     });
-  }, [branchId]);
+  }, [branchId, filterMode, dueOnly]);
 
   const add = async () => {
     setErr(null);
@@ -248,6 +325,26 @@ export default function LeadsPage() {
         <div className="min-w-[220px]">
           <BranchSelect value={branchId} onChange={setBranchId} />
         </div>
+      </div>
+      {/* Simple filters: default to Open, optional Due today */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented
+          options={[
+            { label: 'Open', value: 'open' },
+            { label: 'All', value: 'all' },
+            { label: 'Converted', value: 'converted' },
+          ]}
+          value={filterMode}
+          onChange={(v) => setFilterMode(v as any)}
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={dueOnly}
+            onChange={(e) => setDueOnly(e.target.checked)}
+          />
+          Due today
+        </label>
       </div>
       {/* Quick add: single field capture */}
       <Card>
@@ -417,6 +514,13 @@ export default function LeadsPage() {
             </div>
           </div>
         ))}
+      {/* Clarification: Jobs pipeline Lead-stage count can differ from Leads */}
+      {!kpiLoading && jobsLeadCount != null && (
+        <div className="rounded border bg-white p-3 text-center">
+          <div className="text-xs text-gray-500">Jobs in Lead Stage</div>
+          <div className="text-lg font-semibold">{jobsLeadCount}</div>
+        </div>
+      )}
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -727,7 +831,9 @@ export default function LeadsPage() {
                       onChange={(e) => {
                         const v = e.target.checked;
                         const map: Record<string, boolean> = {};
-                        (leads || []).forEach((l) => (map[l.id] = v));
+                        (leads || []).forEach((l) => {
+                          if (!(l as any)._jobOnly) map[l.id] = v;
+                        });
                         setSelected(map);
                       }}
                     />
@@ -751,16 +857,20 @@ export default function LeadsPage() {
                   <React.Fragment key={l.id}>
                     <tr className="border-b">
                       <td className="p-2">
-                        <input
-                          type="checkbox"
-                          checked={!!selected[l.id]}
-                          onChange={(e) =>
-                            setSelected({
-                              ...selected,
-                              [l.id]: e.target.checked,
-                            })
-                          }
-                        />
+                        {(l as any)._jobOnly ? (
+                          <input type="checkbox" disabled title="Job card (read-only)" />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={!!selected[l.id]}
+                            onChange={(e) =>
+                              setSelected({
+                                ...selected,
+                                [l.id]: e.target.checked,
+                              })
+                            }
+                          />
+                        )}
                       </td>
                       <td className="p-2">{l.date || '—'}</td>
                       {editing === l.id ? (
@@ -987,43 +1097,99 @@ export default function LeadsPage() {
                             <span title={l.notes || ''}>{l.notes || '—'}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditing(l.id);
-                                setEditForm(l);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <RequireOwner>
+                            {(l as any)._jobOnly ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={async () => {
+                                    // Create a corresponding lead and link this job
+                                    const { data: prof } = await supabase
+                                      .from('profiles')
+                                      .select('tenant_id')
+                                      .maybeSingle();
+                                    const tenantId = (prof as any)?.tenant_id as string;
+                                    const today = new Date().toISOString().slice(0, 10);
+                                    const { data: lead } = await supabase
+                                      .from('leads')
+                                      .insert({
+                                        tenant_id: tenantId,
+                                        date: (l as any).date || today,
+                                        name: (l as any).name || 'Lead',
+                                        phone: (l as any).phone || null,
+                                        address: (l as any).address || null,
+                                        interested_capacity_kw: (l as any).interested_capacity_kw || null,
+                                        status: 'Converted',
+                                        source: 'Job',
+                                        branch_id:
+                                          (l as any).branch_id ||
+                                          (branchId !== 'all' ? (branchId as string) : null),
+                                      })
+                                      .select('id')
+                                      .single();
+                                    const newLeadId = (lead as any)?.id as string;
+                                    if (newLeadId && (l as any)._jobId) {
+                                      await supabase
+                                        .from('jobs')
+                                        .update({ lead_id: newLeadId })
+                                        .eq('id', (l as any)._jobId);
+                                      toast({ title: 'Linked job to lead', variant: 'success' });
+                                      load();
+                                    }
+                                  }}
+                                >
+                                  Link Lead
+                                </Button>
+                                <a
+                                  href={`/jobs/${(l as any)._jobId}`}
+                                  className="ml-2 rounded border px-2 py-1 text-sm"
+                                >
+                                  Open Job
+                                </a>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditing(l.id);
+                                    setEditForm(l);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                              </>
+                            )}
+                            {!((l as any)._jobOnly) && (
+                              <RequireOwner>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={async () => {
+                                    const ok = await confirm({
+                                      title: 'Delete lead',
+                                      description:
+                                        'Are you sure you want to permanently delete this lead?',
+                                      confirmText: 'Delete',
+                                    });
+                                    if (!ok) return;
+                                    await supabase
+                                      .from('leads')
+                                      .delete()
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </RequireOwner>
+                            )}
+                            {!((l as any)._jobOnly) && (
                               <Button
-                                variant="danger"
                                 size="sm"
                                 className="ml-2"
-                                onClick={async () => {
-                                  const ok = await confirm({
-                                    title: 'Delete lead',
-                                    description:
-                                      'Are you sure you want to permanently delete this lead?',
-                                    confirmText: 'Delete',
-                                  });
-                                  if (!ok) return;
-                                  await supabase
-                                    .from('leads')
-                                    .delete()
-                                    .eq('id', l.id);
-                                  load();
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </RequireOwner>
-                            <Button
-                              size="sm"
-                              className="ml-2"
-                              onClick={() => {
+                                onClick={() => {
                                 // confirmation dialog
                                 confirm({
                                   title: 'Convert lead',
@@ -1041,10 +1207,11 @@ export default function LeadsPage() {
                                     roof_type: '',
                                   });
                                 });
-                              }}
-                            >
-                              Convert
-                            </Button>
+                                }}
+                              >
+                                Convert
+                              </Button>
+                            )}
                             {/* Removed 'Followed up' button to reduce clutter */}
                             {l.phone && (
                               <a

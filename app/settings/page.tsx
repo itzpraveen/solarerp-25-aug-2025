@@ -507,7 +507,8 @@ export default function SettingsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-600">
-                    <th className="p-2">User</th>
+                    <th className="p-2">Name</th>
+                    <th className="p-2">Phone</th>
                     <th className="p-2">User ID</th>
                     <th className="p-2">Role</th>
                   </tr>
@@ -515,11 +516,106 @@ export default function SettingsPage() {
                 <tbody>
                   {team.map((m) => (
                     <tr key={m.user_id} className="border-t">
-                      <td
-                        className="p-2 text-xs text-gray-700"
-                        title={m.user_id}
-                      >
-                        {m.display_name || '—'}
+                      <td className="p-2">
+                        {(myRole === 'owner' || myRole === 'admin') ? (
+                          <input
+                            className="w-full rounded border px-2 py-1 text-xs"
+                            value={m.display_name || ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setTeam((prev) =>
+                                prev.map((x) =>
+                                  x.user_id === m.user_id
+                                    ? { ...x, display_name: v }
+                                    : x,
+                                ),
+                              );
+                            }}
+                            onBlur={async (e) => {
+                              const displayName = e.target.value.trim();
+                              try {
+                                const { data: session } =
+                                  await supabase.auth.getSession();
+                                const token = session.session?.access_token;
+                                const res = await fetch('/api/team/member', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(token
+                                      ? { Authorization: `Bearer ${token}` }
+                                      : {}),
+                                  },
+                                  body: JSON.stringify({
+                                    userId: m.user_id,
+                                    displayName,
+                                  }),
+                                });
+                                if (!res.ok)
+                                  throw new Error('Failed to save name');
+                              } catch (err) {
+                                toast({
+                                  title: 'Save failed',
+                                  description: String((err as any)?.message || err),
+                                  variant: 'error',
+                                });
+                              }
+                            }}
+                            placeholder="Display name"
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-700">
+                            {m.display_name || '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        {(myRole === 'owner' || myRole === 'admin') ? (
+                          <input
+                            className="w-full rounded border px-2 py-1 text-xs"
+                            value={m.phone || ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setTeam((prev) =>
+                                prev.map((x) =>
+                                  x.user_id === m.user_id ? { ...x, phone: v } : x,
+                                ),
+                              );
+                            }}
+                            onBlur={async (e) => {
+                              try {
+                                const { data: session } =
+                                  await supabase.auth.getSession();
+                                const token = session.session?.access_token;
+                                const res = await fetch('/api/team/member', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(token
+                                      ? { Authorization: `Bearer ${token}` }
+                                      : {}),
+                                  },
+                                  body: JSON.stringify({
+                                    userId: m.user_id,
+                                    phone: e.target.value.trim(),
+                                  }),
+                                });
+                                if (!res.ok)
+                                  throw new Error('Failed to save phone');
+                              } catch (err) {
+                                toast({
+                                  title: 'Save failed',
+                                  description: String((err as any)?.message || err),
+                                  variant: 'error',
+                                });
+                              }
+                            }}
+                            placeholder="Phone"
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-700">
+                            {m.phone || '—'}
+                          </span>
+                        )}
                       </td>
                       <td
                         className="p-2 text-xs text-gray-500"
