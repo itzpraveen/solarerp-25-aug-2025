@@ -22,6 +22,7 @@
     "seed": "tsx scripts/seed.ts",
     "seed:full": "tsx scripts/seed.full.ts",
     "doctor": "tsx scripts/doctor.ts",
+    "pdf:mock": "E2E_MOCK=1 tsx scripts/test_pdf_route.ts",
     "demo:seed": "tsx scripts/seed.full.ts",
     "demo:seed:min": "tsx scripts/seed.ts",
     "unseed": "tsx scripts/unseed.ts",
