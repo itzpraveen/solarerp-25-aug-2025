@@ -29,6 +29,12 @@ export async function GET(req: NextRequest) {
     const branchId = url.searchParams.get('branchId'); // if absent → aggregate per branch
     const today = new Date().toISOString().slice(0, 10);
     const startOfWeek = startOfWeekMondayISO();
+    // Resolve tenant for safer RLS-compliant filtering
+    const { data: meProfile } = await sb
+      .from('profiles')
+      .select('tenant_id')
+      .maybeSingle();
+    const tenantId = (meProfile as any)?.tenant_id as string | undefined;
 
     if (branchId) {
       // KPIs for a specific branch (fresh builder per count to avoid mutation carryover)
@@ -86,9 +92,10 @@ export async function GET(req: NextRequest) {
     const { data: branches, error: bErr } = await sb
       .from('branches')
       .select('id, name')
-      .order('name');
-    if (bErr) throw bErr;
-    const list = (branches as any[]) || [];
+      .order('name')
+      .match(tenantId ? { tenant_id: tenantId } : {});
+    // If branch query fails due to RLS or other reasons, continue with empty branch list.
+    const list = bErr ? [] : ((branches as any[]) || []);
 
     const tasks = list.map(async (b) => {
       const [total, open, dueToday, overdue, newWeek, converted] = await Promise.all([
