@@ -143,15 +143,7 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
 
-      // 1) Otherwise, try @sparticuz/chromium helper (works on Vercel/AWS)
-      try {
-        if (chromium && chromium.executablePath) {
-          const p = await chromium.executablePath();
-          if (p) return p;
-        }
-      } catch {}
-
-      // 2) Prefer explicit env/known paths
+      // 1) Prefer explicit env/known paths first (keeps libs colocated in node_modules on Vercel)
       const envCandidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
         process.env.CHROME_PATH,
@@ -166,6 +158,14 @@ export async function POST(req: NextRequest) {
           if (p && fs.existsSync(p)) return p;
         } catch {}
       }
+
+      // 2) Try @sparticuz/chromium helper (works on Vercel/AWS)
+      try {
+        if (chromium && chromium.executablePath) {
+          const p = await chromium.executablePath();
+          if (p) return p;
+        }
+      } catch {}
 
       // 3) Try common local Chrome/Chromium paths (dev workstations)
       const localCandidates = [
