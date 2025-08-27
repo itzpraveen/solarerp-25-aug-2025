@@ -34,7 +34,13 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ className, variant, size, loading, children, disabled, ...props }, ref) {
   return (
-    <button ref={ref} className={clsx(button({ variant, size }), className)} disabled={disabled || loading} {...props}>
+    <button
+      ref={ref}
+      className={clsx(button({ variant, size }), className)}
+      disabled={disabled || loading}
+      aria-busy={loading ? true : undefined}
+      {...props}
+    >
       {loading && <Spinner className="mr-2 h-4 w-4" />}
       {children}
     </button>

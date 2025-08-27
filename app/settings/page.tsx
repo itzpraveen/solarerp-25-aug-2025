@@ -3,9 +3,13 @@ import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import RequireOwner from '~/components/RequireOwner';
 import Button from '~/components/ui/Button';
+import { useConfirm } from '~/components/ui/ConfirmProvider';
+import { useToast } from '~/components/ui/ToastProvider';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
+  const { confirm } = useConfirm();
+  const { toast } = useToast();
   const [form, setForm] = useState<any>({ currency: 'INR', default_tax_rate: 0, upi_id: '', proposal_note_ml: '' });
   const [tenantId, setTenantId] = useState<string>('');
   const [team, setTeam] = useState<any[]>([]);
@@ -92,8 +96,8 @@ export default function SettingsPage() {
       ({ error } = await supabase.from('settings').insert({ ...form, tenant_id: tenantId }));
     }
     setSaving(false);
-    if (error) { setFlash(`Save failed: ${error.message}`); return; }
-    setFlash('Saved'); setTimeout(() => setFlash(null), 1500);
+    if (error) { toast({ title: 'Save failed', description: error.message, variant: 'error' }); return; }
+    toast({ title: 'Saved', variant: 'success' });
   };
 
   const invite = async () => {
@@ -112,9 +116,9 @@ export default function SettingsPage() {
       setInviteEmail(''); setInviteRole('staff');
       const { data: members } = await supabase.from('profiles').select('*').eq('tenant_id', tenantId);
       setTeam((members as any[]) || []);
-      setFlash('Invitation added'); setTimeout(() => setFlash(null), 1500);
+      toast({ title: 'Invitation added', variant: 'success' });
     } catch (e: any) {
-      setFlash(String(e?.message || e)); setTimeout(() => setFlash(null), 2500);
+      toast({ title: 'Invite failed', description: String(e?.message || e), variant: 'error' });
     } finally {
       setInviting(false);
     }
@@ -148,7 +152,13 @@ export default function SettingsPage() {
   };
 
   const deleteBranch = async (id: string) => {
-    if (!confirm('Delete this branch? Existing records will have branch cleared.')) return;
+    const ok = await confirm({
+      title: 'Delete branch',
+      description: 'Existing records will have branch cleared. Continue?',
+      variant: 'danger',
+      confirmText: 'Delete',
+    });
+    if (!ok) return;
     await supabase.from('branches').delete().eq('id', id);
     reloadBranches();
   };
@@ -284,13 +294,13 @@ export default function SettingsPage() {
                               const token = session.session?.access_token;
                               const res = await fetch('/api/team/role', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ userId: m.user_id, role }) });
                               const out = await res.json();
-                              if (!res.ok || !out.ok) throw new Error(out?.error || 'Update failed');
-                              setTeam((prev) => prev.map((x) => (x.user_id === m.user_id ? { ...x, role } : x)));
-                              setFlash('Role updated'); setTimeout(() => setFlash(null), 1500);
-                            } catch (err: any) {
-                              setFlash(String(err?.message || err)); setTimeout(() => setFlash(null), 2500);
-                            }
-                          }}
+                        if (!res.ok || !out.ok) throw new Error(out?.error || 'Update failed');
+                        setTeam((prev) => prev.map((x) => (x.user_id === m.user_id ? { ...x, role } : x)));
+                        toast({ title: 'Role updated', variant: 'success' });
+                      } catch (err: any) {
+                        toast({ title: 'Update failed', description: String(err?.message || err), variant: 'error' });
+                      }
+                    }}
                         >
                           <option value="owner">Owner</option>
                           <option value="admin">Admin</option>

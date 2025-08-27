@@ -6,6 +6,8 @@ import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
 import RequireOwner from '~/components/RequireOwner';
+import DataTable, { type Column } from '~/components/ui/DataTable';
+import { useToast } from '~/components/ui/ToastProvider';
 
 export default function ItemsPage() {
   const supabase = supabaseBrowser();
@@ -17,6 +19,7 @@ export default function ItemsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
+  const { toast } = useToast();
 
   const load = async () => {
     setErr(null);
@@ -40,7 +43,7 @@ export default function ItemsPage() {
     if (v) { setErr(v); return; }
     setAdding(true);
     const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
-    if (pErr || !prof?.tenant_id) { setAdding(false); return alert('Profile not ready'); }
+    if (pErr || !prof?.tenant_id) { setAdding(false); toast({ title: 'Profile not ready', variant: 'error' }); return; }
     const { error } = await supabase.from('items').insert({
       item_code: form.item_code,
       tenant_id: prof!.tenant_id,
@@ -52,8 +55,9 @@ export default function ItemsPage() {
       preferred_vendor: form.preferred_vendor || null,
     });
     setAdding(false);
-    if (error) return alert(`Add failed: ${error.message}`);
+    if (error) { toast({ title: 'Add failed', description: error.message, variant: 'error' }); return; }
     setForm({ item_code: '', name: '', category: '', unit: '', gst_rate: 0, mrp: 0, preferred_vendor: '' });
+    toast({ title: 'Item added', variant: 'success' });
     load();
   };
 
@@ -81,57 +85,47 @@ export default function ItemsPage() {
       {items.length === 0 ? (
         <EmptyState title="No items yet" description="Add standard parts and accessories for quick quoting and BOQs." />
       ) : (
-      <div className="rounded border bg-white overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="p-2">Code</th>
-              <th className="p-2">Name</th>
-              <th className="p-2">Category</th>
-              <th className="p-2">Unit</th>
-              <th className="p-2">GST %</th>
-              <th className="p-2">MRP</th>
-              <th className="p-2">Vendor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.filter((it) => !search || `${it.item_code} ${it.name} ${it.category}`.toLowerCase().includes(search.toLowerCase())).map((it) => (
-              <tr key={it.item_code} className="border-b">
-                <td className="p-2">{it.item_code}</td>
-                {editing === it.item_code ? (
-                  <>
-                    <td className="p-2"><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></td>
-                    <td className="p-2"><Input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} /></td>
-                    <td className="p-2"><Input value={editForm.unit || ''} onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })} /></td>
-                    <td className="p-2"><Input type="number" value={editForm.gst_rate || 0} onChange={(e) => setEditForm({ ...editForm, gst_rate: Number(e.target.value) })} /></td>
-                    <td className="p-2"><Input type="number" value={editForm.mrp || 0} onChange={(e) => setEditForm({ ...editForm, mrp: Number(e.target.value) })} /></td>
-                    <td className="p-2"><Input value={editForm.preferred_vendor || ''} onChange={(e) => setEditForm({ ...editForm, preferred_vendor: e.target.value })} /></td>
-                    <td className="p-2 whitespace-nowrap">
-                      <Button size="sm" onClick={async () => {
-                        const v = validateItemPayload({ ...editForm, item_code: it.item_code });
-                        if (v) { setErr(v); return; }
-                        await supabase.from('items').update({ name: editForm.name, category: editForm.category, unit: editForm.unit, gst_rate: Number(editForm.gst_rate) || 0, mrp: Number(editForm.mrp) || 0, preferred_vendor: editForm.preferred_vendor }).eq('item_code', it.item_code);
-                        setEditing(null); load();
-                      }}>Save</Button>
-                      <Button variant="outline" size="sm" className="ml-2" onClick={() => setEditing(null)}>Cancel</Button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="p-2">{it.name}</td>
-                    <td className="p-2">{it.category || '—'}</td>
-                    <td className="p-2">{it.unit || '—'}</td>
-                    <td className="p-2">{it.gst_rate ?? '—'}</td>
-                    <td className="p-2">{it.mrp ?? '—'}</td>
-                    <td className="p-2">{it.preferred_vendor || '—'}</td>
-                    <td className="p-2 text-right"><Button variant="outline" size="sm" onClick={() => { setEditing(it.item_code); setEditForm(it); }}>Edit</Button></td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>) }
+        <DataTable
+          rows={items.filter((it) => !search || `${it.item_code} ${it.name} ${it.category}`.toLowerCase().includes(search.toLowerCase()))}
+          columns={[
+            { key: 'item_code', header: 'Code' },
+            { key: 'name', header: 'Name', render: (it: any) => (
+              editing === it.item_code ? <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /> : (it.name || '—')
+            ) },
+            { key: 'category', header: 'Category', render: (it: any) => (
+              editing === it.item_code ? <Input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} /> : (it.category || '—')
+            ) },
+            { key: 'unit', header: 'Unit', render: (it: any) => (
+              editing === it.item_code ? <Input value={editForm.unit || ''} onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })} /> : (it.unit || '—')
+            ) },
+            { key: 'gst_rate', header: 'GST %', render: (it: any) => (
+              editing === it.item_code ? <Input type="number" value={editForm.gst_rate || 0} onChange={(e) => setEditForm({ ...editForm, gst_rate: Number(e.target.value) })} /> : (it.gst_rate ?? '—')
+            ) },
+            { key: 'mrp', header: 'MRP', render: (it: any) => (
+              editing === it.item_code ? <Input type="number" value={editForm.mrp || 0} onChange={(e) => setEditForm({ ...editForm, mrp: Number(e.target.value) })} /> : (it.mrp ?? '—')
+            ) },
+            { key: 'preferred_vendor', header: 'Vendor', render: (it: any) => (
+              editing === it.item_code ? <Input value={editForm.preferred_vendor || ''} onChange={(e) => setEditForm({ ...editForm, preferred_vendor: e.target.value })} /> : (it.preferred_vendor || '—')
+            ) },
+            { key: 'actions', header: 'Actions', render: (it: any) => (
+              editing === it.item_code ? (
+                <div className="whitespace-nowrap">
+                  <Button size="sm" onClick={async () => {
+                    const v = validateItemPayload({ ...editForm, item_code: it.item_code });
+                    if (v) { setErr(v); return; }
+                    await supabase.from('items').update({ name: editForm.name, category: editForm.category, unit: editForm.unit, gst_rate: Number(editForm.gst_rate) || 0, mrp: Number(editForm.mrp) || 0, preferred_vendor: editForm.preferred_vendor }).eq('item_code', it.item_code);
+                    setEditing(null); load();
+                    toast({ title: 'Item saved', variant: 'success' });
+                  }}>Save</Button>
+                  <Button variant="outline" size="sm" className="ml-2" onClick={() => setEditing(null)}>Cancel</Button>
+                </div>
+              ) : (
+                <div className="text-right"><Button variant="outline" size="sm" onClick={() => { setEditing(it.item_code); setEditForm(it); }}>Edit</Button></div>
+              )
+            ) },
+          ] as Column<any>[]}
+        />
+      ) }
     </div>
   );
 }
