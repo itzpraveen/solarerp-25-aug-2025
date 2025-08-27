@@ -29,7 +29,8 @@
     "tenant:delete": "tsx scripts/unseed.ts",
     "backfill:branches": "tsx scripts/backfill_branches.ts",
     "backfill:leads": "tsx scripts/backfill_leads_for_jobs.ts",
-    "grant:admin": "tsx scripts/grant_admin.ts"
+    "grant:admin": "tsx scripts/grant_admin.ts",
+    "db:reset:all": "tsx scripts/reset_all.ts --i-am-sure"
   },
   "dependencies": {
     "@sparticuz/chromium": "^127.0.0",
