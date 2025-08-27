@@ -83,7 +83,7 @@ export default function KitsPage() {
         fallback={
           <Card>
             <div className="text-sm text-gray-600">
-              Only owners or admins can add or edit kits.
+              Only admins can add or edit kits.
             </div>
           </Card>
         }

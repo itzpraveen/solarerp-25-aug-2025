@@ -130,7 +130,7 @@ export default function ItemsPage() {
         fallback={
           <Card>
             <div className="text-sm text-gray-600">
-              Only owners or admins can add items.
+              Only admins can add items.
             </div>
           </Card>
         }

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       .single();
     await admin
       .from('profiles')
-      .insert({ user_id: user.id, tenant_id: tenant!.id, role: 'owner' });
+      .insert({ user_id: user.id, tenant_id: tenant!.id, role: 'admin' });
     await admin
       .from('settings')
       .insert({

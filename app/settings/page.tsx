@@ -267,7 +267,7 @@ export default function SettingsPage() {
     <RequireOwner
       fallback={
         <div className="rounded border bg-white p-4 text-sm text-gray-600">
-          Only owners or admins can view and edit settings.
+          Only admins can view and edit settings.
         </div>
       }
     >
@@ -485,7 +485,7 @@ export default function SettingsPage() {
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value as any)}
                     >
-                      <option value="owner">Owner</option>
+                      <option value="owner">Admin</option>
                       <option value="admin">Admin</option>
                       <option value="manager">Manager</option>
                       <option value="sales">Sales</option>
@@ -631,16 +631,12 @@ export default function SettingsPage() {
                             onChange={async (e) => {
                               const role = e.target.value as any;
                               // Prevent demoting the last owner client-side
-                              const ownersCount = team.filter(
-                                (t) => t.role === 'owner',
+                              const adminishCount = team.filter(
+                                (t) => t.role === 'owner' || t.role === 'admin',
                               ).length;
-                              if (
-                                m.role === 'owner' &&
-                                role !== 'owner' &&
-                                ownersCount <= 1
-                              ) {
+                              if ((m.role === 'owner' || m.role === 'admin') && !['owner','admin'].includes(role) && adminishCount <= 1) {
                                 setFlash(
-                                  'Add another owner before demoting the last owner',
+                                  'Add another admin before demoting the last admin',
                                 );
                                 setTimeout(() => setFlash(null), 2500);
                                 return;

@@ -58,30 +58,26 @@ export async function POST(req: NextRequest) {
     const tenantId = ((me as any)?.tenant_id as string) || 't1';
 
     // Prevent removing last owner
-    const { data: owners } = await sb
+    // Enforce at least one admin-ish (owner/admin) remains
+    const { data: admins } = await sb
       .from('profiles')
-      .select('user_id')
+      .select('user_id, role')
       .eq('tenant_id', tenantId)
-      .eq('role', 'owner');
-    const isTargetOwner = !!(owners || []).find(
+      .in('role', ['owner', 'admin'] as any);
+    const isTargetAdminish = !!(admins || []).find(
       (o: any) => o.user_id === userId,
     );
-    const ownerCount = (owners || []).length;
-    if (isTargetOwner && role !== 'owner' && ownerCount <= 1) {
+    const adminishCount = (admins || []).length;
+    if (isTargetAdminish && !['owner', 'admin'].includes(role) && adminishCount <= 1) {
       return NextResponse.json(
-        { ok: false, error: 'Cannot demote the last owner' },
+        { ok: false, error: 'Cannot demote the last admin' },
         { status: 400 },
       );
     }
     // Optional: prevent self-demotion if last owner
-    if (
-      !isMock &&
-      (me as any).user_id === userId &&
-      role !== 'owner' &&
-      ownerCount <= 1
-    ) {
+    if (!isMock && (me as any).user_id === userId && !['owner', 'admin'].includes(role) && adminishCount <= 1) {
       return NextResponse.json(
-        { ok: false, error: 'Add another owner before demoting yourself' },
+        { ok: false, error: 'Add another admin before demoting yourself' },
         { status: 400 },
       );
     }

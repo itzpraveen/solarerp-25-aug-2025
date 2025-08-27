@@ -53,18 +53,19 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
 
-    const { data: owners } = await sb
+    // Enforce at least one admin-ish (owner/admin) remains
+    const { data: admins } = await sb
       .from('profiles')
       .select('user_id')
       .eq('tenant_id', tenantId)
-      .eq('role', 'owner');
-    const isTargetOwner = !!(owners || []).find(
+      .in('role', ['owner', 'admin'] as any);
+    const isTargetAdminish = !!(admins || []).find(
       (o: any) => o.user_id === userId,
     );
-    const ownerCount = (owners || []).length;
-    if (isTargetOwner && ownerCount <= 1) {
+    const adminishCount = (admins || []).length;
+    if (isTargetAdminish && adminishCount <= 1) {
       return NextResponse.json(
-        { ok: false, error: 'Cannot remove the last owner' },
+        { ok: false, error: 'Cannot remove the last admin' },
         { status: 400 },
       );
     }

@@ -113,7 +113,7 @@ function seedDb(): MockDb {
       {
         user_id: users[0].id,
         tenant_id: tenantId,
-        role: 'owner',
+        role: 'admin',
         display_name: 'Owner User',
       },
       {
