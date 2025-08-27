@@ -10,6 +10,7 @@ import EmptyState from '~/components/ui/EmptyState';
 import { isPhone, required } from '@/lib/validation';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import BranchSelect from '~/components/BranchSelect';
+import RequireOwner from '~/components/RequireOwner';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 
 export default function LeadsPage() {
@@ -45,11 +46,14 @@ export default function LeadsPage() {
   const [kpiLoading, setKpiLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any | null>(null);
-  const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>('create');
+  const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>(
+    'create',
+  );
   // Branches for add/edit choices
   const [branches, setBranches] = useState<any[]>([]);
   // Per-add override: use selected branch, specific branch, or unassigned
-  const [addBranchOverride, setAddBranchOverride] = useState<string>('use-selected');
+  const [addBranchOverride, setAddBranchOverride] =
+    useState<string>('use-selected');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -78,9 +82,18 @@ export default function LeadsPage() {
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session.session?.access_token;
-        if (!token) { setKpis(null); setKpiLoading(false); return; }
-        const url = branchId === 'all' ? '/api/leads/kpis' : `/api/leads/kpis?branchId=${encodeURIComponent(branchId)}`;
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!token) {
+          setKpis(null);
+          setKpiLoading(false);
+          return;
+        }
+        const url =
+          branchId === 'all'
+            ? '/api/leads/kpis'
+            : `/api/leads/kpis?branchId=${encodeURIComponent(branchId)}`;
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const out = await res.json();
         if (res.ok && out?.ok) setKpis(out);
         else setKpis(null);
@@ -96,12 +109,18 @@ export default function LeadsPage() {
   useEffect(() => {
     const channel = supabase
       .channel('leads-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-        load();
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          load();
+        },
+      )
       .subscribe();
     return () => {
-      try { supabase.removeChannel(channel); } catch {}
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -118,7 +137,10 @@ export default function LeadsPage() {
 
   const load = async () => {
     setLoadingList(true);
-    let q = supabase.from('leads').select('*').order('date', { ascending: false });
+    let q = supabase
+      .from('leads')
+      .select('*')
+      .order('date', { ascending: false });
     if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
     const { data, error } = await q;
     if (error) {
@@ -167,27 +189,31 @@ export default function LeadsPage() {
     }
     const branchForInsert =
       addBranchOverride === 'use-selected'
-        ? (branchId !== 'all' ? (branchId as string) : null)
+        ? branchId !== 'all'
+          ? (branchId as string)
+          : null
         : addBranchOverride === 'none'
-        ? null
-        : (addBranchOverride as string);
-    const { error } = await supabase
-      .from('leads')
-      .insert({
-        tenant_id: prof!.tenant_id,
-        date: new Date().toISOString().slice(0, 10),
-        name,
-        phone,
-        source: source || null,
-        interested_capacity_kw: capacity,
-        address: place || null,
-        notes: remarks || null,
-        next_follow_up_date: nextFollowUp || null,
-        status: 'New',
-        branch_id: branchForInsert,
-      });
+          ? null
+          : (addBranchOverride as string);
+    const { error } = await supabase.from('leads').insert({
+      tenant_id: prof!.tenant_id,
+      date: new Date().toISOString().slice(0, 10),
+      name,
+      phone,
+      source: source || null,
+      interested_capacity_kw: capacity,
+      address: place || null,
+      notes: remarks || null,
+      next_follow_up_date: nextFollowUp || null,
+      status: 'New',
+      branch_id: branchForInsert,
+    });
     setAdding(false);
-    if (error) { setErr(error.message); setAdding(false); return; }
+    if (error) {
+      setErr(error.message);
+      setAdding(false);
+      return;
+    }
     setName('');
     setPhone('');
     setCapacity(1);
@@ -256,8 +282,14 @@ export default function LeadsPage() {
                 nm = 'Lead';
               }
               setErr(null);
-              if (!required(nm)) { setErr('Name or phone required'); return; }
-              if (ph && !isPhone(ph)) { setErr('Enter a valid phone'); return; }
+              if (!required(nm)) {
+                setErr('Name or phone required');
+                return;
+              }
+              if (ph && !isPhone(ph)) {
+                setErr('Enter a valid phone');
+                return;
+              }
               setAdding(true);
               const { data: prof } = await supabase
                 .from('profiles')
@@ -276,7 +308,9 @@ export default function LeadsPage() {
                 branch_id: bId,
               });
               setAdding(false);
-              setName(''); setPhone(''); setCapacity(1);
+              setName('');
+              setPhone('');
+              setCapacity(1);
               load();
             }}
             loading={adding}
@@ -286,45 +320,92 @@ export default function LeadsPage() {
         </div>
       </Card>
       {/* KPI tiles (server-side aggregates) */}
-      {!kpiLoading && kpis && (
-        kpis.scope === 'all' ? (
+      {!kpiLoading &&
+        kpis &&
+        (kpis.scope === 'all' ? (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             {kpis.perBranch.map((b: any) => (
               <div key={b.branchId} className="rounded border bg-white p-3">
                 <div className="text-sm font-medium">{b.name}</div>
-                <div className="mt-1 grid grid-cols-2 gap-1 text-xs">
+                <div className="mt-1 grid grid-cols-3 gap-1 text-xs">
                   <div className="text-gray-600">Leads: {b.total}</div>
-                  <div className={b.dueToday > 0 ? 'text-red-600' : 'text-gray-600'}>Due today: {b.dueToday}</div>
-                  <div className={b.overdue > 0 ? 'text-red-600' : 'text-gray-600'}>Overdue: {b.overdue}</div>
-                  <div className="text-gray-600">New this week: {b.newWeek}</div>
+                  <div className="text-gray-600">Open: {b.open}</div>
+                  <div
+                    className={
+                      b.dueToday > 0 ? 'text-red-600' : 'text-gray-600'
+                    }
+                  >
+                    Due today: {b.dueToday}
+                  </div>
+                  <div
+                    className={b.overdue > 0 ? 'text-red-600' : 'text-gray-600'}
+                  >
+                    Overdue: {b.overdue}
+                  </div>
+                  <div className="text-gray-600">
+                    New this week: {b.newWeek}
+                  </div>
                 </div>
               </div>
             ))}
             {(kpis.unassigned?.total || 0) > 0 && (
               <div className="rounded border bg-white p-3">
                 <div className="text-sm font-medium">Unassigned</div>
-                <div className="mt-1 grid grid-cols-2 gap-1 text-xs">
-                  <div className="text-gray-600">Leads: {kpis.unassigned.total}</div>
-                  <div className={kpis.unassigned.dueToday > 0 ? 'text-red-600' : 'text-gray-600'}>Due today: {kpis.unassigned.dueToday}</div>
-                  <div className={kpis.unassigned.overdue > 0 ? 'text-red-600' : 'text-gray-600'}>Overdue: {kpis.unassigned.overdue}</div>
-                  <div className="text-gray-600">New this week: {kpis.unassigned.newWeek}</div>
+                <div className="mt-1 grid grid-cols-3 gap-1 text-xs">
+                  <div className="text-gray-600">
+                    Leads: {kpis.unassigned.total}
+                  </div>
+                  <div className="text-gray-600">Open: {kpis.unassigned.open}</div>
+                  <div
+                    className={
+                      kpis.unassigned.dueToday > 0
+                        ? 'text-red-600'
+                        : 'text-gray-600'
+                    }
+                  >
+                    Due today: {kpis.unassigned.dueToday}
+                  </div>
+                  <div
+                    className={
+                      kpis.unassigned.overdue > 0
+                        ? 'text-red-600'
+                        : 'text-gray-600'
+                    }
+                  >
+                    Overdue: {kpis.unassigned.overdue}
+                  </div>
+                  <div className="text-gray-600">
+                    New this week: {kpis.unassigned.newWeek}
+                  </div>
                 </div>
               </div>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
             <div className="rounded border bg-white p-3 text-center">
               <div className="text-xs text-gray-500">Total</div>
               <div className="text-lg font-semibold">{kpis.total}</div>
             </div>
             <div className="rounded border bg-white p-3 text-center">
+              <div className="text-xs text-gray-500">Open</div>
+              <div className="text-lg font-semibold">{kpis.open}</div>
+            </div>
+            <div className="rounded border bg-white p-3 text-center">
               <div className="text-xs text-gray-500">Due today</div>
-              <div className={`text-lg font-semibold ${kpis.dueToday > 0 ? 'text-red-600' : ''}`}>{kpis.dueToday}</div>
+              <div
+                className={`text-lg font-semibold ${kpis.dueToday > 0 ? 'text-red-600' : ''}`}
+              >
+                {kpis.dueToday}
+              </div>
             </div>
             <div className="rounded border bg-white p-3 text-center">
               <div className="text-xs text-gray-500">Overdue</div>
-              <div className={`text-lg font-semibold ${kpis.overdue > 0 ? 'text-red-600' : ''}`}>{kpis.overdue}</div>
+              <div
+                className={`text-lg font-semibold ${kpis.overdue > 0 ? 'text-red-600' : ''}`}
+              >
+                {kpis.overdue}
+              </div>
             </div>
             <div className="rounded border bg-white p-3 text-center">
               <div className="text-xs text-gray-500">New this week</div>
@@ -335,8 +416,7 @@ export default function LeadsPage() {
               <div className="text-lg font-semibold">{kpis.converted}</div>
             </div>
           </div>
-        )
-      )}
+        ))}
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -395,7 +475,10 @@ export default function LeadsPage() {
             title="Assign branch"
           >
             <option value="use-selected">
-              Branch: {branchId === 'all' ? 'Use filter or Unassigned' : (branchNames[branchId as string] || 'Selected')}
+              Branch:{' '}
+              {branchId === 'all'
+                ? 'Use filter or Unassigned'
+                : branchNames[branchId as string] || 'Selected'}
             </option>
             <option value="none">Unassigned</option>
             {branches.map((b) => (
@@ -422,7 +505,12 @@ export default function LeadsPage() {
             >
               Export CSV
             </a>
-            <a className="rounded border px-3 py-2 text-sm" href="/api/leads/template">Template (.xlsx)</a>
+            <a
+              className="rounded border px-3 py-2 text-sm"
+              href="/api/leads/template"
+            >
+              Template (.xlsx)
+            </a>
           </div>
         </div>
       </Card>
@@ -430,12 +518,24 @@ export default function LeadsPage() {
       <Card>
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <div className="text-sm font-medium">Import leads from Excel (.xlsx)</div>
-            <div className="text-xs text-gray-600">Columns supported: Name, Phone, Email, Source, Capacity (kW), Date, Next Follow-up, Branch</div>
-            <div className="text-xs text-gray-600">Branch column maps by name. If missing, uses selected branch above. Enable create to auto-create branches by name.</div>
+            <div className="text-sm font-medium">
+              Import leads from Excel (.xlsx)
+            </div>
+            <div className="text-xs text-gray-600">
+              Columns supported: Name, Phone, Email, Source, Capacity (kW),
+              Date, Next Follow-up, Branch
+            </div>
+            <div className="text-xs text-gray-600">
+              Branch column maps by name. If missing, uses selected branch
+              above. Enable create to auto-create branches by name.
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-sm">Dedupe:</label>
-              <select className="rounded border px-2 py-1 text-sm" value={dedupeMode} onChange={(e) => setDedupeMode(e.target.value as any)}>
+              <select
+                className="rounded border px-2 py-1 text-sm"
+                value={dedupeMode}
+                onChange={(e) => setDedupeMode(e.target.value as any)}
+              >
                 <option value="create">Create anyway</option>
                 <option value="skip">Skip duplicates</option>
                 <option value="update">Update existing</option>
@@ -447,36 +547,61 @@ export default function LeadsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input id="leadFile" type="file" accept=".xlsx" className="text-sm" />
+            <input
+              id="leadFile"
+              type="file"
+              accept=".xlsx"
+              className="text-sm"
+            />
             <Button
               onClick={async () => {
-                const el = document.getElementById('leadFile') as HTMLInputElement | null;
-                const cb = document.getElementById('createBranches') as HTMLInputElement | null;
+                const el = document.getElementById(
+                  'leadFile',
+                ) as HTMLInputElement | null;
+                const cb = document.getElementById(
+                  'createBranches',
+                ) as HTMLInputElement | null;
                 const f = el?.files?.[0];
-                if (!f) { alert('Pick an .xlsx file'); return; }
-                setImporting(true); setImportResult(null);
+                if (!f) {
+                  alert('Pick an .xlsx file');
+                  return;
+                }
+                setImporting(true);
+                setImportResult(null);
                 try {
                   const fd = new FormData();
                   fd.append('file', f);
                   fd.append('mode', dedupeMode);
-                  if (branchId !== 'all') fd.append('branchId', branchId as string);
+                  if (branchId !== 'all')
+                    fd.append('branchId', branchId as string);
                   fd.append('createBranches', cb?.checked ? 'true' : 'false');
                   const { data: session } = await supabase.auth.getSession();
                   const token = session.session?.access_token;
                   const res = await fetch('/api/leads/import', {
                     method: 'POST',
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    headers: token
+                      ? { Authorization: `Bearer ${token}` }
+                      : undefined,
                     body: fd,
                   });
                   const out = await res.json();
-                  if (!res.ok || !out?.ok) throw new Error(out?.error || 'Import failed');
+                  if (!res.ok || !out?.ok)
+                    throw new Error(out?.error || 'Import failed');
                   setImportResult(out);
                   load();
-                  toast({ title: 'Import complete', description: `${out.created} created, ${out.updated} updated, ${out.skipped} skipped.`, variant: 'success' });
+                  toast({
+                    title: 'Import complete',
+                    description: `${out.created} created, ${out.updated} updated, ${out.skipped} skipped.`,
+                    variant: 'success',
+                  });
                 } catch (e: any) {
                   const msg = e?.message || String(e);
                   setImportResult({ ok: false, error: msg });
-                  toast({ title: 'Import failed', description: msg, variant: 'error' });
+                  toast({
+                    title: 'Import failed',
+                    description: msg,
+                    variant: 'error',
+                  });
                 } finally {
                   setImporting(false);
                 }
@@ -488,22 +613,32 @@ export default function LeadsPage() {
           </div>
         </div>
         {importResult && (
-          <div className={`mt-2 rounded border ${importResult.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} p-2 text-sm`}>
+          <div
+            className={`mt-2 rounded border ${importResult.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} p-2 text-sm`}
+          >
             {importResult.ok ? (
               <div>
-                Imported {importResult.created} created, {importResult.updated} updated, {importResult.skipped} skipped.
+                Imported {importResult.created} created, {importResult.updated}{' '}
+                updated, {importResult.skipped} skipped.
                 {importResult.errors?.length ? (
-                  <div className="mt-1 text-xs text-red-700">Errors: {importResult.errors.length} (first 3 shown)
+                  <div className="mt-1 text-xs text-red-700">
+                    Errors: {importResult.errors.length} (first 3 shown)
                     <ul className="list-disc pl-5">
-                      {importResult.errors.slice(0,3).map((e:any, i:number) => (
-                        <li key={i}>Row {e.row}: {e.error}</li>
-                      ))}
+                      {importResult.errors
+                        .slice(0, 3)
+                        .map((e: any, i: number) => (
+                          <li key={i}>
+                            Row {e.row}: {e.error}
+                          </li>
+                        ))}
                     </ul>
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div className="text-red-700">{importResult.error || 'Import failed'}</div>
+              <div className="text-red-700">
+                {importResult.error || 'Import failed'}
+              </div>
             )}
           </div>
         )}
@@ -524,25 +659,45 @@ export default function LeadsPage() {
           {/* Bulk actions */}
           {Object.values(selected).some(Boolean) && (
             <div className="flex flex-wrap items-center gap-2 rounded border bg-white p-2 text-sm">
-              <span className="text-gray-700">Bulk actions for {Object.values(selected).filter(Boolean).length} selected:</span>
+              <span className="text-gray-700">
+                Bulk actions for{' '}
+                {Object.values(selected).filter(Boolean).length} selected:
+              </span>
               <select
                 className="rounded border px-2 py-1"
                 onChange={async (e) => {
                   const val = e.target.value;
                   e.currentTarget.selectedIndex = 0;
                   if (!val) return;
-                  const ids = Object.entries(selected).filter(([k, v]) => v).map(([k]) => k);
+                  const ids = Object.entries(selected)
+                    .filter(([k, v]) => v)
+                    .map(([k]) => k);
                   if (val.startsWith('branch:')) {
                     const id = val.slice('branch:'.length);
-                    await supabase.from('leads').update({ branch_id: id || null }).in('id', ids);
+                    await supabase
+                      .from('leads')
+                      .update({ branch_id: id || null })
+                      .in('id', ids);
                     toast({ title: 'Branch assigned', variant: 'success' });
-                  } else if (val === 'status:Converted' || val === 'status:Lost') {
-                    await supabase.from('leads').update({ status: val.split(':')[1] }).in('id', ids);
+                  } else if (
+                    val === 'status:Converted' ||
+                    val === 'status:Lost'
+                  ) {
+                    await supabase
+                      .from('leads')
+                      .update({ status: val.split(':')[1] })
+                      .in('id', ids);
                     toast({ title: 'Status updated', variant: 'success' });
                   } else if (val === 'followup:today') {
                     const today = new Date().toISOString().slice(0, 10);
-                    await supabase.from('leads').update({ next_follow_up_date: today }).in('id', ids);
-                    toast({ title: 'Follow-up set to today', variant: 'success' });
+                    await supabase
+                      .from('leads')
+                      .update({ next_follow_up_date: today })
+                      .in('id', ids);
+                    toast({
+                      title: 'Follow-up set to today',
+                      variant: 'success',
+                    });
                   }
                   setSelected({});
                   load();
@@ -555,7 +710,9 @@ export default function LeadsPage() {
                 <option disabled>Assign branch…</option>
                 <option value="branch:">Unassigned</option>
                 {branches.map((b) => (
-                  <option key={b.id} value={`branch:${b.id}`}>{b.name}</option>
+                  <option key={b.id} value={`branch:${b.id}`}>
+                    {b.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -634,7 +791,10 @@ export default function LeadsPage() {
                             <Input
                               value={editForm.address || ''}
                               onChange={(e) =>
-                                setEditForm({ ...editForm, address: e.target.value })
+                                setEditForm({
+                                  ...editForm,
+                                  address: e.target.value,
+                                })
                               }
                             />
                           </td>
@@ -698,7 +858,10 @@ export default function LeadsPage() {
                               onChange={(e) =>
                                 setEditForm({
                                   ...editForm,
-                                  branch_id: e.target.value === 'none' ? null : e.target.value,
+                                  branch_id:
+                                    e.target.value === 'none'
+                                      ? null
+                                      : e.target.value,
                                 })
                               }
                             >
@@ -713,7 +876,12 @@ export default function LeadsPage() {
                           <td className="p-2">
                             <Input
                               value={editForm.notes || ''}
-                              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  notes: e.target.value,
+                                })
+                              }
                             />
                           </td>
                           <td className="p-2 whitespace-nowrap">
@@ -726,17 +894,18 @@ export default function LeadsPage() {
                                     name: editForm.name,
                                     phone: editForm.phone,
                                     source: editForm.source || null,
-                                  interested_capacity_kw:
-                                    editForm.interested_capacity_kw,
-                                  address: editForm.address || null,
-                                  notes: editForm.notes || null,
-                                  next_follow_up_date: editForm.next_follow_up_date || null,
-                                  branch_id: editForm.branch_id || null,
-                                })
-                                .eq('id', l.id);
-                              setEditing(null);
-                              load();
-                            }}
+                                    interested_capacity_kw:
+                                      editForm.interested_capacity_kw,
+                                    address: editForm.address || null,
+                                    notes: editForm.notes || null,
+                                    next_follow_up_date:
+                                      editForm.next_follow_up_date || null,
+                                    branch_id: editForm.branch_id || null,
+                                  })
+                                  .eq('id', l.id);
+                                setEditing(null);
+                                load();
+                              }}
                             >
                               Save
                             </Button>
@@ -760,27 +929,36 @@ export default function LeadsPage() {
                             {l.interested_capacity_kw ?? '—'}
                           </td>
                           <td className="p-2">
-                            <span className={
-                              l.next_follow_up_date && l.next_follow_up_date <= todayStr
-                                ? 'text-red-600 font-medium'
-                                : 'text-gray-700'
-                            }>
+                            <span
+                              className={
+                                l.next_follow_up_date &&
+                                l.next_follow_up_date <= todayStr
+                                  ? 'text-red-600 font-medium'
+                                  : 'text-gray-700'
+                              }
+                            >
                               {l.next_follow_up_date || '—'}
                             </span>
                             <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-600">
-                              {['+1d','+3d','+7d'].map((lbl) => (
+                              {['+1d', '+3d', '+7d'].map((lbl) => (
                                 <button
                                   key={lbl}
                                   className="rounded border px-1 py-0.5"
                                   title={`Snooze ${lbl}`}
                                   onClick={async () => {
-                                    const base = l.next_follow_up_date || todayStr;
+                                    const base =
+                                      l.next_follow_up_date || todayStr;
                                     const d = new Date(base);
-                                    const add = lbl === '+1d' ? 1 : lbl === '+3d' ? 3 : 7;
+                                    const add =
+                                      lbl === '+1d' ? 1 : lbl === '+3d' ? 3 : 7;
                                     d.setDate(d.getDate() + add);
                                     await supabase
                                       .from('leads')
-                                      .update({ next_follow_up_date: d.toISOString().slice(0,10) })
+                                      .update({
+                                        next_follow_up_date: d
+                                          .toISOString()
+                                          .slice(0, 10),
+                                      })
                                       .eq('id', l.id);
                                     load();
                                   }}
@@ -819,12 +997,39 @@ export default function LeadsPage() {
                             >
                               Edit
                             </Button>
+                            <RequireOwner>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                className="ml-2"
+                                onClick={async () => {
+                                  const ok = await confirm({
+                                    title: 'Delete lead',
+                                    description:
+                                      'Are you sure you want to permanently delete this lead?',
+                                    confirmText: 'Delete',
+                                  });
+                                  if (!ok) return;
+                                  await supabase
+                                    .from('leads')
+                                    .delete()
+                                    .eq('id', l.id);
+                                  load();
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </RequireOwner>
                             <Button
                               size="sm"
                               className="ml-2"
                               onClick={() => {
                                 // confirmation dialog
-                                confirm({ title: 'Convert lead', description: 'Convert this lead to a Job?', confirmText: 'Convert' }).then((ok) => {
+                                confirm({
+                                  title: 'Convert lead',
+                                  description: 'Convert this lead to a Job?',
+                                  confirmText: 'Convert',
+                                }).then((ok) => {
                                   if (!ok) return;
                                   setConvertingId(l.id);
                                   setConvertForm({
@@ -843,7 +1048,7 @@ export default function LeadsPage() {
                             {/* Removed 'Followed up' button to reduce clutter */}
                             {l.phone && (
                               <a
-                                href={`https://wa.me/${String(l.phone).replace(/\D+/g,'')}`}
+                                href={`https://wa.me/${String(l.phone).replace(/\D+/g, '')}`}
                                 target="_blank"
                                 className="ml-2 rounded border px-2 py-1 text-sm"
                               >
@@ -855,9 +1060,15 @@ export default function LeadsPage() {
                               size="sm"
                               className="ml-2"
                               onClick={async () => {
-                                const d = prompt('Set next follow-up (YYYY-MM-DD):', l.next_follow_up_date || todayStr);
+                                const d = prompt(
+                                  'Set next follow-up (YYYY-MM-DD):',
+                                  l.next_follow_up_date || todayStr,
+                                );
                                 if (!d) return;
-                                await supabase.from('leads').update({ next_follow_up_date: d }).eq('id', l.id);
+                                await supabase
+                                  .from('leads')
+                                  .update({ next_follow_up_date: d })
+                                  .eq('id', l.id);
                                 load();
                               }}
                             >
@@ -870,7 +1081,10 @@ export default function LeadsPage() {
                               onClick={async () => {
                                 await supabase
                                   .from('leads')
-                                  .update({ last_contacted_at: todayStr, status: 'Contacted' })
+                                  .update({
+                                    last_contacted_at: todayStr,
+                                    status: 'Contacted',
+                                  })
                                   .eq('id', l.id);
                                 load();
                               }}
@@ -905,7 +1119,9 @@ export default function LeadsPage() {
                                 setConvertForm((prev: any) => ({
                                   ...prev,
                                   program_type: p,
-                                  system_type: allowed.includes(prev.system_type)
+                                  system_type: allowed.includes(
+                                    prev.system_type,
+                                  )
                                     ? prev.system_type
                                     : allowed[0],
                                 }));
@@ -924,7 +1140,9 @@ export default function LeadsPage() {
                                 })
                               }
                             >
-                              {PROGRAM_ALLOWED_SYSTEMS[convertForm.program_type as ProgramType].map((s) => (
+                              {PROGRAM_ALLOWED_SYSTEMS[
+                                convertForm.program_type as ProgramType
+                              ].map((s) => (
                                 <option key={s}>{s}</option>
                               ))}
                             </select>
@@ -1010,7 +1228,9 @@ export default function LeadsPage() {
                                       location: convertForm.location || null,
                                       roof_type: convertForm.roof_type || null,
                                       date_lead: (l as any)?.date || today,
-                                      branch_id: (l as any)?.branch_id || (branchId !== 'all' ? branchId : null),
+                                      branch_id:
+                                        (l as any)?.branch_id ||
+                                        (branchId !== 'all' ? branchId : null),
                                     })
                                     .select('id')
                                     .single();
