@@ -12,6 +12,7 @@ import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import fs from 'node:fs';
 import { z } from 'zod';
 import { getBaseUrl } from '@/lib/baseUrl';
+import path from 'node:path';
 
 const BodySchema = z.object({
   tenantId: z.string().min(1),
@@ -221,6 +222,37 @@ export async function POST(req: NextRequest) {
       if (!process.env.XDG_CACHE_HOME) process.env.XDG_CACHE_HOME = '/tmp';
       if (!process.env.FONTCONFIG_PATH) process.env.FONTCONFIG_PATH = '/tmp';
       if (!process.env.HOME) process.env.HOME = '/tmp';
+    } catch {}
+
+    // If running in environments that don't set AWS_* markers but need NSS libs,
+    // forcibly inflate the platform libs from @sparticuz/chromium's bin folder.
+    try {
+      const nodeMajor = Number(String(process.versions.node || '20').split('.')[0]);
+      const preferred = nodeMajor >= 20 ? 'al2023.tar.br' : 'al2.tar.br';
+      const binBases = [
+        '/var/task/node_modules/@sparticuz/chromium/bin',
+        path.join(process.cwd(), 'node_modules', '@sparticuz', 'chromium', 'bin'),
+      ];
+      const tarCandidates = [preferred, preferred === 'al2023.tar.br' ? 'al2.tar.br' : 'al2023.tar.br'];
+      let inflatedAny = false;
+      for (const base of binBases) {
+        for (const tarName of tarCandidates) {
+          const p = path.join(base, tarName);
+          if (fs.existsSync(p)) {
+            try {
+              const mod: any = await import('@sparticuz/chromium/build/lambdafs.js').catch(() =>
+                import('@sparticuz/chromium/build/lambdafs'),
+              );
+              const LambdaFS = (mod && (mod.default || mod)) as any;
+              await LambdaFS.inflate(p);
+              inflatedAny = true;
+            } catch (e) {
+              if (process.env.LOG_PDF_DEBUG === '1') console.warn('api/pdf/invoice inflate-lib-failed', { p, e });
+            }
+          }
+        }
+      }
+      if (process.env.LOG_PDF_DEBUG === '1') console.log('api/pdf/invoice inflate-libs', { inflatedAny, preferred, nodeMajor });
     } catch {}
 
     const executablePath = await resolveExecutablePath();
