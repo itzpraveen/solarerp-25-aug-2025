@@ -22,6 +22,10 @@ export default function CustomerDetail() {
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [jobOpen, setJobOpen] = useState(false);
+  const [jobForm, setJobForm] = useState<{ system_type: string; capacity_kw: number; location: string }>(
+    { system_type: 'On-grid', capacity_kw: 1, location: '' },
+  );
   useEffect(() => {
     (async () => {
       const { data: c } = await supabase
@@ -54,9 +58,10 @@ export default function CustomerDetail() {
       .insert({
         tenant_id: prof!.tenant_id,
         customer_id: params.id,
-        system_type: 'On-grid',
+        system_type: jobForm.system_type || 'On-grid',
         status: 'Lead',
-        capacity_kw: 1,
+        capacity_kw: jobForm.capacity_kw || 1,
+        location: jobForm.location || null,
       })
       .select('id')
       .single();
@@ -93,13 +98,59 @@ export default function CustomerDetail() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{customer?.name}</h1>
-        <button
-          onClick={createJob}
-          className="rounded bg-blue-600 px-3 py-2 text-white"
-        >
-          New Job
-        </button>
+        <h1 className="text-xl font-semibold">
+          {customer?.name}
+          {customer?.deleted_at && (
+            <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-700">Deleted</span>
+          )}
+        </h1>
+        <div className="flex items-center gap-2">
+          <RequirePermission perm="jobs.edit">
+            <button
+              onClick={() => setJobOpen((v) => !v)}
+              className="rounded bg-blue-600 px-3 py-2 text-white"
+            >
+              {jobOpen ? 'Close' : 'New Job'}
+            </button>
+          </RequirePermission>
+          <RequirePermission perm="leads.edit">
+            {customer?.deleted_at ? (
+              <button
+                onClick={async () => {
+                  await supabase.from('customers').update({ deleted_at: null }).eq('id', params.id);
+                  const { data: c } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('id', params.id)
+                    .single();
+                  setCustomer(c || null);
+                }}
+                className="rounded border px-3 py-2"
+              >
+                Restore
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  if (!confirm('Soft-delete this customer? Jobs remain.')) return;
+                  await supabase
+                    .from('customers')
+                    .update({ deleted_at: new Date().toISOString() })
+                    .eq('id', params.id);
+                  const { data: c } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('id', params.id)
+                    .single();
+                  setCustomer(c || null);
+                }}
+                className="rounded border px-3 py-2"
+              >
+                Delete
+              </button>
+            )}
+          </RequirePermission>
+        </div>
       </div>
       <Breadcrumbs
         items={[
@@ -160,6 +211,50 @@ export default function CustomerDetail() {
           </div>
         )}
       </div>
+      {jobOpen && (
+        <div className="rounded border bg-white p-4">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
+            <div>
+              <div className="text-xs text-gray-600">System type</div>
+              <select
+                className="w-full rounded border px-3 py-2"
+                value={jobForm.system_type}
+                onChange={(e) => setJobForm({ ...jobForm, system_type: e.target.value })}
+              >
+                {['On-grid', 'Hybrid', 'Off-grid'].map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-gray-600">Capacity (kW)</div>
+              <Input
+                type="number"
+                min={0}
+                step={0.1}
+                value={jobForm.capacity_kw}
+                onChange={(e) => setJobForm({ ...jobForm, capacity_kw: Number(e.target.value) })}
+              />
+            </div>
+            <div className="md:col-span-3">
+              <div className="text-xs text-gray-600">Location</div>
+              <Input
+                value={jobForm.location}
+                onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
+                placeholder="Place / Address"
+              />
+            </div>
+            <div className="md:col-span-6">
+              <Button onClick={createJob}>Create Job</Button>
+              <Button variant="outline" className="ml-2" onClick={() => setJobOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="rounded border bg-white p-4">
         <h3 className="font-semibold">Jobs</h3>
         <ul className="mt-2 space-y-2 text-sm">
