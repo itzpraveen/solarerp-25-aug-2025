@@ -91,7 +91,7 @@ On first login, the app auto-creates a `tenant`, `profile`, and default `setting
 To quickly populate realistic demo data:
 
 - Minimal: `npm run seed` – adds one customer/job/proposal/invoice
-- Full: `npm run seed:full` – seeds items, kits, kit items, customers, jobs across statuses, proposals, invoices, payments, service tickets, tasks, and leads.
+- Seed demo data: `npm run seed` – seeds items, kits, customers, example jobs and related data.
   - Includes Kerala kit templates:
     - On‑grid: 1/2/3/4/5/6/8/10 kW (prefilled BoQ and CT‑meter rule; env‑tunable)
     - Hybrid: 3/5 kW with LFP storage

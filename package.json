@@ -20,9 +20,8 @@
     "db:migrate": "drizzle-kit push:pg",
     "db:studio": "drizzle-kit studio",
     "seed": "tsx scripts/seed.ts",
-    "seed:full": "tsx scripts/seed.full.ts",
     "doctor": "tsx scripts/doctor.ts",
-    "unseed": "tsx scripts/unseed.ts"
+    
   },
   "dependencies": {
     "@sparticuz/chromium": "^127.0.0",
