@@ -30,11 +30,10 @@ export default function LeadsPage() {
   const [editForm, setEditForm] = useState<any>({});
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertForm, setConvertForm] = useState<any>({
-    address: '',
+    address: '', // Site address / location (used for both customer.address and job.location)
     program_type: 'PM_Surya',
     system_type: 'On-grid',
     capacity_kw: 1,
-    location: '',
     roof_type: '',
   });
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -1347,16 +1346,7 @@ export default function LeadsPage() {
                                 })
                               }
                             />
-                            <Input
-                              placeholder="Location/Place"
-                              value={convertForm.location}
-                              onChange={(e) =>
-                                setConvertForm({
-                                  ...convertForm,
-                                  location: e.target.value,
-                                })
-                              }
-                            />
+                            {/* Location consolidated with Address to avoid duplication */}
                             <Input
                               placeholder="Roof Type"
                               value={convertForm.roof_type}
@@ -1415,7 +1405,7 @@ export default function LeadsPage() {
                                       program_type: convertForm.program_type,
                                       status: 'Lead',
                                       capacity_kw: convertForm.capacity_kw,
-                                      location: convertForm.location || null,
+                                      location: convertForm.address || null,
                                       roof_type: convertForm.roof_type || null,
                                       date_lead: (l as any)?.date || today,
                                       branch_id:
