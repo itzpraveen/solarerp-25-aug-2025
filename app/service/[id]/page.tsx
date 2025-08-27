@@ -243,7 +243,12 @@ export default function ServiceTicketDetail() {
           <button
             className="ml-auto text-red-600 text-sm"
             onClick={async () => {
-              const ok = await confirm({ title: 'Delete ticket', description: 'This cannot be undone', variant: 'danger', confirmText: 'Delete' });
+              const ok = await confirm({
+                title: 'Delete ticket',
+                description: 'This cannot be undone',
+                variant: 'danger',
+                confirmText: 'Delete',
+              });
               if (!ok) return;
               await supabase
                 .from('service_tickets')

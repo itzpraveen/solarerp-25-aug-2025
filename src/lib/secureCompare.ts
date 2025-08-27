@@ -7,11 +7,16 @@ const key = crypto.randomBytes(32);
 
 export function secureEqual(a: string, b: string): boolean {
   try {
-    const da = crypto.createHmac('sha256', key).update(String(a || '')).digest();
-    const db = crypto.createHmac('sha256', key).update(String(b || '')).digest();
+    const da = crypto
+      .createHmac('sha256', key)
+      .update(String(a || ''))
+      .digest();
+    const db = crypto
+      .createHmac('sha256', key)
+      .update(String(b || ''))
+      .digest();
     return crypto.timingSafeEqual(da, db);
   } catch {
     return false;
   }
 }
-

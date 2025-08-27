@@ -5,4 +5,3 @@ export default function PDFPreview({ url }: { url: string }) {
     </div>
   );
 }
-

@@ -1,10 +1,15 @@
-"use client";
+'use client';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 
-type Props = React.InputHTMLAttributes<HTMLInputElement> & { className?: string };
+type Props = React.InputHTMLAttributes<HTMLInputElement> & {
+  className?: string;
+};
 
-const Input = forwardRef<HTMLInputElement, Props>(function Input({ className, ...props }, ref) {
+const Input = forwardRef<HTMLInputElement, Props>(function Input(
+  { className, ...props },
+  ref,
+) {
   return (
     <input
       ref={ref}

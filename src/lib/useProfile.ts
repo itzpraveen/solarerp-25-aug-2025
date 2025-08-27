@@ -1,9 +1,21 @@
-"use client";
+'use client';
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 
-export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'technician' | 'accountant' | 'viewer' | 'staff';
-export type Profile = { tenant_id: string; role: Role; display_name?: string | null };
+export type Role =
+  | 'owner'
+  | 'admin'
+  | 'manager'
+  | 'sales'
+  | 'technician'
+  | 'accountant'
+  | 'viewer'
+  | 'staff';
+export type Profile = {
+  tenant_id: string;
+  role: Role;
+  display_name?: string | null;
+};
 
 export function useProfile() {
   const supabase = supabaseBrowser();
@@ -13,7 +25,10 @@ export function useProfile() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from('profiles').select('tenant_id, role, display_name').maybeSingle();
+      const { data } = await supabase
+        .from('profiles')
+        .select('tenant_id, role, display_name')
+        .maybeSingle();
       setProfile((data as any) || null);
       setLoading(false);
     })();

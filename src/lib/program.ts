@@ -19,4 +19,3 @@ export const PROGRAM_ALLOWED_SYSTEMS: Record<ProgramType, string[]> = {
 export function isSystemAllowed(program: ProgramType, system: string) {
   return PROGRAM_ALLOWED_SYSTEMS[program].includes(system);
 }
-

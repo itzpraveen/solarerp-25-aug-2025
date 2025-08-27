@@ -1,10 +1,15 @@
-"use client";
+'use client';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 
-type Props = React.TextareaHTMLAttributes<HTMLTextAreaElement> & { className?: string };
+type Props = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  className?: string;
+};
 
-const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea({ className, ...props }, ref) {
+const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea(
+  { className, ...props },
+  ref,
+) {
   return (
     <textarea
       ref={ref}

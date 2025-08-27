@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useEffect } from 'react';
 
 export default function KeyboardShortcuts() {
@@ -16,11 +16,12 @@ export default function KeyboardShortcuts() {
         window.location.href = '/leads';
       }
       (e as any)._prev = key; // naive sequence tracker
-      setTimeout(() => { (e as any)._prev = undefined; }, 500);
+      setTimeout(() => {
+        (e as any)._prev = undefined;
+      }, 500);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   return null;
 }
-

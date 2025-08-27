@@ -12,4 +12,3 @@ describe('rateLimit', () => {
     expect(takeToken(key, limit, win).ok).toBe(false);
   });
 });
-

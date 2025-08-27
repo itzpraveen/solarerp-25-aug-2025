@@ -7,7 +7,18 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   // Build a simple template with headers matching the importer
   const headers = [
-    ['Name', 'Contact Number', 'Email', 'Place', 'Source', 'KW', 'Date', 'Next Follow-up', 'Branch', 'Remarks'],
+    [
+      'Name',
+      'Contact Number',
+      'Email',
+      'Place',
+      'Source',
+      'KW',
+      'Date',
+      'Next Follow-up',
+      'Branch',
+      'Remarks',
+    ],
   ];
   const ws = XLSX.utils.aoa_to_sheet(headers);
   const wb = XLSX.utils.book_new();
@@ -16,10 +27,10 @@ export async function GET() {
   return new NextResponse(buf, {
     status: 200,
     headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="leads-template.xlsx"',
       'Cache-Control': 'no-store',
     },
   });
 }
-

@@ -1,4 +1,10 @@
-export default function Spinner({ size = 20, className }: { size?: number; className?: string }) {
+export default function Spinner({
+  size = 20,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
   const px = `${size}px`;
   return (
     <div

@@ -26,4 +26,3 @@ describe('renderLongInvoiceHtml cover letter', () => {
     expect(html).toContain('Mr Jafar');
   });
 });
-

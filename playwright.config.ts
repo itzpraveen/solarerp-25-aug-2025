@@ -22,7 +22,10 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   reporter: isCI
-    ? [['github'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
+    ? [
+        ['github'],
+        ['html', { open: 'never', outputFolder: 'playwright-report' }],
+      ]
     : [['list'], ['html', { open: 'on-failure' }]],
   use: {
     baseURL: 'http://localhost:3000',

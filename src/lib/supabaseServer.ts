@@ -2,7 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import { getMockClient } from '@/lib/supabaseMock';
 
 function isMock() {
-  return process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
+  return (
+    process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1'
+  );
 }
 
 // Create a Supabase client bound to the provided Authorization header.
@@ -13,8 +15,12 @@ export function supabaseFromAuthHeader(authHeader?: string | null) {
   const auth = authHeader || '';
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
 }

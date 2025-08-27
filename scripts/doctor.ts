@@ -68,7 +68,9 @@ async function main() {
   probe.end();
 
   // 4) Cleanup
-  try { child.kill(); } catch {}
+  try {
+    child.kill();
+  } catch {}
 
   console.log(`  ✓ Start logs: ${rel(startLog)}`);
   console.log(`  ✓ Probe logs: ${rel(probeLog)}`);
@@ -90,11 +92,13 @@ async function runAndLog([cmd, args]: [string, string[]], logfile: string) {
 
 function httpGet(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => resolve(`HTTP ${res.statusCode}\n` + data));
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => resolve(`HTTP ${res.statusCode}\n` + data));
+      })
+      .on('error', reject);
   });
 }
 
@@ -111,11 +115,14 @@ function httpHead(url: string): Promise<string> {
   });
 }
 
-function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
-function rel(p: string) { return path.relative(process.cwd(), p); }
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+function rel(p: string) {
+  return path.relative(process.cwd(), p);
+}
 
 main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

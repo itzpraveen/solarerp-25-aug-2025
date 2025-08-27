@@ -1,5 +1,19 @@
-export default function MoneyCard({ title, amount, currency = 'INR' }: { title: string; amount?: number | null; currency?: string }) {
-  const fmt = (v?: number | null) => (typeof v === 'number' ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v) : '—');
+export default function MoneyCard({
+  title,
+  amount,
+  currency = 'INR',
+}: {
+  title: string;
+  amount?: number | null;
+  currency?: string;
+}) {
+  const fmt = (v?: number | null) =>
+    typeof v === 'number'
+      ? new Intl.NumberFormat('en-IN', {
+          style: 'currency',
+          currency: 'INR',
+        }).format(v)
+      : '—';
   return (
     <div className="rounded border bg-white p-4">
       <div className="text-sm text-gray-600">{title}</div>
@@ -7,4 +21,3 @@ export default function MoneyCard({ title, amount, currency = 'INR' }: { title: 
     </div>
   );
 }
-

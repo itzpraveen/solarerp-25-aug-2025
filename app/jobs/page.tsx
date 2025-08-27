@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PipelineBoard from 'components/PipelineBoard';
@@ -35,12 +35,22 @@ export default function JobsPage() {
   const { toast } = useToast();
   const [showMore, setShowMore] = useState(false);
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
-  const [quickInit, setQuickInit] = useState<{ name?: string; phone?: string; address?: string }>({});
-  const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [quickInit, setQuickInit] = useState<{
+    name?: string;
+    phone?: string;
+    address?: string;
+  }>({});
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('customers').select('id,name').order('name');
+      const { data } = await supabase
+        .from('customers')
+        .select('id,name')
+        .order('name');
       setCustomers((data as any[]) || []);
     })();
   }, []);
@@ -56,9 +66,21 @@ export default function JobsPage() {
       if (c && !Number.isNaN(Number(c))) setCapacity(Number(c));
     } catch {}
   }, []);
-  useEffect(() => { try { localStorage.setItem('pref:job:program', program); } catch {} }, [program]);
-  useEffect(() => { try { localStorage.setItem('pref:job:system', systemType); } catch {} }, [systemType]);
-  useEffect(() => { try { localStorage.setItem('pref:job:capacity', String(capacity)); } catch {} }, [capacity]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('pref:job:program', program);
+    } catch {}
+  }, [program]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('pref:job:system', systemType);
+    } catch {}
+  }, [systemType]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('pref:job:capacity', String(capacity));
+    } catch {}
+  }, [capacity]);
 
   // Listen for global header branch changes
   useEffect(() => {
@@ -81,15 +103,38 @@ export default function JobsPage() {
 
   const createJob = async () => {
     setMsg(null);
-    if (!custId) { setMsg('Select a customer'); return; }
-    if ((Number(capacity) || 0) <= 0) { setMsg('Capacity must be > 0'); return; }
-    if (!allowedSystems.includes(systemType)) { setMsg('System not allowed for selected program'); return; }
+    if (!custId) {
+      setMsg('Select a customer');
+      return;
+    }
+    if ((Number(capacity) || 0) <= 0) {
+      setMsg('Capacity must be > 0');
+      return;
+    }
+    if (!allowedSystems.includes(systemType)) {
+      setMsg('System not allowed for selected program');
+      return;
+    }
     setCreating(true);
     try {
-      const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .maybeSingle();
       const { data: job } = await supabase
         .from('jobs')
-        .insert({ tenant_id: (prof as any)!.tenant_id, customer_id: custId, system_type: systemType, program_type: program, status: 'Lead', capacity_kw: capacity, location: location || null, roof_type: roof || null, date_lead: new Date().toISOString().slice(0,10), branch_id: branchId !== 'all' ? branchId : null })
+        .insert({
+          tenant_id: (prof as any)!.tenant_id,
+          customer_id: custId,
+          system_type: systemType,
+          program_type: program,
+          status: 'Lead',
+          capacity_kw: capacity,
+          location: location || null,
+          roof_type: roof || null,
+          date_lead: new Date().toISOString().slice(0, 10),
+          branch_id: branchId !== 'all' ? branchId : null,
+        })
         .select('id')
         .single();
       router.push(`/jobs/${(job as any).id}`);
@@ -110,17 +155,42 @@ export default function JobsPage() {
           <div className="min-w-[220px]">
             <BranchSelect value={branchId} onChange={setBranchId} />
           </div>
-          <Button variant="outline" size="sm" onClick={() => router.push('/customers')}>Customers</Button>
-          <Button size="sm" onClick={() => router.push('/leads')}>Leads</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/customers')}
+          >
+            Customers
+          </Button>
+          <Button size="sm" onClick={() => router.push('/leads')}>
+            Leads
+          </Button>
         </div>
       </div>
-      <Card title="Quick Create Job" actions={<span className="hidden md:inline text-xs text-gray-600">Fill minimum fields; extras under More options</span>}>
+      <Card
+        title="Quick Create Job"
+        actions={
+          <span className="hidden md:inline text-xs text-gray-600">
+            Fill minimum fields; extras under More options
+          </span>
+        }
+      >
         <div aria-live="polite" className="mb-2">
           {msg && <Alert variant="error">{msg}</Alert>}
         </div>
         <div className="grid grid-cols-1 gap-3">
-          <form className="grid grid-cols-1 gap-2 md:grid-cols-6" onSubmit={(e) => { e.preventDefault(); if (canCreate) createJob(); }}>
-            <FormField id="qc-customer" label="Customer" hint="Pick or add a new customer">
+          <form
+            className="grid grid-cols-1 gap-2 md:grid-cols-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (canCreate) createJob();
+            }}
+          >
+            <FormField
+              id="qc-customer"
+              label="Customer"
+              hint="Pick or add a new customer"
+            >
               <div className="flex gap-2">
                 <div className="flex-1">
                   <CustomerTypeahead
@@ -131,20 +201,41 @@ export default function JobsPage() {
                       // Prefill location from customer address if empty
                       if (!location && c.address) setLocation(c.address);
                       else if (!location) {
-                        const { data } = await supabase.from('customers').select('address').eq('id', c.id).maybeSingle();
-                        if ((data as any)?.address) setLocation((data as any).address);
+                        const { data } = await supabase
+                          .from('customers')
+                          .select('address')
+                          .eq('id', c.id)
+                          .maybeSingle();
+                        if ((data as any)?.address)
+                          setLocation((data as any).address);
                       }
                     }}
-                    onCreateRequested={(term) => { setQuickInit({ name: term }); setQuickCustomerOpen(true); }}
+                    onCreateRequested={(term) => {
+                      setQuickInit({ name: term });
+                      setQuickCustomerOpen(true);
+                    }}
                   />
                 </div>
-                <Button variant="outline" size="sm" onClick={() => { setQuickInit({}); setQuickCustomerOpen(true); }} type="button">New</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setQuickInit({});
+                    setQuickCustomerOpen(true);
+                  }}
+                  type="button"
+                >
+                  New
+                </Button>
               </div>
             </FormField>
 
             <FormField id="qc-program" label="Program">
               <Segmented
-                options={[{ label: 'PM Surya', value: 'PM_Surya' }, { label: 'Commercial', value: 'Commercial' }]}
+                options={[
+                  { label: 'PM Surya', value: 'PM_Surya' },
+                  { label: 'Commercial', value: 'Commercial' },
+                ]}
                 value={program}
                 onChange={(v) => setProgram(v as ProgramType)}
               />
@@ -153,24 +244,47 @@ export default function JobsPage() {
             <FormField id="qc-system" label="System type">
               <div className="flex flex-wrap gap-1">
                 {allowedSystems.map((s) => (
-                  <button key={s} type="button" onClick={() => setSystemType(s)} className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}>{s}</button>
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSystemType(s)}
+                    className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}
+                  >
+                    {s}
+                  </button>
                 ))}
               </div>
             </FormField>
 
             <FormField id="qc-capacity" label="Capacity">
               <div className="relative">
-                <Input id="qc-capacity" type="number" min={0} step={0.1} placeholder="Capacity" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
-                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500">kW</span>
+                <Input
+                  id="qc-capacity"
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  placeholder="Capacity"
+                  value={capacity}
+                  onChange={(e) => setCapacity(Number(e.target.value))}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500">
+                  kW
+                </span>
               </div>
             </FormField>
             <div className="md:col-span-2 flex items-end justify-end">
-              <Button type="submit" loading={creating} disabled={!canCreate}>Create Job</Button>
+              <Button type="submit" loading={creating} disabled={!canCreate}>
+                Create Job
+              </Button>
             </div>
           </form>
 
           <div>
-            <button type="button" className="text-xs text-blue-600" onClick={() => setShowMore((v) => !v)}>
+            <button
+              type="button"
+              className="text-xs text-blue-600"
+              onClick={() => setShowMore((v) => !v)}
+            >
               {showMore ? 'Hide options' : 'More options'}
             </button>
             {/* Starter templates */}
@@ -185,25 +299,46 @@ export default function JobsPage() {
                   key={`${t.p}-${t.s}-${t.c}`}
                   type="button"
                   className="rounded border px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => { setProgram(t.p); setSystemType(t.s); setCapacity(t.c); }}
+                  onClick={() => {
+                    setProgram(t.p);
+                    setSystemType(t.s);
+                    setCapacity(t.c);
+                  }}
                 >
-                  {t.c} kW {t.s} • {t.p === 'PM_Surya' ? 'PM Surya' : 'Commercial'}
+                  {t.c} kW {t.s} •{' '}
+                  {t.p === 'PM_Surya' ? 'PM Surya' : 'Commercial'}
                 </button>
               ))}
             </div>
             {showMore && (
               <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-6">
                 <FormField id="qc-location" label="Location/Place">
-                  <Input id="qc-location" placeholder="Location / Place" value={location} onChange={(e) => setLocation(e.target.value)} />
+                  <Input
+                    id="qc-location"
+                    placeholder="Location / Place"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                  />
                 </FormField>
                 <FormField id="qc-roof" label="Roof type">
-                  <Input id="qc-roof" className="w-full" placeholder="Flat, Tiled, Sheet…" value={roof} onChange={(e) => setRoof(e.target.value)} />
+                  <Input
+                    id="qc-roof"
+                    className="w-full"
+                    placeholder="Flat, Tiled, Sheet…"
+                    value={roof}
+                    onChange={(e) => setRoof(e.target.value)}
+                  />
                 </FormField>
               </div>
             )}
           </div>
           <div className="text-xs text-gray-600">
-            Target branch: <span className="font-medium">{branchId === 'all' ? 'Unassigned (select a branch in header to set)' : 'Selected branch'}</span>
+            Target branch:{' '}
+            <span className="font-medium">
+              {branchId === 'all'
+                ? 'Unassigned (select a branch in header to set)'
+                : 'Selected branch'}
+            </span>
           </div>
         </div>
         <CustomerQuickCreate
@@ -220,7 +355,9 @@ export default function JobsPage() {
           }}
         />
       </Card>
-      <PipelineBoard branchId={branchId === 'all' ? null : (branchId as string)} />
+      <PipelineBoard
+        branchId={branchId === 'all' ? null : (branchId as string)}
+      />
     </div>
   );
 }

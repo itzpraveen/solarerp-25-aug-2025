@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import clsx from 'clsx';
 import Label from './Label';
 
@@ -11,14 +11,23 @@ type Props = {
   children: React.ReactNode;
 };
 
-export default function FormField({ id, label, hint, error, className, children }: Props) {
+export default function FormField({
+  id,
+  label,
+  hint,
+  error,
+  className,
+  children,
+}: Props) {
   return (
     <div className={clsx('space-y-1', className)}>
       {label && <Label htmlFor={id}>{label}</Label>}
       {children}
       <div className="min-h-[1rem]">
         {error ? (
-          <div className="text-xs text-red-600" role="alert">{error}</div>
+          <div className="text-xs text-red-600" role="alert">
+            {error}
+          </div>
         ) : hint ? (
           <div className="text-xs text-gray-500">{hint}</div>
         ) : null}
@@ -26,4 +35,3 @@ export default function FormField({ id, label, hint, error, className, children 
     </div>
   );
 }
-

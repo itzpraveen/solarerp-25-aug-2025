@@ -7,22 +7,48 @@ import { env } from '@/lib/env';
 
 export async function POST(req: NextRequest) {
   try {
-    const Body = z.object({ jobId: z.string().uuid(), newStatus: z.enum([...JOB_STATUSES]) });
+    const Body = z.object({
+      jobId: z.string().uuid(),
+      newStatus: z.enum([...JOB_STATUSES]),
+    });
     const parsed = Body.safeParse(await req.json());
-    if (!parsed.success) return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
+    if (!parsed.success)
+      return NextResponse.json(
+        { ok: false, error: 'Invalid payload' },
+        { status: 400 },
+      );
     const { jobId, newStatus } = parsed.data;
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
-    if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    if (!sb)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
 
     // Load job under RLS
-    const { data: job, error: jErr } = await sb.from('jobs').select('*').eq('id', jobId).single();
-    if (jErr || !job) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    const { data: job, error: jErr } = await sb
+      .from('jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+    if (jErr || !job)
+      return NextResponse.json(
+        { ok: false, error: 'Not found' },
+        { status: 404 },
+      );
 
-    const { error: upErr } = await sb.from('jobs').update({ status: newStatus }).eq('id', jobId);
+    const { error: upErr } = await sb
+      .from('jobs')
+      .update({ status: newStatus })
+      .eq('id', jobId);
     if (upErr) throw upErr;
 
     if (newStatus === 'Won') {
-      const { data: settings } = await sb.from('settings').select('*').eq('tenant_id', job.tenant_id).single();
+      const { data: settings } = await sb
+        .from('settings')
+        .select('*')
+        .eq('tenant_id', job.tenant_id)
+        .single();
       const depositPercent = Number((settings as any)?.deposit_percent || 0);
       const total = Number(job.total_amount || job.quoted_price || 0);
       const deposit = Math.round((total * depositPercent) / 100);
@@ -57,9 +83,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Auto-create task checklist for key statuses (idempotent by title)
-    const templates: Record<string, Array<{ title: string; dueDays: number; priority: 'Low' | 'Medium' | 'High' | 'Urgent' }>> = {
+    const templates: Record<
+      string,
+      Array<{
+        title: string;
+        dueDays: number;
+        priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+      }>
+    > = {
       Won: [
-        { title: 'Collect documents from customer', dueDays: 2, priority: 'High' },
+        {
+          title: 'Collect documents from customer',
+          dueDays: 2,
+          priority: 'High',
+        },
         { title: 'Prepare KSEB application', dueDays: 3, priority: 'High' },
       ],
       KSEB_Submitted: [
@@ -69,13 +106,22 @@ export async function POST(req: NextRequest) {
         { title: 'Net metering application', dueDays: 2, priority: 'High' },
       ],
       Net_Metered: [
-        { title: 'Customer training and handover', dueDays: 1, priority: 'Medium' },
+        {
+          title: 'Customer training and handover',
+          dueDays: 1,
+          priority: 'Medium',
+        },
       ],
     };
     const tmpl = templates[newStatus];
     if (tmpl && tmpl.length) {
-      const { data: existing } = await sb.from('tasks').select('title').eq('job_id', jobId);
-      const have = new Set((existing || []).map((t: any) => String(t.title || '')));
+      const { data: existing } = await sb
+        .from('tasks')
+        .select('title')
+        .eq('job_id', jobId);
+      const have = new Set(
+        (existing || []).map((t: any) => String(t.title || '')),
+      );
       const today = new Date();
       for (const t of tmpl) {
         if (have.has(t.title)) continue;
@@ -91,7 +137,10 @@ export async function POST(req: NextRequest) {
         });
         // Audit each auto-created task
         try {
-          const { data: me2 } = await sb.from('profiles').select('user_id, tenant_id').maybeSingle();
+          const { data: me2 } = await sb
+            .from('profiles')
+            .select('user_id, tenant_id')
+            .maybeSingle();
           if (me2?.tenant_id) {
             await (sb as any).from('audit_logs').insert({
               tenant_id: (me2 as any).tenant_id,
@@ -107,7 +156,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Audit log (best-effort)
-    const { data: me } = await sb.from('profiles').select('user_id, tenant_id').maybeSingle();
+    const { data: me } = await sb
+      .from('profiles')
+      .select('user_id, tenant_id')
+      .maybeSingle();
     if (me?.tenant_id) {
       await logAudit(sb as any, {
         tenantId: me.tenant_id,
@@ -123,6 +175,9 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/jobs/updateStatus', { id, error: e });
-    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'Internal error', id },
+      { status: 500 },
+    );
   }
 }

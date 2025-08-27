@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -31,4 +31,3 @@ export default function AuthGuard() {
   if (!ready) return null;
   return null;
 }
-

@@ -7,7 +7,5 @@
       "includeFiles": "node_modules/@sparticuz/**"
     }
   },
-  "crons": [
-    { "path": "/api/cron/daily", "schedule": "0 3 * * *" }
-  ]
+  "crons": [{ "path": "/api/cron/daily", "schedule": "0 3 * * *" }]
 }

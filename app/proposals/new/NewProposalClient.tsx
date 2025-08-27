@@ -83,7 +83,8 @@ export default function NewProposalClient() {
           .single();
         setJob(j);
         setCustomer((j as any)?.customers?.[0] || null);
-        if ((j as any)?.program_type) setProgram(((j as any).program_type as 'PM_Surya' | 'Commercial'));
+        if ((j as any)?.program_type)
+          setProgram((j as any).program_type as 'PM_Surya' | 'Commercial');
         if (k && k.length) {
           setKitName(k[0].kit_name);
           setPrice(Number(k[0].selling_price || 0));
@@ -129,12 +130,16 @@ export default function NewProposalClient() {
     const yyyy = String(dt.getFullYear());
     const kw = String(job?.capacity_kw || '');
     const system = String(job?.system_type || 'On-grid');
-    const name = String((customer?.name || 'Customer')).replace(/\s+/g, ' ').trim();
+    const name = String(customer?.name || 'Customer')
+      .replace(/\s+/g, ' ')
+      .trim();
     const place = String(job?.location || '')
       .replace(/\s+/g, ' ')
       .trim();
     const prefix = (settings?.quote_prefix || 'q').toString();
-    const fmt = (settings?.quote_format || '{YY}_{KW}KW_SOLAR PLANT_{NAME}').toString();
+    const fmt = (
+      settings?.quote_format || '{YY}_{KW}KW_SOLAR PLANT_{NAME}'
+    ).toString();
     const body = fmt
       .replaceAll('{YY}', yy)
       .replaceAll('{YYYY}', yyyy)
@@ -169,30 +174,30 @@ export default function NewProposalClient() {
       return;
     }
 
-      const cover = includeCover
-        ? {
-            to: coverTo || undefined,
-            subject:
-              coverSubject ||
-              (program === 'PM_Surya'
-                ? `QUOTATION FOR ${Number(job?.capacity_kw || 0)} KW ON GRID SOLAR POWER PLANT (PMSG SUBSIDY)`
-                : undefined),
-            reference: coverReference || undefined,
-            paragraphs: coverParagraphs
-              .split(/\n\n+|\r\n\r\n+/)
-              .map((s) => s.trim())
-              .filter(Boolean),
-            signatory: {
-              name: signName || undefined,
-              title: signTitle || undefined,
-              phone: signPhone || undefined,
-            },
-          }
-        : undefined;
+    const cover = includeCover
+      ? {
+          to: coverTo || undefined,
+          subject:
+            coverSubject ||
+            (program === 'PM_Surya'
+              ? `QUOTATION FOR ${Number(job?.capacity_kw || 0)} KW ON GRID SOLAR POWER PLANT (PMSG SUBSIDY)`
+              : undefined),
+          reference: coverReference || undefined,
+          paragraphs: coverParagraphs
+            .split(/\n\n+|\r\n\r\n+/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+          signatory: {
+            name: signName || undefined,
+            title: signTitle || undefined,
+            phone: signPhone || undefined,
+          },
+        }
+      : undefined;
 
-      const payload: LongInvoiceData = {
-        lang,
-        company: {
+    const payload: LongInvoiceData = {
+      lang,
+      company: {
         name: (job?.tenants?.name as string) || 'My Company',
         address: companyAddress || 'Kerala',
         phone: companyPhone || '',
@@ -226,12 +231,14 @@ export default function NewProposalClient() {
       kit: { name: kitName },
       boq: { rows: kitBoq },
       ...(cover ? { cover } : {}),
-      ...(notes.length ? { notes: notes.filter((n) => n.trim()).map((n) => n.trim()) } : {}),
+      ...(notes.length
+        ? { notes: notes.filter((n) => n.trim()).map((n) => n.trim()) }
+        : {}),
       ...(workRows.length
         ? {
             workSchedule: {
-              rows: workRows.filter(
-                (r) => (r.scope || r.details || r.timeline).trim(),
+              rows: workRows.filter((r) =>
+                (r.scope || r.details || r.timeline).trim(),
               ),
             },
           }
@@ -265,7 +272,9 @@ export default function NewProposalClient() {
       if (!res.ok || !out.ok) {
         const detail = [out?.hint, out?.cause].filter(Boolean).join(' — ');
         const eid = out?.id ? ` (id: ${out.id})` : '';
-        throw new Error(`${out?.error || 'PDF generation failed'}${detail ? ` — ${detail}` : ''}${eid}`);
+        throw new Error(
+          `${out?.error || 'PDF generation failed'}${detail ? ` — ${detail}` : ''}${eid}`,
+        );
       }
       setSignedUrl(out.url);
       setPdfKey(out.key);
@@ -536,14 +545,14 @@ export default function NewProposalClient() {
                 setIncludeCover(true);
                 setCoverTo('Mr Harilal, Thottinakkare, Mampad');
                 setCoverSubject(
-                  'QUOTATION FOR 5 KW ON GRID SOLAR POWER PLANT (PMSG SUBSIDY)'
+                  'QUOTATION FOR 5 KW ON GRID SOLAR POWER PLANT (PMSG SUBSIDY)',
                 );
                 setCoverReference('Mr Jafar');
                 setCoverParagraphs(
                   [
                     'We are pleased to submit our quotation tailored to your 5 kW on‑grid solar power plant requirement under the PM Surya subsidy program.',
                     'TENAGA ENERGY SOLUTIONS LLP is empanelled with ANERT/KSEBL and offers end‑to‑end design, supply and installation with compliance to MNRE and CEA standards.',
-                  ].join('\n\n')
+                  ].join('\n\n'),
                 );
                 setSignName('Nithin MV');
                 setSignTitle('Designated Partner');
@@ -556,20 +565,57 @@ export default function NewProposalClient() {
                   'Quotation validity: 10 days; subject to market changes thereafter.',
                 ]);
                 setWorkRows([
-                  { scope: 'TENAGA', details: 'Feasibility report (MNRE NRSP)', timeline: 'Week 1 (after advance)' },
-                  { scope: 'TENAGA', details: 'Delivery of materials', timeline: 'Week 1' },
-                  { scope: 'TENAGA', details: 'Structure fabrication, panel flooring', timeline: 'Week 2' },
-                  { scope: 'TENAGA', details: 'DC & AC wiring, earthing, inverter installation & calibration', timeline: 'Week 3' },
-                  { scope: 'TENAGA', details: 'Submit completion report & checklist; plant registration', timeline: 'Week 3' },
-                  { scope: 'KSEB', details: 'Net‑meter allocation and grid connection', timeline: '1–2 weeks post inspection' },
-                  { scope: 'Subsidy', details: 'Generate subsidy request (post commissioning)', timeline: '60–90 days after request' },
+                  {
+                    scope: 'TENAGA',
+                    details: 'Feasibility report (MNRE NRSP)',
+                    timeline: 'Week 1 (after advance)',
+                  },
+                  {
+                    scope: 'TENAGA',
+                    details: 'Delivery of materials',
+                    timeline: 'Week 1',
+                  },
+                  {
+                    scope: 'TENAGA',
+                    details: 'Structure fabrication, panel flooring',
+                    timeline: 'Week 2',
+                  },
+                  {
+                    scope: 'TENAGA',
+                    details:
+                      'DC & AC wiring, earthing, inverter installation & calibration',
+                    timeline: 'Week 3',
+                  },
+                  {
+                    scope: 'TENAGA',
+                    details:
+                      'Submit completion report & checklist; plant registration',
+                    timeline: 'Week 3',
+                  },
+                  {
+                    scope: 'KSEB',
+                    details: 'Net‑meter allocation and grid connection',
+                    timeline: '1–2 weeks post inspection',
+                  },
+                  {
+                    scope: 'Subsidy',
+                    details: 'Generate subsidy request (post commissioning)',
+                    timeline: '60–90 days after request',
+                  },
                 ]);
                 setProgram('PM_Surya');
                 setPlantBrand('RENEW/PAHAL or EMMVEE');
                 setPrice(305000);
                 setAddOns([
-                  { label: 'KSEB feasibility, registration and paperwork (5kW)', amount: 7080 },
-                  { label: '2m elevated structure (GP‑16 grade) + walkway + ladder', amount: 30000 },
+                  {
+                    label: 'KSEB feasibility, registration and paperwork (5kW)',
+                    amount: 7080,
+                  },
+                  {
+                    label:
+                      '2m elevated structure (GP‑16 grade) + walkway + ladder',
+                    amount: 30000,
+                  },
                   { label: 'Special discount', amount: -7080 },
                 ]);
                 setTaxRate(0);
@@ -686,31 +732,61 @@ export default function NewProposalClient() {
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
               <div>
                 <label className="block text-sm">To</label>
-                <input className="mt-1 w-full rounded border px-3 py-2" value={coverTo} onChange={(e) => setCoverTo(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  value={coverTo}
+                  onChange={(e) => setCoverTo(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm">Subject</label>
-                <input className="mt-1 w-full rounded border px-3 py-2" value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  value={coverSubject}
+                  onChange={(e) => setCoverSubject(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm">Reference</label>
-                <input className="mt-1 w-full rounded border px-3 py-2" value={coverReference} onChange={(e) => setCoverReference(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  value={coverReference}
+                  onChange={(e) => setCoverReference(e.target.value)}
+                />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm">Paragraphs (separate by blank line)</label>
-                <textarea className="mt-1 w-full rounded border px-3 py-2 h-28" value={coverParagraphs} onChange={(e) => setCoverParagraphs(e.target.value)} />
+                <label className="block text-sm">
+                  Paragraphs (separate by blank line)
+                </label>
+                <textarea
+                  className="mt-1 w-full rounded border px-3 py-2 h-28"
+                  value={coverParagraphs}
+                  onChange={(e) => setCoverParagraphs(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm">Signatory Name</label>
-                <input className="mt-1 w-full rounded border px-3 py-2" value={signName} onChange={(e) => setSignName(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  value={signName}
+                  onChange={(e) => setSignName(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm">Signatory Title</label>
-                <input className="mt-1 w-full rounded border px-3 py-2" value={signTitle} onChange={(e) => setSignTitle(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  value={signTitle}
+                  onChange={(e) => setSignTitle(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm">Signatory Phone</label>
-                <input className="mt-1 w-full rounded border px-3 py-2" value={signPhone} onChange={(e) => setSignPhone(e.target.value)} />
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  value={signPhone}
+                  onChange={(e) => setSignPhone(e.target.value)}
+                />
               </div>
             </div>
           )}
@@ -726,7 +802,9 @@ export default function NewProposalClient() {
                   className="w-full rounded border px-3 py-2"
                   value={n}
                   onChange={(e) =>
-                    setNotes(notes.map((x, j) => (i === j ? e.target.value : x)))
+                    setNotes(
+                      notes.map((x, j) => (i === j ? e.target.value : x)),
+                    )
                   }
                 />
                 <button
@@ -760,7 +838,9 @@ export default function NewProposalClient() {
                   value={r.scope}
                   onChange={(e) =>
                     setWorkRows(
-                      workRows.map((x, j) => (i === j ? { ...x, scope: e.target.value } : x)),
+                      workRows.map((x, j) =>
+                        i === j ? { ...x, scope: e.target.value } : x,
+                      ),
                     )
                   }
                 />
@@ -770,7 +850,9 @@ export default function NewProposalClient() {
                   value={r.details}
                   onChange={(e) =>
                     setWorkRows(
-                      workRows.map((x, j) => (i === j ? { ...x, details: e.target.value } : x)),
+                      workRows.map((x, j) =>
+                        i === j ? { ...x, details: e.target.value } : x,
+                      ),
                     )
                   }
                 />
@@ -781,14 +863,18 @@ export default function NewProposalClient() {
                     value={r.timeline}
                     onChange={(e) =>
                       setWorkRows(
-                        workRows.map((x, j) => (i === j ? { ...x, timeline: e.target.value } : x)),
+                        workRows.map((x, j) =>
+                          i === j ? { ...x, timeline: e.target.value } : x,
+                        ),
                       )
                     }
                   />
                   <button
                     className="rounded border px-3 py-2"
                     type="button"
-                    onClick={() => setWorkRows(workRows.filter((_, j) => j !== i))}
+                    onClick={() =>
+                      setWorkRows(workRows.filter((_, j) => j !== i))
+                    }
                   >
                     Remove
                   </button>
@@ -798,7 +884,12 @@ export default function NewProposalClient() {
             <button
               className="rounded border px-3 py-2"
               type="button"
-              onClick={() => setWorkRows([...workRows, { scope: '', details: '', timeline: '' }])}
+              onClick={() =>
+                setWorkRows([
+                  ...workRows,
+                  { scope: '', details: '', timeline: '' },
+                ])
+              }
             >
               Add row
             </button>
@@ -959,7 +1050,9 @@ export default function NewProposalClient() {
             <select
               className="rounded border px-3 py-2 text-sm"
               value={program}
-              onChange={(e) => setProgram(e.target.value as 'PM_Surya' | 'Commercial')}
+              onChange={(e) =>
+                setProgram(e.target.value as 'PM_Surya' | 'Commercial')
+              }
             >
               <option value="PM_Surya">PM Surya</option>
               <option value="Commercial">Commercial</option>
@@ -976,11 +1069,33 @@ export default function NewProposalClient() {
                     'Subsidy as per MNRE/ANERT program timelines and approvals.',
                   ]);
                   setWorkRows([
-                    { scope: 'TENAGA', details: 'MNRE portal feasibility + documentation', timeline: 'Week 1 (after advance)' },
-                    { scope: 'TENAGA', details: 'Material delivery; MMS & panel flooring', timeline: 'Weeks 1–2' },
-                    { scope: 'TENAGA', details: 'AC/DC wiring, earthing, inverter install & calibration', timeline: 'Week 3' },
-                    { scope: 'KSEB', details: 'Testing, net‑meter allocation & grid connection', timeline: '1–2 weeks post inspection' },
-                    { scope: 'Subsidy', details: 'Subsidy request and processing', timeline: '60–90 days after commissioning' },
+                    {
+                      scope: 'TENAGA',
+                      details: 'MNRE portal feasibility + documentation',
+                      timeline: 'Week 1 (after advance)',
+                    },
+                    {
+                      scope: 'TENAGA',
+                      details: 'Material delivery; MMS & panel flooring',
+                      timeline: 'Weeks 1–2',
+                    },
+                    {
+                      scope: 'TENAGA',
+                      details:
+                        'AC/DC wiring, earthing, inverter install & calibration',
+                      timeline: 'Week 3',
+                    },
+                    {
+                      scope: 'KSEB',
+                      details:
+                        'Testing, net‑meter allocation & grid connection',
+                      timeline: '1–2 weeks post inspection',
+                    },
+                    {
+                      scope: 'Subsidy',
+                      details: 'Subsidy request and processing',
+                      timeline: '60–90 days after commissioning',
+                    },
                   ]);
                 } else {
                   setNotes([
@@ -989,10 +1104,28 @@ export default function NewProposalClient() {
                     'Quoted prices inclusive of GST unless stated otherwise.',
                   ]);
                   setWorkRows([
-                    { scope: 'TENAGA', details: 'Feasibility and planning', timeline: 'Week 1' },
-                    { scope: 'TENAGA', details: 'Material delivery; MMS & panel flooring', timeline: 'Weeks 1–2' },
-                    { scope: 'TENAGA', details: 'AC/DC wiring, earthing, inverter install & calibration', timeline: 'Week 3' },
-                    { scope: 'DISCOM', details: 'Metering & interconnection formalities (if applicable)', timeline: 'Dependent on DISCOM' },
+                    {
+                      scope: 'TENAGA',
+                      details: 'Feasibility and planning',
+                      timeline: 'Week 1',
+                    },
+                    {
+                      scope: 'TENAGA',
+                      details: 'Material delivery; MMS & panel flooring',
+                      timeline: 'Weeks 1–2',
+                    },
+                    {
+                      scope: 'TENAGA',
+                      details:
+                        'AC/DC wiring, earthing, inverter install & calibration',
+                      timeline: 'Week 3',
+                    },
+                    {
+                      scope: 'DISCOM',
+                      details:
+                        'Metering & interconnection formalities (if applicable)',
+                      timeline: 'Dependent on DISCOM',
+                    },
                   ]);
                 }
               }}
@@ -1009,23 +1142,33 @@ export default function NewProposalClient() {
           <a className="text-blue-600" target="_blank" href={signedUrl}>
             Open PDF
           </a>
-          {(customer?.phone || (leadId && (leads.find((l) => l.id === leadId)?.phone))) && (
+          {(customer?.phone ||
+            (leadId && leads.find((l) => l.id === leadId)?.phone)) && (
             <div className="mt-3">
               <button
                 className="rounded border px-3 py-2 text-sm"
                 onClick={async () => {
                   try {
-                    const phone = customer?.phone || (leads.find((l) => l.id === leadId)?.phone);
+                    const phone =
+                      customer?.phone ||
+                      leads.find((l) => l.id === leadId)?.phone;
                     if (!phone) return;
                     const { data: session } = await supabase.auth.getSession();
                     const token = session.session?.access_token;
                     const res = await fetch('/api/whatsapp/send', {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
                       body: JSON.stringify({
                         to: phone,
                         templateName: 'proposal_ready',
-                        variables: [customer?.name || 'Customer', String(job?.capacity_kw || ''), signedUrl],
+                        variables: [
+                          customer?.name || 'Customer',
+                          String(job?.capacity_kw || ''),
+                          signedUrl,
+                        ],
                       }),
                     });
                     if (!res.ok) throw new Error('WhatsApp send failed');
@@ -1100,49 +1243,47 @@ export default function NewProposalClient() {
                     // We used mock PDF API key earlier in out.key path; reuse payload meta for quoteNo
                     const qn = quoteNo || `Q-${Date.now()}`;
                     const keyGuess = `${tenantId}/${qn.replace(/\s+/g, '_').replace(/[^A-Za-z0-9_\-]/g, '_')}.pdf`;
-                    await supabase
-                      .from('proposals')
-                      .insert({
-                        tenant_id: tenantId,
-                        job_id: (jobRow as any).id,
-                        date: new Date().toISOString().slice(0, 10),
-                        kit_name: kitName,
-                        price_before_tax: beforeTax,
-                        tax: taxAmt,
-                        total,
-                        pdf_url: keyGuess,
-                        lang,
-                        valid_till: validTill || null,
-                        cover: includeCover
+                    await supabase.from('proposals').insert({
+                      tenant_id: tenantId,
+                      job_id: (jobRow as any).id,
+                      date: new Date().toISOString().slice(0, 10),
+                      kit_name: kitName,
+                      price_before_tax: beforeTax,
+                      tax: taxAmt,
+                      total,
+                      pdf_url: keyGuess,
+                      lang,
+                      valid_till: validTill || null,
+                      cover: includeCover
+                        ? {
+                            to: coverTo || null,
+                            subject: coverSubject || null,
+                            reference: coverReference || null,
+                            paragraphs: coverParagraphs
+                              .split(/\n\n+|\r\n\r\n+/)
+                              .map((s) => s.trim())
+                              .filter(Boolean),
+                            signatory: {
+                              name: signName || null,
+                              title: signTitle || null,
+                              phone: signPhone || null,
+                            },
+                          }
+                        : null,
+                      notes: (notes || [])
+                        .filter((n) => n.trim())
+                        .map((n) => n.trim()),
+                      work_schedule:
+                        workRows.length > 0
                           ? {
-                              to: coverTo || null,
-                              subject: coverSubject || null,
-                              reference: coverReference || null,
-                              paragraphs: coverParagraphs
-                                .split(/\n\n+|\r\n\r\n+/)
-                                .map((s) => s.trim())
-                                .filter(Boolean),
-                              signatory: {
-                                name: signName || null,
-                                title: signTitle || null,
-                                phone: signPhone || null,
-                              },
+                              rows: workRows.map((r) => ({
+                                scope: r.scope,
+                                details: r.details,
+                                timeline: r.timeline,
+                              })),
                             }
                           : null,
-                        notes: (notes || [])
-                          .filter((n) => n.trim())
-                          .map((n) => n.trim()),
-                        work_schedule:
-                          workRows.length > 0
-                            ? {
-                                rows: workRows.map((r) => ({
-                                  scope: r.scope,
-                                  details: r.details,
-                                  timeline: r.timeline,
-                                })),
-                              }
-                            : null,
-                      });
+                    });
                     window.location.href = `/jobs/${(jobRow as any).id}`;
                   } catch (e: any) {
                     setErrorMsg(String(e?.message || e));

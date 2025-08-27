@@ -19,7 +19,6 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
 - Backend: Supabase (Postgres + Auth + Storage + Realtime)
 - ORM/Migrations: Drizzle ORM + drizzle-kit (SQL migrations included)
 - PDF: Puppeteer + @sparticuz/chromium-min in a Vercel Node Function
-- PDF: Puppeteer + @sparticuz/chromium-min in a Vercel Node Function
   - Separate English/Malayalam templates via language selector; files saved with -en/-ml suffix
 - Scheduling: Vercel Cron → POST /api/cron/daily
 - Messaging: WhatsApp Cloud API
@@ -34,6 +33,8 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
   - Deploy: `.github/workflows/deploy.yml` (optional). If the following repo secrets are set, pushes to `main` deploy to Vercel production and Pull Requests get preview deployments:
     - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
   - Workflows use concurrency to cancel superseded runs per branch.
+
+Note: Never commit a `.env`. Use `.env.example` as the source of truth for required variables and keep secrets only in your local `.env` or CI secrets.
 
 - Pre-commit hook
   - `.githooks/pre-commit` runs Prettier check, ESLint on staged files, and unit tests only (Vitest). It avoids running Playwright under Vitest.
@@ -50,11 +51,12 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
 
 ## Getting Started
 
-1) Prerequisites
+1. Prerequisites
+
 - Supabase project (URL + keys), Auth Email (magic link) and optionally Phone OTP enabled.
 - Vercel project connected to this repo.
 
-2) Configure environment
+2. Configure environment
 
 Copy `.env.example` to `.env` and set values:
 
@@ -64,18 +66,18 @@ Copy `.env.example` to `.env` and set values:
 - `CRON_SECRET` (used by Vercel cron to authenticate)
 - `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`
 
-3) Apply migrations and policies
+3. Apply migrations and policies
 
 Use Supabase SQL Editor or Drizzle push:
 
 - Paste and run `drizzle/0001_init.sql` in Supabase SQL editor (recommended)
 - Or run: `pnpm db:migrate` (requires `DATABASE_URL` with service role Postgres)
 
-4) Create Storage bucket (if not created by migration)
+4. Create Storage bucket (if not created by migration)
 
 - Migration inserts `storage.buckets` row for `documents`. If missing, create bucket `documents` (private = false unchecked) and run the Storage RLS policies in `drizzle/0001_init.sql`.
 
-5) Development
+5. Development
 
 - `pnpm i`
 - `pnpm dev`
@@ -90,12 +92,13 @@ To quickly populate realistic demo data:
 
 - Minimal: `npm run seed` – adds one customer/job/proposal/invoice
 - Full: `npm run seed:full` – seeds items, kits, kit items, customers, jobs across statuses, proposals, invoices, payments, service tickets, tasks, and leads.
+  - Includes Kerala on‑grid kit templates: 1/2/3/4/5/6/8/10 kW with prefilled BoQ.
 
 Both require env vars: `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. You can optionally pass `SEED_TENANT_ID` to seed into an existing tenant.
 
 Verify server is healthy: `GET /api/health` should return `{ ok: true }`.
 
-6) Deploy to Vercel
+6. Deploy to Vercel
 
 - Import repo into Vercel
 - Add env vars listed above in Vercel → Project Settings → Environment Variables
@@ -119,6 +122,7 @@ For local demos and E2E, a mock in-memory backend can be enabled.
 - `NEXT_PUBLIC_DEMO_UI=1`: show “Demo quick sign-in” buttons on `/auth/signin`.
 
 Notes:
+
 - In mock mode, the app starts with no session by default; click a demo sign-in button to authenticate.
 - For production/staging, do not set these flags.
 
@@ -195,6 +199,7 @@ POST `http://localhost:3000/api/pdf/invoice`
 ```
 
 Optional extensions supported by the renderer (use only what you need):
+
 - `cover`: { `to`, `subject`, `reference`, `paragraphs[]`, `signatory` } — cover letter page (auto-subject falls back to “Quotation for <kW> <system> … (PMSG Subsidy)” for PM Surya).
 - `workSchedule`: rows of `{ scope, details, timeline }` — tabular schedule page.
 - `notes[]`: extra bullet notes (e.g., production estimates, inclusions/exclusions).
@@ -204,6 +209,7 @@ See `tmp/q19_harilal_payload.json` for a real-world example based on the client 
 ### Malayalam Font (optional, recommended)
 
 To ensure Malayalam text renders correctly on PDFs, provide a font:
+
 - Add the TTF under `public/fonts/NotoSansMalayalam-Regular.ttf` and set `NEXT_PUBLIC_ML_FONT_URL=https://<your-domain>/fonts/NotoSansMalayalam-Regular.ttf`, or
 - Set `PDF_ML_FONT_BASE64` to the base64 of the TTF (large; URL is preferred).
 
@@ -214,12 +220,14 @@ Local dev fallback: if neither env is set and `NODE_ENV !== 'production'`, the r
 ### Proposals Language Column
 
 `proposals.lang` tracks the language used to generate the PDF.
+
 - SQL: `drizzle/0002_add_proposals_lang.sql` (apply in Supabase SQL editor), or
 - Run Drizzle push after updating `schema.ts`.
 
 ### Base URL Helper
 
 Server code that calls internal APIs uses a central base URL resolver:
+
 - `src/lib/baseUrl.ts` reads `NEXT_PUBLIC_BASE_URL`, `VERCEL_URL`, or falls back to `http://localhost:3000`.
 - Set `NEXT_PUBLIC_BASE_URL` in Vercel to your canonical origin for reliable internal calls.
 
@@ -229,6 +237,7 @@ Server code that calls internal APIs uses a central base URL resolver:
 - Webhook: `POST /api/webhooks/whatsapp` (GET for verification with `WHATSAPP_VERIFY_TOKEN`)
 
 Templates expected:
+
 - `proposal_ready`: Hi {{1}}, your solar proposal ({{2}} kW) is ready: {{3}}
 - `invoice_due`: Hello {{1}}, your invoice {{2}} for ₹{{3}} is due on {{4}}. Link: {{5}}
 
@@ -267,10 +276,11 @@ Templates expected:
 
 Remove a tenant and its stored documents:
 
-1) Ensure envs are set: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (service role).
-2) Delete by name or id:
+1. Ensure envs are set: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (service role).
+2. Delete by name or id:
+
 - By name: `SEED_TENANT_NAME="Demo Tenant" npm run tenant:delete` (or `npm run tenant:delete -- --name "Demo Tenant"`)
-- By id: `SEED_TENANT_ID="<tenant-uuid>" npm run tenant:delete` (or `npm run tenant:delete -- --tenant <uuid>`) 
+- By id: `SEED_TENANT_ID="<tenant-uuid>" npm run tenant:delete` (or `npm run tenant:delete -- --tenant <uuid>`)
 
 The script removes all objects under `documents/<tenant_id>/` (batched), then deletes the row from `tenants` (cascades via FKs).
 
