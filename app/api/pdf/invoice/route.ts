@@ -99,18 +99,16 @@ export async function POST(req: NextRequest) {
     let chromiumMin: null | (() => Promise<any>) = null;
     let puppeteer: any = null;
     try {
-      chromium = await import('@sparticuz/chromium').then(
-        (m) => m.default || (m as any),
-      );
+      chromium = await import('@sparticuz/chromium').then((m) => m.default || (m as any));
       try {
         (chromium as any).setHeadlessMode = true;
         (chromium as any).setGraphicsMode = false;
-        const mlFontUrl = process.env.NEXT_PUBLIC_ML_FONT_URL;
+        const mlFontUrl = process.env.NEXT_PUBLIC_ML_FONT_URL || `${getBaseUrl()}/fonts/NotoSansMalayalam-Regular.ttf`;
         if (mlFontUrl) {
           try {
             await (chromium as any).font(mlFontUrl);
           } catch (e) {
-            console.warn('api/pdf/invoice font-load-failed', { mlFontUrl, e });
+            if (process.env.LOG_PDF_DEBUG === '1') console.warn('api/pdf/invoice font-load-failed', { mlFontUrl, e });
           }
         }
       } catch {}
@@ -136,8 +134,7 @@ export async function POST(req: NextRequest) {
       };
       // 0) If remote pack URL is provided, use -min to fetch+extract pack on demand (preferred when set)
       try {
-        const pack =
-          process.env.CHROMIUM_PACK_URL || process.env.CHROMIUM_MIN_PACK_URL;
+        const pack = process.env.CHROMIUM_MIN_PACK_URL || process.env.CHROMIUM_PACK_URL;
         if (pack && chromiumMin) {
           const cmin: any = await chromiumMin();
           const p: string | null = await cmin.executablePath(pack);
@@ -191,7 +188,7 @@ export async function POST(req: NextRequest) {
         if (p) return p;
       } catch {}
       // Log for debugging on server
-      console.error('api/pdf/invoice chrome-resolve-failed', debug);
+      if (process.env.LOG_PDF_DEBUG === '1') console.error('api/pdf/invoice chrome-resolve-failed', debug);
       return null;
     }
 
@@ -222,20 +219,23 @@ export async function POST(req: NextRequest) {
 
     const executablePath = await resolveExecutablePath();
     try {
-      console.log('api/pdf/invoice execPath', executablePath);
-      // Surface whether expected lib paths exist at runtime
-      const checks = [
-        '/tmp/libnss3.so',
-        '/tmp/chromium-pack/libnss3.so',
-        '/tmp/chromium-pack/aws/libnss3.so',
-        '/tmp/chromium-pack/lib/libnss3.so',
-        '/opt/chromium/libnss3.so',
-        '/opt/chromium/lib/libnss3.so',
-      ];
-      console.log(
-        'api/pdf/invoice lib checks',
-        Object.fromEntries(checks.map((p) => [p, fs.existsSync(p)])),
-      );
+      if (process.env.LOG_PDF_DEBUG === '1') {
+        console.log('api/pdf/invoice execPath', executablePath);
+        // Surface whether expected lib paths exist at runtime
+        const checks = [
+          '/tmp/libnss3.so',
+          '/tmp/chromium-pack/libnss3.so',
+          '/tmp/chromium-pack/aws/libnss3.so',
+          '/tmp/chromium-pack/lib/libnss3.so',
+          '/opt/chromium/libnss3.so',
+          '/opt/chromium/lib/libnss3.so',
+          '/var/task/node_modules/@sparticuz/chromium/lib/libnss3.so',
+        ];
+        console.log(
+          'api/pdf/invoice lib checks',
+          Object.fromEntries(checks.map((p) => [p, fs.existsSync(p)])),
+        );
+      }
     } catch {}
     try {
       process.env.CHROME_PATH = executablePath || process.env.CHROME_PATH || '';
@@ -256,7 +256,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
     // Prefer chromium's defaults for serverless envs
     const launchEnv = {
       ...process.env,
