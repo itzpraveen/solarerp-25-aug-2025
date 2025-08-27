@@ -41,6 +41,10 @@ export default function LeadsPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any | null>(null);
   const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>('create');
+  // Branches for add/edit choices
+  const [branches, setBranches] = useState<any[]>([]);
+  // Per-add override: use selected branch, specific branch, or unassigned
+  const [addBranchOverride, setAddBranchOverride] = useState<string>('use-selected');
 
   useEffect(() => {
     (async () => {
@@ -57,6 +61,7 @@ export default function LeadsPage() {
       const map: Record<string, string> = {};
       for (const b of (br as any[]) || []) map[b.id] = b.name || '—';
       setBranchNames(map);
+      setBranches((br as any[]) || []);
     })();
   }, []);
 
@@ -127,6 +132,12 @@ export default function LeadsPage() {
       setAdding(false);
       return setErr('Profile not ready');
     }
+    const branchForInsert =
+      addBranchOverride === 'use-selected'
+        ? (branchId !== 'all' ? (branchId as string) : null)
+        : addBranchOverride === 'none'
+        ? null
+        : (addBranchOverride as string);
     const { error } = await supabase
       .from('leads')
       .insert({
@@ -140,7 +151,7 @@ export default function LeadsPage() {
         notes: remarks || null,
         next_follow_up_date: nextFollowUp || null,
         status: 'New',
-        branch_id: branchId !== 'all' ? (branchId as string) : null,
+        branch_id: branchForInsert,
       });
     setAdding(false);
     if (error) return setErr(error.message);
@@ -151,6 +162,7 @@ export default function LeadsPage() {
     setPlace('');
     setRemarks('');
     setNextFollowUp('');
+    setAddBranchOverride('use-selected');
     load();
   };
 
@@ -242,6 +254,7 @@ export default function LeadsPage() {
             onChange={(e) => setName(e.target.value)}
           />
           <Input
+            type="tel"
             placeholder="Phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -279,6 +292,22 @@ export default function LeadsPage() {
             value={nextFollowUp}
             onChange={(e) => setNextFollowUp(e.target.value)}
           />
+          <select
+            className="rounded border px-3 py-2"
+            value={addBranchOverride}
+            onChange={(e) => setAddBranchOverride(e.target.value)}
+            title="Assign branch"
+          >
+            <option value="use-selected">
+              Branch: {branchId === 'all' ? 'Use filter or Unassigned' : (branchNames[branchId as string] || 'Selected')}
+            </option>
+            <option value="none">Unassigned</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name || '—'}
+              </option>
+            ))}
+          </select>
           <Input
             placeholder="Remarks"
             value={remarks}
@@ -409,6 +438,7 @@ export default function LeadsPage() {
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
                   <th className="p-2">Next Follow-up</th>
+                  <th className="p-2">Last Contacted</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Branch</th>
                   <th className="p-2">Remarks</th>
@@ -512,10 +542,29 @@ export default function LeadsPage() {
                             />
                           </td>
                           <td className="p-2 text-xs text-gray-600">
-                            {l.status || '—'}
+                            {l.last_contacted_at || '—'}
                           </td>
                           <td className="p-2 text-xs text-gray-600">
-                            {l.branch_id ? branchNames[l.branch_id] || '—' : '—'}
+                            {l.status || '—'}
+                          </td>
+                          <td className="p-2">
+                            <select
+                              className="w-full rounded border px-3 py-2"
+                              value={editForm.branch_id || 'none'}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  branch_id: e.target.value === 'none' ? null : e.target.value,
+                                })
+                              }
+                            >
+                              <option value="none">Unassigned</option>
+                              {branches.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.name || '—'}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           <td className="p-2">
                             <Input
@@ -533,16 +582,17 @@ export default function LeadsPage() {
                                     name: editForm.name,
                                     phone: editForm.phone,
                                     source: editForm.source || null,
-                                    interested_capacity_kw:
-                                      editForm.interested_capacity_kw,
-                                    address: editForm.address || null,
-                                    notes: editForm.notes || null,
-                                    next_follow_up_date: editForm.next_follow_up_date || null,
-                                  })
-                                  .eq('id', l.id);
-                                setEditing(null);
-                                load();
-                              }}
+                                  interested_capacity_kw:
+                                    editForm.interested_capacity_kw,
+                                  address: editForm.address || null,
+                                  notes: editForm.notes || null,
+                                  next_follow_up_date: editForm.next_follow_up_date || null,
+                                  branch_id: editForm.branch_id || null,
+                                })
+                                .eq('id', l.id);
+                              setEditing(null);
+                              load();
+                            }}
                             >
                               Save
                             </Button>
@@ -573,6 +623,9 @@ export default function LeadsPage() {
                             }>
                               {l.next_follow_up_date || '—'}
                             </span>
+                          </td>
+                          <td className="p-2 text-xs text-gray-600">
+                            {l.last_contacted_at || '—'}
                           </td>
                           <td className="p-2 text-xs text-gray-600">
                             {l.status || '—'}
