@@ -11,6 +11,7 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import fs from 'node:fs';
 import { z } from 'zod';
+import { getBaseUrl } from '@/lib/baseUrl';
 
 const BodySchema = z.object({
   tenantId: z.string().min(1),
