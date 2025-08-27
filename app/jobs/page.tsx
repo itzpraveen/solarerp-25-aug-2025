@@ -135,10 +135,60 @@ export default function JobsPage() {
         .from('profiles')
         .select('tenant_id')
         .maybeSingle();
+      const tenantId = (prof as any)!.tenant_id as string;
+
+      // Ensure a corresponding lead exists to avoid pipeline/leads mismatch
+      let leadId: string | null = null;
+      try {
+        // Fetch customer details for lead creation
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('name, phone, address')
+          .eq('id', custId)
+          .maybeSingle();
+        // Try reuse: find the most recent lead by phone in the same tenant
+        if (cust?.phone) {
+          const { data: existing } = await supabase
+            .from('leads')
+            .select('id, status')
+            .eq('tenant_id', tenantId)
+            .eq('phone', cust.phone)
+            .order('date', { ascending: false })
+            .limit(1);
+          const reuse = Array.isArray(existing) ? existing[0] : null;
+          if (reuse?.id) {
+            leadId = reuse.id as string;
+            // If not converted, mark as converted since we're creating a job now
+            if (reuse.status !== 'Converted') {
+              await supabase.from('leads').update({ status: 'Converted' }).eq('id', leadId);
+            }
+          }
+        }
+        if (!leadId) {
+          const today = new Date().toISOString().slice(0, 10);
+          const { data: lead } = await supabase
+            .from('leads')
+            .insert({
+              tenant_id: tenantId,
+              date: today,
+              name: selectedCustomer?.name || cust?.name || 'Lead',
+              phone: (cust as any)?.phone || null,
+              address: location || (cust as any)?.address || null,
+              interested_capacity_kw: capacity,
+              status: 'Converted',
+              branch_id: branchId !== 'all' ? (branchId as string) : null,
+              source: 'Job',
+            })
+            .select('id')
+            .single();
+          leadId = (lead as any)?.id || null;
+        }
+      } catch {}
+
       const { data: job } = await supabase
         .from('jobs')
         .insert({
-          tenant_id: (prof as any)!.tenant_id,
+          tenant_id: tenantId,
           customer_id: custId,
           system_type: systemType,
           program_type: program,
@@ -148,6 +198,7 @@ export default function JobsPage() {
           roof_type: roof || null,
           date_lead: new Date().toISOString().slice(0, 10),
           branch_id: branchId !== 'all' ? branchId : null,
+          lead_id: leadId,
         })
         .select('id')
         .single();

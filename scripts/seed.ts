@@ -10,20 +10,37 @@ async function main() {
   if (!key) throw new Error('Missing env SUPABASE_SERVICE_ROLE_KEY');
   const supabase = createClient(url, key);
 
-  const TENANT_ID =
-    process.env.SEED_TENANT_ID ||
-    (await (async () => {
-      const { data, error } = await supabase
+  // Resolve tenant: if SEED_TENANT_ID provided but missing, create it.
+  const TENANT_ID = await (async () => {
+    const envId = process.env.SEED_TENANT_ID?.trim();
+    if (envId) {
+      const { data: existing } = await supabase
         .from('tenants')
-        .insert({ name: 'Demo Tenant' })
         .select('id')
-        .single();
-      if (error || !data?.id)
-        throw new Error(
-          `Failed to create tenant: ${error?.message || 'unknown error'}`,
-        );
-      return data.id as string;
-    })());
+        .eq('id', envId)
+        .maybeSingle();
+      if (!existing?.id) {
+        const { error } = await supabase
+          .from('tenants')
+          .insert({ id: envId, name: 'Demo Tenant' });
+        if (error)
+          throw new Error(
+            `Failed to ensure tenant ${envId}: ${error.message}`,
+          );
+      }
+      return envId as string;
+    }
+    const { data, error } = await supabase
+      .from('tenants')
+      .insert({ name: 'Demo Tenant' })
+      .select('id')
+      .single();
+    if (error || !data?.id)
+      throw new Error(
+        `Failed to create tenant: ${error?.message || 'unknown error'}`,
+      );
+    return data.id as string;
+  })();
 
   let res = await supabase.from('settings').upsert({
     tenant_id: TENANT_ID,
