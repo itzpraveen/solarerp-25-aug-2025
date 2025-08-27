@@ -17,7 +17,7 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
 
 - Frontend: Next.js 15 (App Router), TypeScript, Tailwind
 - Backend: Supabase (Postgres + Auth + Storage + Realtime)
-- ORM/Migrations: Drizzle ORM + drizzle-kit (SQL migrations included)
+- Database migrations: SQL files under `drizzle/` (apply via Supabase SQL editor)
 - PDF: Puppeteer + @sparticuz/chromium-min in a Vercel Node Function
   - Separate English/Malayalam templates via language selector; files saved with -en/-ml suffix
 - Scheduling: Vercel Cron → POST /api/cron/daily
@@ -124,7 +124,7 @@ Notes:
 
 ## Data Model
 
-See `drizzle/0001_init.sql` and `src/db/schema.ts` for enums and tables. Highlights:
+See `drizzle/0001_init.sql` for enums and tables. Highlights:
 
 - UUID primary keys (`gen_random_uuid()`), timestamps as `timestamptz` with default `now()`
 - RLS for every business table: tenant can read/modify rows matching their `profiles.tenant_id`

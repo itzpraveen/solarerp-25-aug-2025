@@ -14,8 +14,7 @@
 - `npm run build`: Production build. `npm start`: Serve built app.
 - `npm test`: Run Vitest unit tests (headless). `npm run test:ui`: interactive Vitest.
 - `npm run lint` / `npm run format`: ESLint / Prettier.
-- `npm run db:generate`: Generate Drizzle migrations to `drizzle/` from `src/db/schema.ts`.
-- `npm run db:migrate`: Push migrations (requires `DATABASE_URL`).
+- Migrations: apply the SQL files in `drizzle/` via Supabase SQL editor.
 - Minimal scripts: `npm run dev`, `build`, `start`, `lint`, `format`, `test`, `db:*`.
 
 ## Coding Style & Naming Conventions
