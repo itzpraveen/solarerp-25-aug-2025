@@ -9,6 +9,12 @@ if [[ "${SKIP_E2E:-}" == "1" ]]; then
   exit 0
 fi
 
+# Only run locally when explicitly enabled
+if [[ "${RUN_E2E_PREPUSH:-0}" != "1" ]]; then
+  echo "[pre-push] RUN_E2E_PREPUSH!=1 — skipping e2e (CI will run them)."
+  exit 0
+fi
+
 BIN="./node_modules/.bin"
 PLAYWRIGHT="$BIN/playwright"
 
