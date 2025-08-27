@@ -29,6 +29,7 @@ export default function AppHeader() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [branchValue, setBranchValue] = useState<string | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -90,7 +91,7 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/80">
-      <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+      <div className="mx-auto max-w-7xl px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             className="md:hidden"
@@ -103,7 +104,7 @@ export default function AppHeader() {
             SolarERP
           </Link>
         </div>
-        <nav className="hidden gap-1 md:flex">
+        <nav className="hidden gap-1 md:flex overflow-x-auto">
           {links.map((l) => {
             const active = pathname.startsWith(l.href);
             return (
@@ -111,7 +112,7 @@ export default function AppHeader() {
                 key={l.href}
                 href={l.href}
                 className={
-                  'text-sm rounded-md px-2 py-1 transition-colors ' +
+                  'text-sm rounded-md px-2 py-1 transition-colors whitespace-nowrap ' +
                   (active
                     ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300'
                     : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800')
@@ -204,20 +205,38 @@ export default function AppHeader() {
             {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           {email ? (
-            <>
-              <span className="hidden sm:inline text-gray-600 dark:text-gray-300">
-                {email}
-                {role
-                  ? ` • ${String(role).charAt(0).toUpperCase()}${String(role).slice(1)}`
-                  : ''}
-              </span>
+            <div className="relative">
               <button
-                onClick={signOut}
-                className="rounded border px-2 py-1 dark:border-gray-700"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={userOpen}
+                onClick={() => setUserOpen((v) => !v)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-sm font-semibold uppercase text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                title={email || 'Account'}
               >
-                Sign out
+                {String(email).charAt(0)}
               </button>
-            </>
+              {userOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-56 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                >
+                  <div className="px-2 py-1 text-xs text-gray-500">Signed in</div>
+                  <div className="truncate px-2 pb-2 text-sm text-gray-700 dark:text-gray-300">
+                    {email}
+                    {role ? (
+                      <span className="ml-1 text-xs text-gray-500">• {role}</span>
+                    ) : null}
+                  </div>
+                  <button
+                    onClick={signOut}
+                    className="w-full rounded border px-2 py-1 text-left text-sm dark:border-gray-700"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <Link
               href="/auth/signin"
