@@ -485,7 +485,7 @@ export default function SettingsPage() {
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value as any)}
                     >
-                      <option value="owner">Admin</option>
+                      <option value="owner">Owner</option>
                       <option value="admin">Admin</option>
                       <option value="manager">Manager</option>
                       <option value="sales">Sales</option>
