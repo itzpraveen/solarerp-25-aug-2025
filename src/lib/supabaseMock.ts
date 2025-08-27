@@ -184,20 +184,50 @@ class MockQuery {
   private _order: { key: string; ascending: boolean } | null = null;
   private _select: string | null = null;
   private _limit: number | null = null;
+  private _wantCount: boolean = false;
   constructor(table: TableName) {
     this.table = table;
   }
 
-  select(sel: string) {
+  select(sel: string, opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }) {
     this._select = sel;
+    this._wantCount = !!opts?.count;
     return this;
   }
   eq(k: string, v: any) {
     this.filters.push([k, v]);
     return this;
   }
+  neq(k: string, v: any) {
+    this.filters.push([`__neq__${k}`, v]);
+    return this;
+  }
   in(k: string, vs: any[]) {
     /* simple contains */ this.filters.push([`__in__${k}`, vs]);
+    return this;
+  }
+  lt(k: string, v: any) {
+    this.filters.push([`__lt__${k}`, v]);
+    return this;
+  }
+  lte(k: string, v: any) {
+    this.filters.push([`__lte__${k}`, v]);
+    return this;
+  }
+  gt(k: string, v: any) {
+    this.filters.push([`__gt__${k}`, v]);
+    return this;
+  }
+  gte(k: string, v: any) {
+    this.filters.push([`__gte__${k}`, v]);
+    return this;
+  }
+  is(k: string, v: any) {
+    this.filters.push([`__is__${k}`, v]);
+    return this;
+  }
+  match(obj: Record<string, any>) {
+    Object.entries(obj || {}).forEach(([k, v]) => this.eq(k, v));
     return this;
   }
   order(key: string, { ascending = true } = {}) {
@@ -210,20 +240,56 @@ class MockQuery {
   }
 
   private applyFilters(rows: Row[]) {
-    return rows
-      .filter((r) =>
-        matchEq(
-          r,
-          this.filters.filter(([k]) => !k.startsWith('__in__')) as any[],
-        ),
-      )
-      .filter((r) =>
-        this.filters.every(([k, v]) =>
-          k.startsWith('__in__')
-            ? (v as any[]).includes(r[k.replace('__in__', '')])
-            : true,
-        ),
-      );
+    const cmp = (a: any, b: any) => {
+      // Strings (including ISO dates) compare lexicographically which is fine here
+      if (a == null && b == null) return 0;
+      if (a == null) return -1;
+      if (b == null) return 1;
+      if (typeof a === 'number' && typeof b === 'number') return a - b;
+      try {
+        const as = String(a);
+        const bs = String(b);
+        if (as === bs) return 0;
+        return as > bs ? 1 : -1;
+      } catch {
+        return 0;
+      }
+    };
+    return rows.filter((r) =>
+      this.filters.every(([k, v]) => {
+        if (!k.startsWith('__')) return r[k] === v;
+        if (k.startsWith('__in__')) {
+          const key = k.replace('__in__', '');
+          return (v as any[]).includes(r[key]);
+        }
+        if (k.startsWith('__neq__')) {
+          const key = k.replace('__neq__', '');
+          return r[key] !== v;
+        }
+        if (k.startsWith('__lt__')) {
+          const key = k.replace('__lt__', '');
+          return cmp(r[key], v) < 0;
+        }
+        if (k.startsWith('__lte__')) {
+          const key = k.replace('__lte__', '');
+          return cmp(r[key], v) <= 0;
+        }
+        if (k.startsWith('__gt__')) {
+          const key = k.replace('__gt__', '');
+          return cmp(r[key], v) > 0;
+        }
+        if (k.startsWith('__gte__')) {
+          const key = k.replace('__gte__', '');
+          return cmp(r[key], v) >= 0;
+        }
+        if (k.startsWith('__is__')) {
+          const key = k.replace('__is__', '');
+          if (v === null) return r[key] == null; // null or undefined treated as null
+          return r[key] === v;
+        }
+        return true;
+      }),
+    );
   }
 
   async single() {
@@ -242,7 +308,9 @@ class MockQuery {
       const me =
         db.profiles.find((p) => p.user_id === db.currentUserId) || null;
       // Return as array so .single/.maybeSingle work consistently
-      return { data: me ? [me] : [], error: null } as any;
+      const payload = { data: me ? [me] : [], error: null } as any;
+      if (this._wantCount) (payload as any).count = payload.data.length;
+      return payload;
     }
     rows = this.applyFilters(rows);
     if (this._order) {
@@ -322,7 +390,9 @@ class MockQuery {
       });
     }
     if (this._limit != null) rows = rows.slice(0, this._limit);
-    return { data: rows, error: null };
+    const payload: any = { data: rows, error: null };
+    if (this._wantCount) payload.count = rows.length;
+    return payload;
   }
 
   async then(resolve: (v: any) => void, reject?: (e: any) => void) {
