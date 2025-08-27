@@ -11,7 +11,7 @@ export async function GET() {
       'Name',
       'Contact Number',
       'Email',
-      'Place',
+      'Address',
       'Source',
       'KW',
       'Date',
