@@ -369,7 +369,7 @@ export default function ItemsPage() {
                           onClick={async () => {
                             if (!it.archived) {
                               const ok = confirm(
-                                'Archive this item? It will be hidden from pickers and kits.'
+                                'Archive this item? It will be hidden from pickers and kits.',
                               );
                               if (!ok) return;
                             }
@@ -379,7 +379,9 @@ export default function ItemsPage() {
                               .eq('item_code', it.item_code);
                             load();
                             toast({
-                              title: it.archived ? 'Item unarchived' : 'Item archived',
+                              title: it.archived
+                                ? 'Item unarchived'
+                                : 'Item archived',
                               variant: 'success',
                             });
                           }}

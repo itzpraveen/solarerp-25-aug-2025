@@ -20,7 +20,8 @@ export default function Badge({
       'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-200',
     danger: 'border-red-300 text-red-700 dark:border-red-800 dark:text-red-200',
     info: 'border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-200',
-    muted: 'border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400',
+    muted:
+      'border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400',
   };
   return (
     <span
@@ -34,4 +35,3 @@ export default function Badge({
     </span>
   );
 }
-

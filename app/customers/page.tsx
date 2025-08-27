@@ -64,15 +64,13 @@ export default function CustomersPage() {
         return setErr('Phone already exists for this tenant');
       }
     }
-    const { error } = await supabase
-      .from('customers')
-      .insert({
-        tenant_id: prof!.tenant_id,
-        name,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-      });
+    const { error } = await supabase.from('customers').insert({
+      tenant_id: prof!.tenant_id,
+      name,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+    });
     setAdding(false);
     if (error) {
       setErr(error.message);
@@ -208,7 +206,10 @@ export default function CustomersPage() {
                               .update({ deleted_at: null })
                               .eq('id', c.id);
                             load();
-                            toast({ title: 'Customer restored', variant: 'success' });
+                            toast({
+                              title: 'Customer restored',
+                              variant: 'success',
+                            });
                           }}
                         >
                           Restore
@@ -219,7 +220,7 @@ export default function CustomersPage() {
                           size="sm"
                           onClick={async () => {
                             const ok = confirm(
-                              'Soft-delete this customer? Their jobs and documents will remain.'
+                              'Soft-delete this customer? Their jobs and documents will remain.',
                             );
                             if (!ok) return;
                             await supabase
@@ -227,7 +228,10 @@ export default function CustomersPage() {
                               .update({ deleted_at: new Date().toISOString() })
                               .eq('id', c.id);
                             load();
-                            toast({ title: 'Customer deleted', variant: 'success' });
+                            toast({
+                              title: 'Customer deleted',
+                              variant: 'success',
+                            });
                           }}
                         >
                           Delete

@@ -104,7 +104,8 @@ export default function SignIn() {
       <div className="space-y-4">
         {process.env.NEXT_PUBLIC_ALLOW_SELF_SIGNUP !== '1' && (
           <div className="rounded border bg-blue-50 p-3 text-xs text-blue-800">
-            Login only: You must be invited by an admin to access this app. If you are not invited, the magic link will not create a new account.
+            Login only: You must be invited by an admin to access this app. If
+            you are not invited, the magic link will not create a new account.
           </div>
         )}
         {process.env.NEXT_PUBLIC_E2E_MOCK === '1' &&

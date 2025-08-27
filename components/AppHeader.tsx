@@ -83,7 +83,8 @@ export default function AppHeader() {
           .select('id', { count: 'exact', head: true })
           .eq('next_follow_up_date', today)
           .neq('status', 'Closed');
-        if (branchValue !== 'all') lq = lq.eq('branch_id', branchValue as string);
+        if (branchValue !== 'all')
+          lq = lq.eq('branch_id', branchValue as string);
         const { count: c1 } = await lq;
         setDueLeadsCount(c1 || 0);
 
@@ -185,7 +186,7 @@ export default function AppHeader() {
               title="Notifications"
             >
               <Bell size={16} />
-              {(dueLeadsCount + overdueInvCount) > 0 && (
+              {dueLeadsCount + overdueInvCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 inline-block h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
@@ -195,16 +196,36 @@ export default function AppHeader() {
                 className="absolute right-0 mt-2 w-60 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
               >
                 <div className="flex items-center justify-between px-2 py-1 text-sm">
-                  <span className="text-gray-700 dark:text-gray-200">Leads due today</span>
-                  <span className={dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'}>{dueLeadsCount}</span>
+                  <span className="text-gray-700 dark:text-gray-200">
+                    Leads due today
+                  </span>
+                  <span
+                    className={
+                      dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'
+                    }
+                  >
+                    {dueLeadsCount}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between px-2 py-1 text-sm">
-                  <span className="text-gray-700 dark:text-gray-200">Overdue invoices</span>
-                  <span className={overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'}>{overdueInvCount}</span>
+                  <span className="text-gray-700 dark:text-gray-200">
+                    Overdue invoices
+                  </span>
+                  <span
+                    className={
+                      overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'
+                    }
+                  >
+                    {overdueInvCount}
+                  </span>
                 </div>
                 <div className="mt-2 flex items-center gap-2 px-2">
-                  <a className="text-blue-600 text-sm" href="/leads">Open Leads</a>
-                  <a className="text-blue-600 text-sm" href="/jobs?tab=finance">Finance</a>
+                  <a className="text-blue-600 text-sm" href="/leads">
+                    Open Leads
+                  </a>
+                  <a className="text-blue-600 text-sm" href="/jobs?tab=finance">
+                    Finance
+                  </a>
                 </div>
               </div>
             )}
@@ -273,7 +294,9 @@ export default function AppHeader() {
                 >
                   {tenantId && (
                     <div className="mb-2">
-                      <div className="px-2 pb-1 text-xs text-gray-500">Branch</div>
+                      <div className="px-2 pb-1 text-xs text-gray-500">
+                        Branch
+                      </div>
                       <BranchSelect
                         value={branchValue}
                         onChange={(v) => {
@@ -286,7 +309,9 @@ export default function AppHeader() {
                               );
                           } catch {}
                           window.dispatchEvent(
-                            new CustomEvent('branch-change', { detail: { value: v } }),
+                            new CustomEvent('branch-change', {
+                              detail: { value: v },
+                            }),
                           );
                         }}
                         includeAll
@@ -294,11 +319,15 @@ export default function AppHeader() {
                       />
                     </div>
                   )}
-                  <div className="px-2 py-1 text-xs text-gray-500">Signed in</div>
+                  <div className="px-2 py-1 text-xs text-gray-500">
+                    Signed in
+                  </div>
                   <div className="truncate px-2 pb-2 text-sm text-gray-700 dark:text-gray-300">
                     {email}
                     {role ? (
-                      <span className="ml-1 text-xs text-gray-500">• {role}</span>
+                      <span className="ml-1 text-xs text-gray-500">
+                        • {role}
+                      </span>
                     ) : null}
                   </div>
                   <button

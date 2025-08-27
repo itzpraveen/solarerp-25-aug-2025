@@ -18,32 +18,29 @@ export default function OverviewPage() {
   const [paymentInvoiceJobMap, setPaymentInvoiceJobMap] = useState<
     Record<string, string>
   >({});
-  const [leadSummary, setLeadSummary] = useState<
-    { total: number; open: number; dueToday: number; overdue: number } | null
-  >(null);
-  const [salesKpis, setSalesKpis] = useState<
-    | {
-        leadsNewWeek: number;
-        leadsNewMonth: number;
-        leadsConvertedWeek: number;
-        leadsConvertedMonth: number;
-        proposalsWeek: number;
-        proposalsMonth: number;
-      }
-    | null
-  >(null);
-  const [arSummary, setArSummary] = useState<
-    | {
-        outstanding: number;
-        overdue: number;
-        current: number;
-        d1_30: number;
-        d31_60: number;
-        d61_90: number;
-        d90p: number;
-      }
-    | null
-  >(null);
+  const [leadSummary, setLeadSummary] = useState<{
+    total: number;
+    open: number;
+    dueToday: number;
+    overdue: number;
+  } | null>(null);
+  const [salesKpis, setSalesKpis] = useState<{
+    leadsNewWeek: number;
+    leadsNewMonth: number;
+    leadsConvertedWeek: number;
+    leadsConvertedMonth: number;
+    proposalsWeek: number;
+    proposalsMonth: number;
+  } | null>(null);
+  const [arSummary, setArSummary] = useState<{
+    outstanding: number;
+    overdue: number;
+    current: number;
+    d1_30: number;
+    d31_60: number;
+    d61_90: number;
+    d90p: number;
+  } | null>(null);
   const [tasksToday, setTasksToday] = useState<any[]>([]);
   const [tasksOverdue, setTasksOverdue] = useState<any[]>([]);
 
@@ -157,7 +154,9 @@ export default function OverviewPage() {
             branchId === 'all'
               ? '/api/leads/kpis'
               : `/api/leads/kpis?branchId=${encodeURIComponent(branchId as string)}`;
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           const out = await res.json();
           if (res.ok && out?.ok) {
             if (out.scope === 'branch') {
@@ -207,7 +206,9 @@ export default function OverviewPage() {
                   .select('id')
                   .eq('branch_id', branchId as string)
                   .limit(500);
-                jobIdsForBranch = ((branchJobs as any[]) || []).map((r) => r.id);
+                jobIdsForBranch = ((branchJobs as any[]) || []).map(
+                  (r) => r.id,
+                );
                 if (jobIdsForBranch.length > 0) {
                   const { count: pW } = await supabase
                     .from('proposals')
@@ -318,7 +319,10 @@ export default function OverviewPage() {
             tOverQ = tOverQ.in('job_id', ['__none__']);
           }
         }
-        const [{ data: ttd }, { data: tov }] = await Promise.all([tTodayQ, tOverQ]);
+        const [{ data: ttd }, { data: tov }] = await Promise.all([
+          tTodayQ,
+          tOverQ,
+        ]);
         setTasksToday((ttd as any[]) || []);
         setTasksOverdue((tov as any[]) || []);
 
@@ -334,7 +338,9 @@ export default function OverviewPage() {
           else arInvQ = arInvQ.in('job_id', ['__none__']);
         }
         const { data: arInv } = await arInvQ;
-        const invoiceRows = ((arInv as any[]) || []).filter((r) => Number(r.total || 0) > 0);
+        const invoiceRows = ((arInv as any[]) || []).filter(
+          (r) => Number(r.total || 0) > 0,
+        );
         const invIds = invoiceRows.map((r) => r.id);
         let payRows: any[] = [];
         if (invIds.length > 0) {
@@ -372,7 +378,9 @@ export default function OverviewPage() {
             continue;
           }
           const d = new Date(dueDateStr);
-          const diffDays = Math.floor((todayDate.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+          const diffDays = Math.floor(
+            (todayDate.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
+          );
           if (diffDays <= 0) {
             current += due;
           } else if (diffDays <= 30) {
@@ -389,7 +397,15 @@ export default function OverviewPage() {
             d90p += due;
           }
         }
-        setArSummary({ outstanding, overdue, current, d1_30, d31_60, d61_90, d90p });
+        setArSummary({
+          outstanding,
+          overdue,
+          current,
+          d1_30,
+          d31_60,
+          d61_90,
+          d90p,
+        });
       } finally {
         setLoading(false);
       }
@@ -430,7 +446,9 @@ export default function OverviewPage() {
             href="/jobs"
           >
             <div className="text-xs text-gray-500">{statusLabel(s as any)}</div>
-            <div className="text-lg font-semibold">{pipelineCounts[s] || 0}</div>
+            <div className="text-lg font-semibold">
+              {pipelineCounts[s] || 0}
+            </div>
           </a>
         ))}
       </div>
@@ -448,13 +466,17 @@ export default function OverviewPage() {
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">Leads Due Today</div>
-            <div className={`text-lg font-semibold ${leadSummary.dueToday > 0 ? 'text-red-600' : ''}`}>
+            <div
+              className={`text-lg font-semibold ${leadSummary.dueToday > 0 ? 'text-red-600' : ''}`}
+            >
               {leadSummary.dueToday}
             </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">Leads Overdue</div>
-            <div className={`text-lg font-semibold ${leadSummary.overdue > 0 ? 'text-red-600' : ''}`}>
+            <div
+              className={`text-lg font-semibold ${leadSummary.overdue > 0 ? 'text-red-600' : ''}`}
+            >
               {leadSummary.overdue}
             </div>
           </div>
@@ -466,27 +488,39 @@ export default function OverviewPage() {
         <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">New Leads (WTD)</div>
-            <div className="text-lg font-semibold">{salesKpis.leadsNewWeek}</div>
+            <div className="text-lg font-semibold">
+              {salesKpis.leadsNewWeek}
+            </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">New Leads (MTD)</div>
-            <div className="text-lg font-semibold">{salesKpis.leadsNewMonth}</div>
+            <div className="text-lg font-semibold">
+              {salesKpis.leadsNewMonth}
+            </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">Converted (WTD)</div>
-            <div className="text-lg font-semibold">{salesKpis.leadsConvertedWeek}</div>
+            <div className="text-lg font-semibold">
+              {salesKpis.leadsConvertedWeek}
+            </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">Converted (MTD)</div>
-            <div className="text-lg font-semibold">{salesKpis.leadsConvertedMonth}</div>
+            <div className="text-lg font-semibold">
+              {salesKpis.leadsConvertedMonth}
+            </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">Proposals (WTD)</div>
-            <div className="text-lg font-semibold">{salesKpis.proposalsWeek}</div>
+            <div className="text-lg font-semibold">
+              {salesKpis.proposalsWeek}
+            </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
             <div className="text-xs text-gray-500">Proposals (MTD)</div>
-            <div className="text-lg font-semibold">{salesKpis.proposalsMonth}</div>
+            <div className="text-lg font-semibold">
+              {salesKpis.proposalsMonth}
+            </div>
           </div>
         </div>
       )}
@@ -521,7 +555,8 @@ export default function OverviewPage() {
               {overdueInvoices.map((i) => (
                 <li key={i.id} className="flex items-center justify-between">
                   <span>
-                    {fCurr.format(Number(i.total || 0))} • Due {i.due_date || '—'}
+                    {fCurr.format(Number(i.total || 0))} • Due{' '}
+                    {i.due_date || '—'}
                   </span>
                   <a
                     className="text-blue-600"
@@ -598,7 +633,9 @@ export default function OverviewPage() {
             </div>
             <div className="rounded border bg-white p-3 text-center">
               <div className="text-xs text-gray-500">Overdue</div>
-              <div className={`text-lg font-semibold ${arSummary.overdue > 0 ? 'text-red-600' : ''}`}>
+              <div
+                className={`text-lg font-semibold ${arSummary.overdue > 0 ? 'text-red-600' : ''}`}
+              >
                 {fCurr.format(arSummary.overdue)}
               </div>
             </div>

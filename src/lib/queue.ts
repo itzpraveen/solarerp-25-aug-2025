@@ -22,14 +22,12 @@ export async function enqueueJob(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
-  return supabase
-    .from('background_jobs')
-    .insert({
-      tenant_id: tenantId,
-      type,
-      payload,
-      run_at: runAt || new Date(),
-    });
+  return supabase.from('background_jobs').insert({
+    tenant_id: tenantId,
+    type,
+    payload,
+    run_at: runAt || new Date(),
+  });
 }
 
 export async function processDueJobs() {

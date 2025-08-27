@@ -291,7 +291,8 @@ async function main() {
     8: 'INV-8K',
     10: 'INV-10K',
   };
-  const kitItems: Array<{ kit_name: string; item_code: string; qty: number }> = [];
+  const kitItems: Array<{ kit_name: string; item_code: string; qty: number }> =
+    [];
   for (const k of kits) {
     const kw = Number(k.capacity_kw);
     const panels = Math.ceil((kw * 1000) / 550);
@@ -324,7 +325,11 @@ async function main() {
     .upsert(hybridKits.map((k) => ({ ...k, tenant_id: TENANT_ID })));
   if (res.error) console.warn('hybrid kits upsert warning:', res.error.message);
 
-  const hybridKitItems: Array<{ kit_name: string; item_code: string; qty: number }> = [];
+  const hybridKitItems: Array<{
+    kit_name: string;
+    item_code: string;
+    qty: number;
+  }> = [];
   for (const k of hybridKits) {
     const kw = Number(k.capacity_kw);
     const panels = Math.ceil((kw * 1000) / 550);
@@ -346,7 +351,8 @@ async function main() {
     }
   }
   res = await supabase.from('kit_items').upsert(hybridKitItems);
-  if (res.error) console.warn('hybrid kit_items upsert warning:', res.error.message);
+  if (res.error)
+    console.warn('hybrid kit_items upsert warning:', res.error.message);
 
   // Off-grid kits (with storage; islanded)
   const offgridKits = [
@@ -356,9 +362,14 @@ async function main() {
   res = await supabase
     .from('kits')
     .upsert(offgridKits.map((k) => ({ ...k, tenant_id: TENANT_ID })));
-  if (res.error) console.warn('off-grid kits upsert warning:', res.error.message);
+  if (res.error)
+    console.warn('off-grid kits upsert warning:', res.error.message);
 
-  const offgridKitItems: Array<{ kit_name: string; item_code: string; qty: number }> = [];
+  const offgridKitItems: Array<{
+    kit_name: string;
+    item_code: string;
+    qty: number;
+  }> = [];
   for (const k of offgridKits) {
     const kw = Number(k.capacity_kw);
     const panels = Math.ceil((kw * 1000) / 550);
@@ -378,7 +389,8 @@ async function main() {
     );
   }
   res = await supabase.from('kit_items').upsert(offgridKitItems);
-  if (res.error) console.warn('off-grid kit_items upsert warning:', res.error.message);
+  if (res.error)
+    console.warn('off-grid kit_items upsert warning:', res.error.message);
 
   // Customers
   const customers = [
@@ -409,14 +421,12 @@ async function main() {
     { name: 'Ravi', phone: '+91-91xxxxxxx', interested_capacity_kw: 1 },
   ];
   for (const l of leads) {
-    await supabase
-      .from('leads')
-      .insert({
-        tenant_id: TENANT_ID,
-        date: new Date().toISOString().slice(0, 10),
-        ...l,
-        status: 'New',
-      });
+    await supabase.from('leads').insert({
+      tenant_id: TENANT_ID,
+      date: new Date().toISOString().slice(0, 10),
+      ...l,
+      status: 'New',
+    });
   }
 
   // Jobs across statuses
@@ -534,80 +544,69 @@ async function main() {
         invErr?.message || 'unknown error',
       );
     } else {
-      const { error: payErr } = await supabase
-        .from('payments')
-        .insert({
-          tenant_id: TENANT_ID,
-          invoice_id: inv.id,
-          date: todayOffset(-9),
-          mode: 'UPI',
-          amount: 60000,
-          reference: 'UPI-REF-123',
-          received_by: 'Owner',
-        });
+      const { error: payErr } = await supabase.from('payments').insert({
+        tenant_id: TENANT_ID,
+        invoice_id: inv.id,
+        date: todayOffset(-9),
+        mode: 'UPI',
+        amount: 60000,
+        reference: 'UPI-REF-123',
+        received_by: 'Owner',
+      });
       if (payErr) console.warn('payment insert warning:', payErr.message);
     }
   }
   if (jobIds[4]) {
-    const { error: inv2Err } = await supabase
-      .from('invoices')
-      .insert({
-        tenant_id: TENANT_ID,
-        job_id: jobIds[4],
-        invoice_type: 'Final',
-        date: todayOffset(-3),
-        amount_before_tax: 140000,
-        tax: 0,
-        total: 140000,
-        status: 'Sent',
-        due_date: todayOffset(4),
-      });
+    const { error: inv2Err } = await supabase.from('invoices').insert({
+      tenant_id: TENANT_ID,
+      job_id: jobIds[4],
+      invoice_type: 'Final',
+      date: todayOffset(-3),
+      amount_before_tax: 140000,
+      tax: 0,
+      total: 140000,
+      status: 'Sent',
+      due_date: todayOffset(4),
+    });
     if (inv2Err)
       console.warn('invoice insert warning for jobIds[4]:', inv2Err.message);
   }
 
   // Documents
   if (jobIds[0]) {
-    const { error: docErr } = await supabase
-      .from('documents')
-      .insert({
-        tenant_id: TENANT_ID,
-        job_id: jobIds[0],
-        doc_type: 'site_photo',
-        file_url:
-          'https://dummyimage.com/1200x800/eeeeee/000000&text=Site+Photo',
-      });
+    const { error: docErr } = await supabase.from('documents').insert({
+      tenant_id: TENANT_ID,
+      job_id: jobIds[0],
+      doc_type: 'site_photo',
+      file_url: 'https://dummyimage.com/1200x800/eeeeee/000000&text=Site+Photo',
+    });
     if (docErr) console.warn('document insert warning:', docErr.message);
   }
 
   // Tasks
   if (jobIds[1]) {
-    const { error: taskErr } = await supabase
-      .from('tasks')
-      .insert({
-        tenant_id: TENANT_ID,
-        job_id: jobIds[1],
-        title: 'Call customer for KSEB feasibility',
-        due_date: todayOffset(2),
-        status: 'Open',
-      });
+    const { error: taskErr } = await supabase.from('tasks').insert({
+      tenant_id: TENANT_ID,
+      job_id: jobIds[1],
+      title: 'Call customer for KSEB feasibility',
+      due_date: todayOffset(2),
+      status: 'Open',
+    });
     if (taskErr) console.warn('task insert warning:', taskErr.message);
   }
 
   // Service ticket
   {
-    const { error: svcErr } = await supabase
-      .from('service_tickets')
-      .insert({
-        tenant_id: TENANT_ID,
-        customer_id: custIds[0],
-        job_id: jobIds[0],
-        date: todayOffset(0),
-        issue_type: 'Low Generation',
-        priority: 'Medium',
-        status: 'Open',
-        summary: 'Check earthing',
-      });
+    const { error: svcErr } = await supabase.from('service_tickets').insert({
+      tenant_id: TENANT_ID,
+      customer_id: custIds[0],
+      job_id: jobIds[0],
+      date: todayOffset(0),
+      issue_type: 'Low Generation',
+      priority: 'Medium',
+      status: 'Open',
+      summary: 'Check earthing',
+    });
     if (svcErr) console.warn('service_tickets insert warning:', svcErr.message);
   }
 

@@ -68,14 +68,23 @@ export async function POST(req: NextRequest) {
       (o: any) => o.user_id === userId,
     );
     const adminishCount = (admins || []).length;
-    if (isTargetAdminish && !['owner', 'admin'].includes(role) && adminishCount <= 1) {
+    if (
+      isTargetAdminish &&
+      !['owner', 'admin'].includes(role) &&
+      adminishCount <= 1
+    ) {
       return NextResponse.json(
         { ok: false, error: 'Cannot demote the last admin' },
         { status: 400 },
       );
     }
     // Optional: prevent self-demotion if last owner
-    if (!isMock && (me as any).user_id === userId && !['owner', 'admin'].includes(role) && adminishCount <= 1) {
+    if (
+      !isMock &&
+      (me as any).user_id === userId &&
+      !['owner', 'admin'].includes(role) &&
+      adminishCount <= 1
+    ) {
       return NextResponse.json(
         { ok: false, error: 'Add another admin before demoting yourself' },
         { status: 400 },

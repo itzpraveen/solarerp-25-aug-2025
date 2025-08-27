@@ -51,14 +51,12 @@ export async function POST(req: NextRequest) {
     await admin
       .from('profiles')
       .insert({ user_id: user.id, tenant_id: tenant!.id, role: 'admin' });
-    await admin
-      .from('settings')
-      .insert({
-        tenant_id: tenant!.id,
-        currency: 'INR',
-        primary_discom: 'KSEB',
-        default_tax_rate: 0,
-      });
+    await admin.from('settings').insert({
+      tenant_id: tenant!.id,
+      currency: 'INR',
+      primary_discom: 'KSEB',
+      default_tax_rate: 0,
+    });
     // Audit best-effort (can't use admin client with RLS, but this route is trusted server code)
     try {
       await admin.from('audit_logs').insert({

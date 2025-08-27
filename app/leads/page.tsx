@@ -198,7 +198,9 @@ export default function LeadsPage() {
       try {
         let jq = supabase
           .from('jobs')
-          .select('id, customer_id, branch_id, date_lead, created_at, status, lead_id')
+          .select(
+            'id, customer_id, branch_id, date_lead, created_at, status, lead_id',
+          )
           .eq('status', 'Lead')
           .is('lead_id', null)
           .order('created_at', { ascending: false });
@@ -206,14 +208,17 @@ export default function LeadsPage() {
         const { data: jrows } = await jq;
         const jobs = ((jrows as any[]) || []) as any[];
         if (jobs.length > 0) {
-          const ids = Array.from(new Set(jobs.map((r) => r.customer_id).filter(Boolean)));
+          const ids = Array.from(
+            new Set(jobs.map((r) => r.customer_id).filter(Boolean)),
+          );
           let cmap = new Map<string, any>();
           if (ids.length > 0) {
             const { data: custs } = await supabase
               .from('customers')
               .select('id, name, phone, address')
               .in('id', ids as any);
-            for (const c of ((custs as any[]) || []) as any[]) cmap.set(c.id, c);
+            for (const c of ((custs as any[]) || []) as any[])
+              cmap.set(c.id, c);
           }
           const jobLeads = jobs.map((j) => {
             const c = cmap.get(j.customer_id) || {};
@@ -452,7 +457,9 @@ export default function LeadsPage() {
                   <div className="text-gray-600">
                     Leads: {kpis.unassigned.total}
                   </div>
-                  <div className="text-gray-600">Open: {kpis.unassigned.open}</div>
+                  <div className="text-gray-600">
+                    Open: {kpis.unassigned.open}
+                  </div>
                   <div
                     className={
                       kpis.unassigned.dueToday > 0
@@ -858,7 +865,11 @@ export default function LeadsPage() {
                     <tr className="border-b">
                       <td className="p-2">
                         {(l as any)._jobOnly ? (
-                          <input type="checkbox" disabled title="Job card (read-only)" />
+                          <input
+                            type="checkbox"
+                            disabled
+                            title="Job card (read-only)"
+                          />
                         ) : (
                           <input
                             type="checkbox"
@@ -1107,8 +1118,11 @@ export default function LeadsPage() {
                                       .from('profiles')
                                       .select('tenant_id')
                                       .maybeSingle();
-                                    const tenantId = (prof as any)?.tenant_id as string;
-                                    const today = new Date().toISOString().slice(0, 10);
+                                    const tenantId = (prof as any)
+                                      ?.tenant_id as string;
+                                    const today = new Date()
+                                      .toISOString()
+                                      .slice(0, 10);
                                     const { data: lead } = await supabase
                                       .from('leads')
                                       .insert({
@@ -1117,22 +1131,30 @@ export default function LeadsPage() {
                                         name: (l as any).name || 'Lead',
                                         phone: (l as any).phone || null,
                                         address: (l as any).address || null,
-                                        interested_capacity_kw: (l as any).interested_capacity_kw || null,
+                                        interested_capacity_kw:
+                                          (l as any).interested_capacity_kw ||
+                                          null,
                                         status: 'Converted',
                                         source: 'Job',
                                         branch_id:
                                           (l as any).branch_id ||
-                                          (branchId !== 'all' ? (branchId as string) : null),
+                                          (branchId !== 'all'
+                                            ? (branchId as string)
+                                            : null),
                                       })
                                       .select('id')
                                       .single();
-                                    const newLeadId = (lead as any)?.id as string;
+                                    const newLeadId = (lead as any)
+                                      ?.id as string;
                                     if (newLeadId && (l as any)._jobId) {
                                       await supabase
                                         .from('jobs')
                                         .update({ lead_id: newLeadId })
                                         .eq('id', (l as any)._jobId);
-                                      toast({ title: 'Linked job to lead', variant: 'success' });
+                                      toast({
+                                        title: 'Linked job to lead',
+                                        variant: 'success',
+                                      });
                                       load();
                                     }
                                   }}
@@ -1160,7 +1182,7 @@ export default function LeadsPage() {
                                 </Button>
                               </>
                             )}
-                            {!((l as any)._jobOnly) && (
+                            {!(l as any)._jobOnly && (
                               <RequireOwner>
                                 <Button
                                   variant="danger"
@@ -1185,28 +1207,29 @@ export default function LeadsPage() {
                                 </Button>
                               </RequireOwner>
                             )}
-                            {!((l as any)._jobOnly) && (
+                            {!(l as any)._jobOnly && (
                               <Button
                                 size="sm"
                                 className="ml-2"
                                 onClick={() => {
-                                // confirmation dialog
-                                confirm({
-                                  title: 'Convert lead',
-                                  description: 'Convert this lead to a Job?',
-                                  confirmText: 'Convert',
-                                }).then((ok) => {
-                                  if (!ok) return;
-                                  setConvertingId(l.id);
-                                  setConvertForm({
-                                    address: '',
-                                    program_type: 'PM_Surya',
-                                    system_type: 'On-grid',
-                                    capacity_kw: l.interested_capacity_kw || 1,
-                                    location: '',
-                                    roof_type: '',
+                                  // confirmation dialog
+                                  confirm({
+                                    title: 'Convert lead',
+                                    description: 'Convert this lead to a Job?',
+                                    confirmText: 'Convert',
+                                  }).then((ok) => {
+                                    if (!ok) return;
+                                    setConvertingId(l.id);
+                                    setConvertForm({
+                                      address: '',
+                                      program_type: 'PM_Surya',
+                                      system_type: 'On-grid',
+                                      capacity_kw:
+                                        l.interested_capacity_kw || 1,
+                                      location: '',
+                                      roof_type: '',
+                                    });
                                   });
-                                });
                                 }}
                               >
                                 Convert

@@ -95,45 +95,46 @@ export async function GET(req: NextRequest) {
       .order('name')
       .match(tenantId ? { tenant_id: tenantId } : {});
     // If branch query fails due to RLS or other reasons, continue with empty branch list.
-    const list = bErr ? [] : ((branches as any[]) || []);
+    const list = bErr ? [] : (branches as any[]) || [];
 
     const tasks = list.map(async (b) => {
-      const [total, open, dueToday, overdue, newWeek, converted] = await Promise.all([
-        count(sb, sb.from('leads').eq('branch_id', b.id)),
-        count(
-          sb,
-          sb
-            .from('leads')
-            .eq('branch_id', b.id)
-            .neq('status', 'Converted')
-            .neq('status', 'Closed')
-            .neq('status', 'Lost'),
-        ),
-        count(
-          sb,
-          sb
-            .from('leads')
-            .eq('branch_id', b.id)
-            .eq('next_follow_up_date', today)
-            .neq('status', 'Closed'),
-        ),
-        count(
-          sb,
-          sb
-            .from('leads')
-            .eq('branch_id', b.id)
-            .lte('next_follow_up_date', today)
-            .neq('status', 'Closed'),
-        ),
-        count(
-          sb,
-          sb.from('leads').eq('branch_id', b.id).gte('date', startOfWeek),
-        ),
-        count(
-          sb,
-          sb.from('leads').eq('branch_id', b.id).eq('status', 'Converted'),
-        ),
-      ]);
+      const [total, open, dueToday, overdue, newWeek, converted] =
+        await Promise.all([
+          count(sb, sb.from('leads').eq('branch_id', b.id)),
+          count(
+            sb,
+            sb
+              .from('leads')
+              .eq('branch_id', b.id)
+              .neq('status', 'Converted')
+              .neq('status', 'Closed')
+              .neq('status', 'Lost'),
+          ),
+          count(
+            sb,
+            sb
+              .from('leads')
+              .eq('branch_id', b.id)
+              .eq('next_follow_up_date', today)
+              .neq('status', 'Closed'),
+          ),
+          count(
+            sb,
+            sb
+              .from('leads')
+              .eq('branch_id', b.id)
+              .lte('next_follow_up_date', today)
+              .neq('status', 'Closed'),
+          ),
+          count(
+            sb,
+            sb.from('leads').eq('branch_id', b.id).gte('date', startOfWeek),
+          ),
+          count(
+            sb,
+            sb.from('leads').eq('branch_id', b.id).eq('status', 'Converted'),
+          ),
+        ]);
       return {
         branchId: b.id as string,
         name: b.name as string,
@@ -147,61 +148,67 @@ export async function GET(req: NextRequest) {
     });
 
     // Also compute unassigned (null branch)
-    const [totalNull, openNull, dueTodayNull, overdueNull, newWeekNull, convertedNull] =
-      await Promise.all([
-        count(sb, sb.from('leads').is('branch_id', null)),
-        count(
-          sb,
-          sb
-            .from('leads')
-            .is('branch_id', null)
-            .neq('status', 'Converted')
-            .neq('status', 'Closed')
-            .neq('status', 'Lost'),
-        ),
-        count(
-          sb,
-          sb
-            .from('leads')
-            .is('branch_id', null)
-            .eq('next_follow_up_date', today)
-            .neq('status', 'Closed'),
-        ),
-        count(
-          sb,
-          sb
-            .from('leads')
-            .is('branch_id', null)
-            .lte('next_follow_up_date', today)
-            .neq('status', 'Closed'),
-        ),
-        count(
-          sb,
-          sb.from('leads').is('branch_id', null).gte('date', startOfWeek),
-        ),
-        count(
-          sb,
-          sb.from('leads').is('branch_id', null).eq('status', 'Converted'),
-        ),
-      ]);
+    const [
+      totalNull,
+      openNull,
+      dueTodayNull,
+      overdueNull,
+      newWeekNull,
+      convertedNull,
+    ] = await Promise.all([
+      count(sb, sb.from('leads').is('branch_id', null)),
+      count(
+        sb,
+        sb
+          .from('leads')
+          .is('branch_id', null)
+          .neq('status', 'Converted')
+          .neq('status', 'Closed')
+          .neq('status', 'Lost'),
+      ),
+      count(
+        sb,
+        sb
+          .from('leads')
+          .is('branch_id', null)
+          .eq('next_follow_up_date', today)
+          .neq('status', 'Closed'),
+      ),
+      count(
+        sb,
+        sb
+          .from('leads')
+          .is('branch_id', null)
+          .lte('next_follow_up_date', today)
+          .neq('status', 'Closed'),
+      ),
+      count(
+        sb,
+        sb.from('leads').is('branch_id', null).gte('date', startOfWeek),
+      ),
+      count(
+        sb,
+        sb.from('leads').is('branch_id', null).eq('status', 'Converted'),
+      ),
+    ]);
 
     const perBranch = await Promise.all(tasks);
-      return NextResponse.json({
-        ok: true,
-        scope: 'all',
-        today,
-        startOfWeek,
-        perBranch,
-        unassigned: {
-          name: 'Unassigned',
-          total: totalNull,
-          open: openNull,
-          dueToday: dueTodayNull,
-          overdue: overdueNull,
-          newWeek: newWeekNull,
-          converted: convertedNull,
-        },
-      });
+    return NextResponse.json({
+      ok: true,
+      scope: 'all',
+      today,
+      startOfWeek,
+      perBranch,
+      unassigned: {
+        name: 'Unassigned',
+        total: totalNull,
+        open: openNull,
+        dueToday: dueTodayNull,
+        overdue: overdueNull,
+        newWeek: newWeekNull,
+        converted: convertedNull,
+      },
+    });
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/leads/kpis', { id, error: e });

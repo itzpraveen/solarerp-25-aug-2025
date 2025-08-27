@@ -189,7 +189,10 @@ class MockQuery {
     this.table = table;
   }
 
-  select(sel: string, opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }) {
+  select(
+    sel: string,
+    opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean },
+  ) {
     this._select = sel;
     this._wantCount = !!opts?.count;
     return this;

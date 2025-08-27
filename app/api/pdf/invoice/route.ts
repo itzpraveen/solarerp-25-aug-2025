@@ -80,12 +80,10 @@ export async function POST(req: NextRequest) {
       const lang = (payload as any)?.lang === 'ml' ? 'ml' : 'en';
       const safeQuote = sanitize((payload as any).meta.quoteNo || 'quote');
       const key = `${tenantId}/${safeQuote}-${lang}.pdf`;
-      await sb.storage
-        .from('documents')
-        .upload(key, new Uint8Array(), {
-          contentType: 'application/pdf',
-          upsert: true,
-        } as any);
+      await sb.storage.from('documents').upload(key, new Uint8Array(), {
+        contentType: 'application/pdf',
+        upsert: true,
+      } as any);
       const { data: signed } = await sb.storage
         .from('documents')
         .createSignedUrl(key, 60 * 60 * 24 * 7);
@@ -101,16 +99,24 @@ export async function POST(req: NextRequest) {
     let chromiumMin: null | (() => Promise<any>) = null;
     let puppeteer: any = null;
     try {
-      chromium = await import('@sparticuz/chromium').then((m) => m.default || (m as any));
+      chromium = await import('@sparticuz/chromium').then(
+        (m) => m.default || (m as any),
+      );
       try {
         (chromium as any).setHeadlessMode = true;
         (chromium as any).setGraphicsMode = false;
-        const mlFontUrl = process.env.NEXT_PUBLIC_ML_FONT_URL || `${getBaseUrl()}/fonts/NotoSansMalayalam-Regular.ttf`;
+        const mlFontUrl =
+          process.env.NEXT_PUBLIC_ML_FONT_URL ||
+          `${getBaseUrl()}/fonts/NotoSansMalayalam-Regular.ttf`;
         if (mlFontUrl) {
           try {
             await (chromium as any).font(mlFontUrl);
           } catch (e) {
-            if (process.env.LOG_PDF_DEBUG === '1') console.warn('api/pdf/invoice font-load-failed', { mlFontUrl, e });
+            if (process.env.LOG_PDF_DEBUG === '1')
+              console.warn('api/pdf/invoice font-load-failed', {
+                mlFontUrl,
+                e,
+              });
           }
         }
       } catch {}
@@ -136,7 +142,8 @@ export async function POST(req: NextRequest) {
       };
       // 0) If remote pack URL is provided, use -min to fetch+extract pack on demand (preferred when set)
       try {
-        const pack = process.env.CHROMIUM_MIN_PACK_URL || process.env.CHROMIUM_PACK_URL;
+        const pack =
+          process.env.CHROMIUM_MIN_PACK_URL || process.env.CHROMIUM_PACK_URL;
         if (pack && chromiumMin) {
           const cmin: any = await chromiumMin();
           const p: string | null = await cmin.executablePath(pack);
@@ -190,7 +197,8 @@ export async function POST(req: NextRequest) {
         if (p) return p;
       } catch {}
       // Log for debugging on server
-      if (process.env.LOG_PDF_DEBUG === '1') console.error('api/pdf/invoice chrome-resolve-failed', debug);
+      if (process.env.LOG_PDF_DEBUG === '1')
+        console.error('api/pdf/invoice chrome-resolve-failed', debug);
       return null;
     }
 
@@ -221,46 +229,67 @@ export async function POST(req: NextRequest) {
       // Helpful defaults for font/config caches in ephemeral fs
       if (!process.env.XDG_CACHE_HOME) process.env.XDG_CACHE_HOME = '/tmp';
       // @sparticuz/chromium inflates fonts + fontconfig to /tmp/fonts
-      if (!process.env.FONTCONFIG_PATH) process.env.FONTCONFIG_PATH = '/tmp/fonts';
+      if (!process.env.FONTCONFIG_PATH)
+        process.env.FONTCONFIG_PATH = '/tmp/fonts';
       if (!process.env.HOME) process.env.HOME = '/tmp';
     } catch {}
 
     // If running in environments that don't set AWS_* markers but need NSS libs,
     // forcibly inflate the platform libs from @sparticuz/chromium's bin folder.
     try {
-      const nodeMajor = Number(String(process.versions.node || '20').split('.')[0]);
+      const nodeMajor = Number(
+        String(process.versions.node || '20').split('.')[0],
+      );
       const preferred = nodeMajor >= 20 ? 'al2023.tar.br' : 'al2.tar.br';
       const binBases = [
         '/var/task/node_modules/@sparticuz/chromium/bin',
-        path.join(process.cwd(), 'node_modules', '@sparticuz', 'chromium', 'bin'),
+        path.join(
+          process.cwd(),
+          'node_modules',
+          '@sparticuz',
+          'chromium',
+          'bin',
+        ),
       ];
-      const tarCandidates = [preferred, preferred === 'al2023.tar.br' ? 'al2.tar.br' : 'al2023.tar.br'];
+      const tarCandidates = [
+        preferred,
+        preferred === 'al2023.tar.br' ? 'al2.tar.br' : 'al2023.tar.br',
+      ];
       let inflatedAny = false;
       for (const base of binBases) {
         for (const tarName of tarCandidates) {
           const p = path.join(base, tarName);
           if (fs.existsSync(p)) {
             try {
-              const mod: any = await import('@sparticuz/chromium/build/lambdafs.js').catch(() =>
-                import('@sparticuz/chromium/build/lambdafs'),
-              );
+              const mod: any = await import(
+                '@sparticuz/chromium/build/lambdafs.js'
+              ).catch(() => import('@sparticuz/chromium/build/lambdafs'));
               const LambdaFS = (mod && (mod.default || mod)) as any;
               await LambdaFS.inflate(p);
               inflatedAny = true;
             } catch (e) {
-              if (process.env.LOG_PDF_DEBUG === '1') console.warn('api/pdf/invoice inflate-lib-failed', { p, e });
+              if (process.env.LOG_PDF_DEBUG === '1')
+                console.warn('api/pdf/invoice inflate-lib-failed', { p, e });
             }
           }
         }
       }
-      if (process.env.LOG_PDF_DEBUG === '1') console.log('api/pdf/invoice inflate-libs', { inflatedAny, preferred, nodeMajor });
+      if (process.env.LOG_PDF_DEBUG === '1')
+        console.log('api/pdf/invoice inflate-libs', {
+          inflatedAny,
+          preferred,
+          nodeMajor,
+        });
     } catch {}
 
     const executablePath = await resolveExecutablePath();
     try {
       if (process.env.LOG_PDF_DEBUG === '1') {
         console.log('api/pdf/invoice execPath', executablePath);
-        console.log('api/pdf/invoice LD_LIBRARY_PATH', process.env.LD_LIBRARY_PATH);
+        console.log(
+          'api/pdf/invoice LD_LIBRARY_PATH',
+          process.env.LD_LIBRARY_PATH,
+        );
         // Surface whether expected lib paths exist at runtime
         const checks = [
           // Newer @sparticuz/chromium inflates NSS libs here

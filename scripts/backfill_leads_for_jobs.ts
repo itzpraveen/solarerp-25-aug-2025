@@ -10,7 +10,9 @@ async function main() {
   console.log('> Scanning jobs in Lead stage without linked lead...');
   const { data: jobs, error: jErr } = await sb
     .from('jobs')
-    .select('id, tenant_id, customer_id, branch_id, date_lead, created_at, lead_id')
+    .select(
+      'id, tenant_id, customer_id, branch_id, date_lead, created_at, lead_id',
+    )
     .eq('status', 'Lead')
     .is('lead_id', null)
     .limit(1000);
@@ -44,13 +46,19 @@ async function main() {
         if (reuse?.id) {
           leadId = reuse.id as string;
           if (reuse.status !== 'Converted') {
-            await sb.from('leads').update({ status: 'Converted' }).eq('id', leadId);
+            await sb
+              .from('leads')
+              .update({ status: 'Converted' })
+              .eq('id', leadId);
           }
         }
       }
 
       if (!leadId) {
-        const date = (j as any).date_lead || (j as any).created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+        const date =
+          (j as any).date_lead ||
+          (j as any).created_at?.slice(0, 10) ||
+          new Date().toISOString().slice(0, 10);
         const { data: lead, error: lErr } = await sb
           .from('leads')
           .insert({
@@ -90,4 +98,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

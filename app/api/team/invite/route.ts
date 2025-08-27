@@ -133,14 +133,12 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
 
-    await admin
-      .from('profiles')
-      .upsert({
-        user_id: userId,
-        tenant_id: tenantId,
-        role,
-        display_name: email.split('@')[0],
-      });
+    await admin.from('profiles').upsert({
+      user_id: userId,
+      tenant_id: tenantId,
+      role,
+      display_name: email.split('@')[0],
+    });
 
     // Best-effort audit
     await logAudit(sb as any, {

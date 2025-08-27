@@ -80,13 +80,11 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
     setError(null);
     setSaving(true);
     try {
-      await supabase
-        .from('kit_items')
-        .upsert({
-          kit_name: kitName,
-          item_code: addCode,
-          qty: Number(addQty) || 1,
-        });
+      await supabase.from('kit_items').upsert({
+        kit_name: kitName,
+        item_code: addCode,
+        qty: Number(addQty) || 1,
+      });
       setAddCode('');
       setAddQty(1);
       await load();

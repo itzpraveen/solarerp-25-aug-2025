@@ -41,8 +41,7 @@ export async function POST(req: NextRequest) {
     const patch: any = {};
     if (displayName !== undefined) patch.display_name = displayName;
     if (phone !== undefined) patch.phone = phone || null;
-    if (Object.keys(patch).length === 0)
-      return NextResponse.json({ ok: true });
+    if (Object.keys(patch).length === 0) return NextResponse.json({ ok: true });
 
     const { error } = await sb
       .from('profiles')
@@ -64,4 +63,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

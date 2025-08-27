@@ -27,7 +27,11 @@ async function listAllKeys(sb: any, prefix = ''): Promise<string[]> {
     if (error) throw error;
     for (const entry of data || []) {
       const p = current ? `${current}/${entry.name}` : entry.name;
-      if ((entry as any).id === undefined && (entry as any).updated_at === undefined && !entry.metadata) {
+      if (
+        (entry as any).id === undefined &&
+        (entry as any).updated_at === undefined &&
+        !entry.metadata
+      ) {
         // folder-like
         stack.push(p);
       } else {
@@ -41,9 +45,13 @@ async function listAllKeys(sb: any, prefix = ''): Promise<string[]> {
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key)
+    throw new Error(
+      'Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY',
+    );
 
-  const sure = process.argv.includes('--i-am-sure') || process.env.I_AM_SURE === '1';
+  const sure =
+    process.argv.includes('--i-am-sure') || process.env.I_AM_SURE === '1';
   if (!sure) {
     console.error('Refusing to reset. Re-run with --i-am-sure or I_AM_SURE=1');
     process.exit(2);
@@ -68,7 +76,10 @@ async function main() {
   try {
     await admin.from('profiles').delete().neq('user_id', '');
   } catch {}
-  const { error: delTenErr } = await admin.from('tenants').delete().neq('id', '');
+  const { error: delTenErr } = await admin
+    .from('tenants')
+    .delete()
+    .neq('id', '');
   if (delTenErr) console.warn('Tenants cleanup warning:', delTenErr.message);
 
   // 3) (Optional) Auth users
@@ -88,11 +99,12 @@ async function main() {
     }
   }
 
-  console.log('All data cleared. You can now sign in and create a fresh tenant.');
+  console.log(
+    'All data cleared. You can now sign in and create a fresh tenant.',
+  );
 }
 
 main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

@@ -123,7 +123,9 @@ export default function ProposalsListPage() {
                       size="sm"
                       onClick={async () => {
                         if (!r.voided_at) {
-                          const ok = confirm('Void this proposal? It will be hidden from default lists.');
+                          const ok = confirm(
+                            'Void this proposal? It will be hidden from default lists.',
+                          );
                           if (!ok) return;
                           await supabase
                             .from('proposals')

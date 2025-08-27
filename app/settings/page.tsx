@@ -517,7 +517,7 @@ export default function SettingsPage() {
                   {team.map((m) => (
                     <tr key={m.user_id} className="border-t">
                       <td className="p-2">
-                        {(myRole === 'owner' || myRole === 'admin') ? (
+                        {myRole === 'owner' || myRole === 'admin' ? (
                           <input
                             className="w-full rounded border px-2 py-1 text-xs"
                             value={m.display_name || ''}
@@ -555,7 +555,9 @@ export default function SettingsPage() {
                               } catch (err) {
                                 toast({
                                   title: 'Save failed',
-                                  description: String((err as any)?.message || err),
+                                  description: String(
+                                    (err as any)?.message || err,
+                                  ),
                                   variant: 'error',
                                 });
                               }
@@ -569,7 +571,7 @@ export default function SettingsPage() {
                         )}
                       </td>
                       <td className="p-2">
-                        {(myRole === 'owner' || myRole === 'admin') ? (
+                        {myRole === 'owner' || myRole === 'admin' ? (
                           <input
                             className="w-full rounded border px-2 py-1 text-xs"
                             value={m.phone || ''}
@@ -577,7 +579,9 @@ export default function SettingsPage() {
                               const v = e.target.value;
                               setTeam((prev) =>
                                 prev.map((x) =>
-                                  x.user_id === m.user_id ? { ...x, phone: v } : x,
+                                  x.user_id === m.user_id
+                                    ? { ...x, phone: v }
+                                    : x,
                                 ),
                               );
                             }}
@@ -604,7 +608,9 @@ export default function SettingsPage() {
                               } catch (err) {
                                 toast({
                                   title: 'Save failed',
-                                  description: String((err as any)?.message || err),
+                                  description: String(
+                                    (err as any)?.message || err,
+                                  ),
                                   variant: 'error',
                                 });
                               }
@@ -634,7 +640,11 @@ export default function SettingsPage() {
                               const adminishCount = team.filter(
                                 (t) => t.role === 'owner' || t.role === 'admin',
                               ).length;
-                              if ((m.role === 'owner' || m.role === 'admin') && !['owner','admin'].includes(role) && adminishCount <= 1) {
+                              if (
+                                (m.role === 'owner' || m.role === 'admin') &&
+                                !['owner', 'admin'].includes(role) &&
+                                adminishCount <= 1
+                              ) {
                                 setFlash(
                                   'Add another admin before demoting the last admin',
                                 );

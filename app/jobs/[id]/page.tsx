@@ -1149,13 +1149,16 @@ function Proposals({ jobId }: { jobId: string }) {
             <span>
               {r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}
               {parseStatus(r.terms) ? (
-                <Badge className="ml-2" variant={
-                  parseStatus(r.terms) === 'Accepted'
-                    ? 'success'
-                    : parseStatus(r.terms) === 'Rejected'
-                    ? 'danger'
-                    : 'muted'
-                }>
+                <Badge
+                  className="ml-2"
+                  variant={
+                    parseStatus(r.terms) === 'Accepted'
+                      ? 'success'
+                      : parseStatus(r.terms) === 'Rejected'
+                        ? 'danger'
+                        : 'muted'
+                  }
+                >
                   {parseStatus(r.terms)}
                 </Badge>
               ) : null}

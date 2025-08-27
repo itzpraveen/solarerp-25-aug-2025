@@ -65,7 +65,10 @@ export default function JobsPage() {
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem('pref:jobs:showQuickCreate', showQuickCreate ? '1' : '0');
+      localStorage.setItem(
+        'pref:jobs:showQuickCreate',
+        showQuickCreate ? '1' : '0',
+      );
     } catch {}
   }, [showQuickCreate]);
 
@@ -160,7 +163,10 @@ export default function JobsPage() {
             leadId = reuse.id as string;
             // If not converted, mark as converted since we're creating a job now
             if (reuse.status !== 'Converted') {
-              await supabase.from('leads').update({ status: 'Converted' }).eq('id', leadId);
+              await supabase
+                .from('leads')
+                .update({ status: 'Converted' })
+                .eq('id', leadId);
             }
           }
         }
@@ -251,183 +257,185 @@ export default function JobsPage() {
             </span>
           }
         >
-        <div aria-live="polite" className="mb-2">
-          {msg && <Alert variant="error">{msg}</Alert>}
-        </div>
-        <div className="grid grid-cols-1 gap-3">
-          <form
-            className="grid grid-cols-1 gap-2 md:grid-cols-6"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (canCreate) createJob();
-            }}
-          >
-            <FormField
-              id="qc-customer"
-              label="Customer"
-              hint="Pick or add a new customer"
+          <div aria-live="polite" className="mb-2">
+            {msg && <Alert variant="error">{msg}</Alert>}
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            <form
+              className="grid grid-cols-1 gap-2 md:grid-cols-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (canCreate) createJob();
+              }}
             >
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <CustomerTypeahead
-                    selected={selectedCustomer}
-                    onSelect={async (c) => {
-                      setSelectedCustomer({ id: c.id, name: c.name || '—' });
-                      setCustId(c.id);
-                      // Prefill location from customer address if empty
-                      if (!location && c.address) setLocation(c.address);
-                      else if (!location) {
-                        const { data } = await supabase
-                          .from('customers')
-                          .select('address')
-                          .eq('id', c.id)
-                          .maybeSingle();
-                        if ((data as any)?.address)
-                          setLocation((data as any).address);
-                      }
-                    }}
-                    onCreateRequested={(term) => {
-                      setQuickInit({ name: term });
+              <FormField
+                id="qc-customer"
+                label="Customer"
+                hint="Pick or add a new customer"
+              >
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <CustomerTypeahead
+                      selected={selectedCustomer}
+                      onSelect={async (c) => {
+                        setSelectedCustomer({ id: c.id, name: c.name || '—' });
+                        setCustId(c.id);
+                        // Prefill location from customer address if empty
+                        if (!location && c.address) setLocation(c.address);
+                        else if (!location) {
+                          const { data } = await supabase
+                            .from('customers')
+                            .select('address')
+                            .eq('id', c.id)
+                            .maybeSingle();
+                          if ((data as any)?.address)
+                            setLocation((data as any).address);
+                        }
+                      }}
+                      onCreateRequested={(term) => {
+                        setQuickInit({ name: term });
+                        setQuickCustomerOpen(true);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQuickInit({});
                       setQuickCustomerOpen(true);
                     }}
-                  />
+                    type="button"
+                  >
+                    New
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setQuickInit({});
-                    setQuickCustomerOpen(true);
-                  }}
-                  type="button"
-                >
-                  New
+              </FormField>
+
+              <FormField id="qc-program" label="Program">
+                <Segmented
+                  options={[
+                    { label: 'PM Surya', value: 'PM_Surya' },
+                    { label: 'Commercial', value: 'Commercial' },
+                  ]}
+                  value={program}
+                  onChange={(v) => setProgram(v as ProgramType)}
+                />
+              </FormField>
+
+              <FormField id="qc-system" label="System type">
+                <div className="flex flex-wrap gap-1">
+                  {allowedSystems.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSystemType(s)}
+                      className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </FormField>
+
+              <FormField id="qc-capacity" label="Capacity">
+                <div className="relative">
+                  <Input
+                    id="qc-capacity"
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    placeholder="Capacity"
+                    value={capacity}
+                    onChange={(e) => setCapacity(Number(e.target.value))}
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500">
+                    kW
+                  </span>
+                </div>
+              </FormField>
+              <div className="md:col-span-2 flex items-end justify-end">
+                <Button type="submit" loading={creating} disabled={!canCreate}>
+                  Create Job
                 </Button>
               </div>
-            </FormField>
+            </form>
 
-            <FormField id="qc-program" label="Program">
-              <Segmented
-                options={[
-                  { label: 'PM Surya', value: 'PM_Surya' },
-                  { label: 'Commercial', value: 'Commercial' },
-                ]}
-                value={program}
-                onChange={(v) => setProgram(v as ProgramType)}
-              />
-            </FormField>
-
-            <FormField id="qc-system" label="System type">
-              <div className="flex flex-wrap gap-1">
-                {allowedSystems.map((s) => (
+            <div>
+              <button
+                type="button"
+                className="text-xs text-blue-600"
+                onClick={() => setShowMore((v) => !v)}
+              >
+                {showMore ? 'Hide options' : 'More options'}
+              </button>
+              {/* Starter templates */}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-gray-600">Templates:</span>
+                {[
+                  { p: 'PM_Surya' as ProgramType, s: 'On-grid', c: 3 },
+                  { p: 'PM_Surya' as ProgramType, s: 'On-grid', c: 5 },
+                  { p: 'Commercial' as ProgramType, s: 'On-grid', c: 10 },
+                ].map((t) => (
                   <button
-                    key={s}
+                    key={`${t.p}-${t.s}-${t.c}`}
                     type="button"
-                    onClick={() => setSystemType(s)}
-                    className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}
+                    className="rounded border px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => {
+                      setProgram(t.p);
+                      setSystemType(t.s);
+                      setCapacity(t.c);
+                    }}
                   >
-                    {s}
+                    {t.c} kW {t.s} •{' '}
+                    {t.p === 'PM_Surya' ? 'PM Surya' : 'Commercial'}
                   </button>
                 ))}
               </div>
-            </FormField>
-
-            <FormField id="qc-capacity" label="Capacity">
-              <div className="relative">
-                <Input
-                  id="qc-capacity"
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  placeholder="Capacity"
-                  value={capacity}
-                  onChange={(e) => setCapacity(Number(e.target.value))}
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500">
-                  kW
-                </span>
-              </div>
-            </FormField>
-            <div className="md:col-span-2 flex items-end justify-end">
-              <Button type="submit" loading={creating} disabled={!canCreate}>
-                Create Job
-              </Button>
+              {showMore && (
+                <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-6">
+                  <FormField id="qc-location" label="Location/Place">
+                    <Input
+                      id="qc-location"
+                      placeholder="Location / Place"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField id="qc-roof" label="Roof type">
+                    <Input
+                      id="qc-roof"
+                      className="w-full"
+                      placeholder="Flat, Tiled, Sheet…"
+                      value={roof}
+                      onChange={(e) => setRoof(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+              )}
             </div>
-          </form>
-
-          <div>
-            <button
-              type="button"
-              className="text-xs text-blue-600"
-              onClick={() => setShowMore((v) => !v)}
-            >
-              {showMore ? 'Hide options' : 'More options'}
-            </button>
-            {/* Starter templates */}
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-gray-600">Templates:</span>
-              {[
-                { p: 'PM_Surya' as ProgramType, s: 'On-grid', c: 3 },
-                { p: 'PM_Surya' as ProgramType, s: 'On-grid', c: 5 },
-                { p: 'Commercial' as ProgramType, s: 'On-grid', c: 10 },
-              ].map((t) => (
-                <button
-                  key={`${t.p}-${t.s}-${t.c}`}
-                  type="button"
-                  className="rounded border px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => {
-                    setProgram(t.p);
-                    setSystemType(t.s);
-                    setCapacity(t.c);
-                  }}
-                >
-                  {t.c} kW {t.s} •{' '}
-                  {t.p === 'PM_Surya' ? 'PM Surya' : 'Commercial'}
-                </button>
-              ))}
+            <div className="text-xs text-gray-600">
+              Target branch:{' '}
+              <span className="font-medium">
+                {branchId === 'all'
+                  ? 'Unassigned (set branch above)'
+                  : 'Selected branch'}
+              </span>
             </div>
-            {showMore && (
-              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-6">
-                <FormField id="qc-location" label="Location/Place">
-                  <Input
-                    id="qc-location"
-                    placeholder="Location / Place"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                  />
-                </FormField>
-                <FormField id="qc-roof" label="Roof type">
-                  <Input
-                    id="qc-roof"
-                    className="w-full"
-                    placeholder="Flat, Tiled, Sheet…"
-                    value={roof}
-                    onChange={(e) => setRoof(e.target.value)}
-                  />
-                </FormField>
-              </div>
-            )}
           </div>
-          <div className="text-xs text-gray-600">
-            Target branch:{' '}
-            <span className="font-medium">
-              {branchId === 'all' ? 'Unassigned (set branch above)' : 'Selected branch'}
-            </span>
-          </div>
-        </div>
-        <CustomerQuickCreate
-          open={quickCustomerOpen}
-          onClose={() => setQuickCustomerOpen(false)}
-          initialName={quickInit.name || ''}
-          initialPhone={quickInit.phone || ''}
-          initialAddress={quickInit.address || ''}
-          onCreated={(id, name, address) => {
-            setCustomers((list) => [{ id, name }, ...list]);
-            setCustId(id);
-            setSelectedCustomer({ id, name });
-            if (!location && address) setLocation(address);
-          }}
-        />
+          <CustomerQuickCreate
+            open={quickCustomerOpen}
+            onClose={() => setQuickCustomerOpen(false)}
+            initialName={quickInit.name || ''}
+            initialPhone={quickInit.phone || ''}
+            initialAddress={quickInit.address || ''}
+            onCreated={(id, name, address) => {
+              setCustomers((list) => [{ id, name }, ...list]);
+              setCustId(id);
+              setSelectedCustomer({ id, name });
+              if (!location && address) setLocation(address);
+            }}
+          />
         </Card>
       )}
       <Card title="Pipeline">
