@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import clsx from 'clsx';
 
 export default function Segmented<T extends string | number>({
@@ -14,11 +14,16 @@ export default function Segmented<T extends string | number>({
   size?: 'sm' | 'md';
   className?: string;
 }) {
-  const base = 'inline-flex rounded-md border bg-white p-0.5 dark:border-gray-700 dark:bg-gray-900';
+  const base =
+    'inline-flex rounded-md border bg-white p-0.5 dark:border-gray-700 dark:bg-gray-900';
   const btn = 'px-2 py-1 text-sm rounded';
   const btnMd = 'px-3 py-1.5 text-sm';
   return (
-    <div className={clsx(base, className)} role="tablist" aria-label="segmented-control">
+    <div
+      className={clsx(base, className)}
+      role="tablist"
+      aria-label="segmented-control"
+    >
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -26,7 +31,12 @@ export default function Segmented<T extends string | number>({
             key={String(o.value)}
             role="tab"
             aria-selected={active}
-            className={clsx(active ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800', size === 'md' ? btnMd : btn)}
+            className={clsx(
+              active
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800',
+              size === 'md' ? btnMd : btn,
+            )}
             onClick={() => onChange(o.value)}
             type="button"
           >
@@ -37,4 +47,3 @@ export default function Segmented<T extends string | number>({
     </div>
   );
 }
-

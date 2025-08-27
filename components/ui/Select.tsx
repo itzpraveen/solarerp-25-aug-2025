@@ -1,10 +1,15 @@
-"use client";
+'use client';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 
-type Props = React.SelectHTMLAttributes<HTMLSelectElement> & { className?: string };
+type Props = React.SelectHTMLAttributes<HTMLSelectElement> & {
+  className?: string;
+};
 
-const Select = forwardRef<HTMLSelectElement, Props>(function Select({ className, children, ...props }, ref) {
+const Select = forwardRef<HTMLSelectElement, Props>(function Select(
+  { className, children, ...props },
+  ref,
+) {
   return (
     <select
       ref={ref}

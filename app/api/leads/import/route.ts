@@ -28,14 +28,18 @@ function normalizePhone(v: any): string {
   return s;
 }
 
-function toISODate(s: string | number | Date | null | undefined): string | null {
+function toISODate(
+  s: string | number | Date | null | undefined,
+): string | null {
   if (!s) return null;
   try {
     if (typeof s === 'number') {
       // Excel date numeric value
       const jsDate = XLSX.SSF.parse_date_code(s as any);
       if (jsDate) {
-        const d = new Date(Date.UTC(jsDate.y, (jsDate.m || 1) - 1, jsDate.d || 1));
+        const d = new Date(
+          Date.UTC(jsDate.y, (jsDate.m || 1) - 1, jsDate.d || 1),
+        );
         return d.toISOString().slice(0, 10);
       }
     }
@@ -72,26 +76,49 @@ function toISODate(s: string | number | Date | null | undefined): string | null 
 export async function POST(req: NextRequest) {
   try {
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
-    if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    if (!sb)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
 
     const form = await req.formData();
     const file = form.get('file') as File | null;
-    if (!file) return NextResponse.json({ ok: false, error: 'Missing file' }, { status: 400 });
+    if (!file)
+      return NextResponse.json(
+        { ok: false, error: 'Missing file' },
+        { status: 400 },
+      );
     const mode = (form.get('mode') as ImportMode) || 'create';
     const defaultBranchId = (form.get('branchId') as string) || '';
-    const createBranches = String(form.get('createBranches') || 'false') === 'true';
+    const createBranches =
+      String(form.get('createBranches') || 'false') === 'true';
 
     // Determine tenant
-    const { data: prof } = await sb.from('profiles').select('tenant_id').maybeSingle();
+    const { data: prof } = await sb
+      .from('profiles')
+      .select('tenant_id')
+      .maybeSingle();
     const tenantId = (prof as any)?.tenant_id as string | undefined;
-    if (!tenantId) return NextResponse.json({ ok: false, error: 'Profile not ready' }, { status: 400 });
+    if (!tenantId)
+      return NextResponse.json(
+        { ok: false, error: 'Profile not ready' },
+        { status: 400 },
+      );
 
     // Read workbook
     const buffer = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buffer, { type: 'buffer' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rowsRaw = XLSX.utils.sheet_to_json<any>(ws, { defval: '', raw: true });
-    if (!rowsRaw.length) return NextResponse.json({ ok: false, error: 'No rows found' }, { status: 400 });
+    const rowsRaw = XLSX.utils.sheet_to_json<any>(ws, {
+      defval: '',
+      raw: true,
+    });
+    if (!rowsRaw.length)
+      return NextResponse.json(
+        { ok: false, error: 'No rows found' },
+        { status: 400 },
+      );
 
     // Normalize headers
     const headers = Object.keys(rowsRaw[0] || {}).map(normalizeHeader);
@@ -107,7 +134,9 @@ export async function POST(req: NextRequest) {
       branchesByName.set('__DEFAULT__', defaultBranchId);
     }
 
-    async function ensureBranchId(name: string | null | undefined): Promise<string | null> {
+    async function ensureBranchId(
+      name: string | null | undefined,
+    ): Promise<string | null> {
       const nm = (name || '').toString().trim();
       if (!nm && defaultBranchId) return defaultBranchId;
       if (!nm) return null;
@@ -147,23 +176,52 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < normRows.length; i++) {
       const r = normRows[i];
       try {
-        const name = (r['name'] || r['lead name'] || r['customer name'] || '').toString().trim();
-        const phoneRaw = r['phone'] ?? r['mobile'] ?? r['contact number'] ?? r['contact no'] ?? r['contact'] ?? '';
+        const name = (r['name'] || r['lead name'] || r['customer name'] || '')
+          .toString()
+          .trim();
+        const phoneRaw =
+          r['phone'] ??
+          r['mobile'] ??
+          r['contact number'] ??
+          r['contact no'] ??
+          r['contact'] ??
+          '';
         const phone = normalizePhone(phoneRaw);
         const email = (r['email'] || '').toString().trim();
         const source = (r['source'] || '').toString().trim();
         const status = (r['status'] || '').toString().trim() || 'New';
         // Capacity may be free text like "3kw hybrid"; extract first number
-        const capacityText = (r['capacity'] ?? r['capacity kw'] ?? r['kw'] ?? '').toString();
+        const capacityText = (
+          r['capacity'] ??
+          r['capacity kw'] ??
+          r['kw'] ??
+          ''
+        ).toString();
         const capMatch = capacityText.match(/(\d+(?:\.\d+)?)/);
         const capacity = capMatch ? Number(capMatch[1]) : null;
-        const date = toISODate(r['date'] || r['lead date'] || r['created'] || null);
+        const date = toISODate(
+          r['date'] || r['lead date'] || r['created'] || null,
+        );
         const nextFollow = toISODate(
-          r['next follow-up'] || r['next follow up'] || r['follow up'] || r['followup'] || r['remarks'] || null,
+          r['next follow-up'] ||
+            r['next follow up'] ||
+            r['follow up'] ||
+            r['followup'] ||
+            r['remarks'] ||
+            null,
         );
         const branchName = (r['branch'] || r['branch name'] || '').toString();
-        const address = (r['address'] || r['place'] || '').toString().trim() || null;
-        const remarks = (r['remarks'] || r['quatation'] || r['quatatation'] || r['site visit'] || '').toString().trim();
+        const address =
+          (r['address'] || r['place'] || '').toString().trim() || null;
+        const remarks = (
+          r['remarks'] ||
+          r['quatation'] ||
+          r['quatatation'] ||
+          r['site visit'] ||
+          ''
+        )
+          .toString()
+          .trim();
         const branchId = await ensureBranchId(branchName || undefined);
 
         if (!name && !phone && !email) {
@@ -203,13 +261,18 @@ export async function POST(req: NextRequest) {
               .update({
                 name: name || existing.name,
                 source: source || existing.source,
-                interested_capacity_kw: capacity ?? existing.interested_capacity_kw,
+                interested_capacity_kw:
+                  capacity ?? existing.interested_capacity_kw,
                 date: date || existing.date,
                 next_follow_up_date: nextFollow || existing.next_follow_up_date,
                 status: status || existing.status,
                 branch_id: branchId ?? existing.branch_id ?? null,
                 address: address || existing.address || null,
-                notes: remarks ? (existing.notes ? `${existing.notes}\n${remarks}` : remarks) : existing.notes ?? null,
+                notes: remarks
+                  ? existing.notes
+                    ? `${existing.notes}\n${remarks}`
+                    : remarks
+                  : (existing.notes ?? null),
               })
               .eq('id', existing.id);
             if (error) throw new Error(error.message);
@@ -219,22 +282,20 @@ export async function POST(req: NextRequest) {
           // mode === 'create' → create anyway
         }
 
-        const { error } = await sb
-          .from('leads')
-          .insert({
-            tenant_id: tenantId,
-            name: name || null,
-            phone: phone || null,
-            email: email || null,
-            source: source || null,
-            interested_capacity_kw: capacity,
-            date: date || new Date().toISOString().slice(0, 10),
-            next_follow_up_date: nextFollow,
-            status: status || 'New',
-            branch_id: branchId,
-            address,
-            notes: remarks || null,
-          });
+        const { error } = await sb.from('leads').insert({
+          tenant_id: tenantId,
+          name: name || null,
+          phone: phone || null,
+          email: email || null,
+          source: source || null,
+          interested_capacity_kw: capacity,
+          date: date || new Date().toISOString().slice(0, 10),
+          next_follow_up_date: nextFollow,
+          status: status || 'New',
+          branch_id: branchId,
+          address,
+          notes: remarks || null,
+        });
         if (error) throw new Error(error.message);
         created++;
       } catch (e: any) {
@@ -246,6 +307,9 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/leads/import', { id, error: e });
-    return NextResponse.json({ ok: false, error: 'Import failed', id, cause: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'Import failed', id, cause: String(e?.message || e) },
+      { status: 500 },
+    );
   }
 }

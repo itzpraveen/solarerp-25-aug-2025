@@ -1,12 +1,62 @@
-import { pgTable, uuid, text, timestamp, numeric, pgEnum, jsonb, date, integer } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  numeric,
+  pgEnum,
+  jsonb,
+  date,
+  integer,
+  boolean,
+} from 'drizzle-orm/pg-core';
 
-export const systemType = pgEnum('system_type', ['On-grid', 'Hybrid', 'Off-grid', 'Inverter & Battery', 'Solar Water Heater']);
-export const jobStatus = pgEnum('job_status', ['Lead', 'Qualified', 'Quoted', 'Won', 'KSEB_Submitted', 'Material_Ordered', 'Installed', 'Net_Metered', 'Handover', 'Closed', 'Lost']);
+export const systemType = pgEnum('system_type', [
+  'On-grid',
+  'Hybrid',
+  'Off-grid',
+  'Inverter & Battery',
+  'Solar Water Heater',
+]);
+export const jobStatus = pgEnum('job_status', [
+  'Lead',
+  'Qualified',
+  'Quoted',
+  'Won',
+  'KSEB_Submitted',
+  'Material_Ordered',
+  'Installed',
+  'Net_Metered',
+  'Handover',
+  'Closed',
+  'Lost',
+]);
 export const programType = pgEnum('program_type', ['PM_Surya', 'Commercial']);
-export const invoiceType = pgEnum('invoice_type', ['Deposit', 'Progress', 'Final']);
-export const invoiceStatus = pgEnum('invoice_status', ['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled']);
-export const payMode = pgEnum('pay_mode', ['UPI', 'NEFT', 'Cash', 'Card', 'Cheque']);
-export const taskStatus = pgEnum('task_status', ['Open', 'InProgress', 'Blocked', 'Done']);
+export const invoiceType = pgEnum('invoice_type', [
+  'Deposit',
+  'Progress',
+  'Final',
+]);
+export const invoiceStatus = pgEnum('invoice_status', [
+  'Draft',
+  'Sent',
+  'Paid',
+  'Overdue',
+  'Cancelled',
+]);
+export const payMode = pgEnum('pay_mode', [
+  'UPI',
+  'NEFT',
+  'Cash',
+  'Card',
+  'Cheque',
+]);
+export const taskStatus = pgEnum('task_status', [
+  'Open',
+  'InProgress',
+  'Blocked',
+  'Done',
+]);
 export const priority = pgEnum('priority', ['Low', 'Medium', 'High', 'Urgent']);
 // Expanded role set for finer RBAC
 // Note: ensure corresponding DB enum is migrated (see drizzle migration)
@@ -58,6 +108,7 @@ export const customers = pgTable('customers', {
   sanctionedLoadKw: numeric('sanctioned_load_kw', { precision: 6, scale: 2 }),
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const leads = pgTable('leads', {
@@ -70,7 +121,10 @@ export const leads = pgTable('leads', {
   phone: text('phone'),
   email: text('email'),
   address: text('address'),
-  interestedCapacityKw: numeric('interested_capacity_kw', { precision: 6, scale: 2 }),
+  interestedCapacityKw: numeric('interested_capacity_kw', {
+    precision: 6,
+    scale: 2,
+  }),
   notes: text('notes'),
   assignedTo: uuid('assigned_to'),
   status: text('status'),
@@ -121,6 +175,7 @@ export const proposals = pgTable('proposals', {
   total: numeric('total', { precision: 12, scale: 2 }),
   validTill: date('valid_till'),
   pdfUrl: text('pdf_url'),
+  voidedAt: timestamp('voided_at', { withTimezone: true }),
   terms: text('terms'),
   lang: text('lang').default('en'),
   // Persist optional long-proposal sections
@@ -132,7 +187,9 @@ export const proposals = pgTable('proposals', {
     signatory?: { name?: string; title?: string; phone?: string };
   }>(),
   notes: jsonb('notes').$type<string[]>(),
-  workSchedule: jsonb('work_schedule').$type<{ rows: { scope: string; details: string; timeline: string }[] }>(),
+  workSchedule: jsonb('work_schedule').$type<{
+    rows: { scope: string; details: string; timeline: string }[];
+  }>(),
 });
 
 export const items = pgTable('items', {
@@ -145,6 +202,7 @@ export const items = pgTable('items', {
   mrp: numeric('mrp', { precision: 12, scale: 2 }),
   preferredVendor: text('preferred_vendor'),
   specs: jsonb('specs'),
+  archived: boolean('archived').default(false),
 });
 
 export const kits = pgTable('kits', {
@@ -241,10 +299,16 @@ export const settings = pgTable('settings', {
   tenantId: uuid('tenant_id').notNull(),
   currency: text('currency').default('INR'),
   upiId: text('upi_id'),
-  defaultTaxRate: numeric('default_tax_rate', { precision: 5, scale: 2 }).default('0'),
+  defaultTaxRate: numeric('default_tax_rate', {
+    precision: 5,
+    scale: 2,
+  }).default('0'),
   primaryDiscom: text('primary_discom').default('KSEB'),
   proposalNoteMl: text('proposal_note_ml'),
-  depositPercent: numeric('deposit_percent', { precision: 5, scale: 2 }).default('0'),
+  depositPercent: numeric('deposit_percent', {
+    precision: 5,
+    scale: 2,
+  }).default('0'),
   quotePrefix: text('quote_prefix'),
   quoteFormat: text('quote_format'),
 });

@@ -12,13 +12,31 @@ export type BackgroundJob = {
   last_error: string | null;
 };
 
-export async function enqueueJob(tenantId: string, type: string, payload: any, runAt?: Date) {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  return supabase.from('background_jobs').insert({ tenant_id: tenantId, type, payload, run_at: runAt || new Date() });
+export async function enqueueJob(
+  tenantId: string,
+  type: string,
+  payload: any,
+  runAt?: Date,
+) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  return supabase
+    .from('background_jobs')
+    .insert({
+      tenant_id: tenantId,
+      type,
+      payload,
+      run_at: runAt || new Date(),
+    });
 }
 
 export async function processDueJobs() {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
   const { data: jobs, error } = await supabase
     .from('background_jobs')
     .select('*')
@@ -41,7 +59,9 @@ export async function processDueJobs() {
         }
         case 'create_followup_task': {
           const { tenant_id, job_id, title, due_date } = job.payload || {};
-          await supabase.from('tasks').insert({ tenant_id, job_id, title, due_date });
+          await supabase
+            .from('tasks')
+            .insert({ tenant_id, job_id, title, due_date });
           break;
         }
         default:
@@ -49,10 +69,16 @@ export async function processDueJobs() {
       }
       await supabase.from('background_jobs').delete().eq('id', job.id);
     } catch (err: any) {
-      const nextRun = new Date(Date.now() + Math.pow(2, job.attempts) * 60 * 1000); // exponential backoff
+      const nextRun = new Date(
+        Date.now() + Math.pow(2, job.attempts) * 60 * 1000,
+      ); // exponential backoff
       await supabase
         .from('background_jobs')
-        .update({ attempts: job.attempts + 1, last_error: String(err?.message || err), run_at: nextRun.toISOString() })
+        .update({
+          attempts: job.attempts + 1,
+          last_error: String(err?.message || err),
+          run_at: nextRun.toISOString(),
+        })
         .eq('id', job.id);
     }
   }

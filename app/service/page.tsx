@@ -45,14 +45,12 @@ export default function ServiceTickets() {
       setAdding(false);
       return alert('Profile not ready');
     }
-    const { error } = await supabase
-      .from('service_tickets')
-      .insert({
-        tenant_id: prof!.tenant_id,
-        customer_id: customerId,
-        date: new Date().toISOString().slice(0, 10),
-        summary,
-      });
+    const { error } = await supabase.from('service_tickets').insert({
+      tenant_id: prof!.tenant_id,
+      customer_id: customerId,
+      date: new Date().toISOString().slice(0, 10),
+      summary,
+    });
     setAdding(false);
     if (error) return alert(`Add failed: ${error.message}`);
     setSummary('');

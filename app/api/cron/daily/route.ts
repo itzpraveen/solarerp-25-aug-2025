@@ -22,10 +22,16 @@ function isAuthorized(req: NextRequest): boolean {
 
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized' },
+      { status: 401 },
+    );
   }
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
   // 1) Mark overdue invoices
   const today = dayjs().format('YYYY-MM-DD');
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest) {
     await enqueueJob(t.id, 'whatsapp_template', {
       to: '91xxxxxxxxxx',
       templateName: 'invoice_due',
-      variables: ['Customer', 'INV001', '1000', today, 'https://example.com']
+      variables: ['Customer', 'INV001', '1000', today, 'https://example.com'],
     });
   }
 
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest) {
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0);
   const offsetMap = new Map<number, string>(
-    offsets.map((n) => [n, dayjs().subtract(n, 'day').format('YYYY-MM-DD')])
+    offsets.map((n) => [n, dayjs().subtract(n, 'day').format('YYYY-MM-DD')]),
   );
   const { data: jobs } = await supabase
     .from('jobs')
@@ -94,17 +100,26 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/cron/daily', { id, error: e });
-    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'Internal error', id },
+      { status: 500 },
+    );
   }
 }
 
 // Support GET so Vercel Cron (default GET) can also trigger it
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized' },
+      { status: 401 },
+    );
   }
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
   // 1) Mark overdue invoices
   const today = dayjs().format('YYYY-MM-DD');
@@ -121,7 +136,7 @@ export async function GET(req: NextRequest) {
     await enqueueJob(t.id, 'whatsapp_template', {
       to: '91xxxxxxxxxx',
       templateName: 'invoice_due',
-      variables: ['Customer', 'INV001', '1000', today, 'https://example.com']
+      variables: ['Customer', 'INV001', '1000', today, 'https://example.com'],
     });
   }
 
@@ -133,6 +148,9 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/cron/daily', { id, error: e });
-    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'Internal error', id },
+      { status: 500 },
+    );
   }
 }

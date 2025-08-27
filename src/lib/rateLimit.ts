@@ -24,4 +24,3 @@ export function ipFromHeaders(headers: Headers) {
   // First IP in the list
   return fwd.split(',')[0].trim() || 'unknown';
 }
-

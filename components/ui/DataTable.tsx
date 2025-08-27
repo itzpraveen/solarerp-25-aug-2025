@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import React, { useMemo, useState } from 'react';
 
 export type Column<T> = {
@@ -50,25 +50,44 @@ export default function DataTable<T extends { id?: string | number }>({
       )}
       <table className="w-full text-sm">
         <thead>
-          <tr className={(stickyHeader ? 'sticky top-0 ' : '') + 'border-b bg-gray-50 text-left dark:border-gray-800 dark:bg-gray-800'}>
+          <tr
+            className={
+              (stickyHeader ? 'sticky top-0 ' : '') +
+              'border-b bg-gray-50 text-left dark:border-gray-800 dark:bg-gray-800'
+            }
+          >
             {columns.map((c) => (
-              <th key={c.key} className={'p-2 ' + (c.className || '')}>{c.header}</th>
+              <th key={c.key} className={'p-2 ' + (c.className || '')}>
+                {c.header}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {filtered.map((r, i) => (
-            <tr key={(r.id as any) ?? i} className="border-b dark:border-gray-800">
+            <tr
+              key={(r.id as any) ?? i}
+              className="border-b dark:border-gray-800"
+            >
               {columns.map((c) => (
                 <td key={c.key} className={'p-2 ' + (c.className || '')}>
-                  {c.render ? c.render(r) : c.accessor ? c.accessor(r) : (r as any)[c.key]}
+                  {c.render
+                    ? c.render(r)
+                    : c.accessor
+                      ? c.accessor(r)
+                      : (r as any)[c.key]}
                 </td>
               ))}
             </tr>
           ))}
           {filtered.length === 0 && (
             <tr>
-              <td colSpan={columns.length} className="p-3 text-center text-gray-600 dark:text-gray-400">No rows</td>
+              <td
+                colSpan={columns.length}
+                className="p-3 text-center text-gray-600 dark:text-gray-400"
+              >
+                No rows
+              </td>
             </tr>
           )}
         </tbody>
@@ -76,4 +95,3 @@ export default function DataTable<T extends { id?: string | number }>({
     </div>
   );
 }
-

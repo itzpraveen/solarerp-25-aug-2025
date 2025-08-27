@@ -8,29 +8,65 @@ import { getDbRef } from '@/lib/supabaseMock';
 
 const BodySchema = z.object({
   email: z.string().email(),
-  role: z.enum(['owner', 'admin', 'manager', 'sales', 'technician', 'accountant', 'viewer', 'staff']).default('staff'),
+  role: z
+    .enum([
+      'owner',
+      'admin',
+      'manager',
+      'sales',
+      'technician',
+      'accountant',
+      'viewer',
+      'staff',
+    ])
+    .default('staff'),
 });
 
 function isMock() {
-  return process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
+  return (
+    process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1'
+  );
 }
 
 export async function POST(req: NextRequest) {
   try {
     const ip = ipFromHeaders(req.headers);
     const { ok } = takeToken(`team:invite:${ip}`, 30, 60_000);
-    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded' }, { status: 429 });
+    if (!ok)
+      return NextResponse.json(
+        { ok: false, error: 'Rate limit exceeded' },
+        { status: 429 },
+      );
     // Ensure caller is authenticated and is an owner
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
-    if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    if (!sb)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
 
     const parsed = BodySchema.safeParse(await req.json());
-    if (!parsed.success) return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
+    if (!parsed.success)
+      return NextResponse.json(
+        { ok: false, error: 'Invalid payload' },
+        { status: 400 },
+      );
     const { email, role } = parsed.data;
 
-    const { data: me } = await sb.from('profiles').select('tenant_id, role').maybeSingle();
-    if (!me?.tenant_id) return NextResponse.json({ ok: false, error: 'Profile not ready' }, { status: 400 });
-    if (!['owner', 'admin'].includes((me as any).role)) return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+    const { data: me } = await sb
+      .from('profiles')
+      .select('tenant_id, role')
+      .maybeSingle();
+    if (!me?.tenant_id)
+      return NextResponse.json(
+        { ok: false, error: 'Profile not ready' },
+        { status: 400 },
+      );
+    if (!['owner', 'admin'].includes((me as any).role))
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
 
     const tenantId = (me as any).tenant_id as string;
 
@@ -38,7 +74,8 @@ export async function POST(req: NextRequest) {
     if (isMock()) {
       const db = getDbRef();
       const existing = db.users.find((u) => u.email === email);
-      const userId = existing?.id || `u_${Math.random().toString(36).slice(2, 10)}`;
+      const userId =
+        existing?.id || `u_${Math.random().toString(36).slice(2, 10)}`;
       if (!existing) db.users.push({ id: userId, email });
       const prof = db.profiles.find((p) => p.user_id === userId);
       if (prof) {
@@ -46,7 +83,12 @@ export async function POST(req: NextRequest) {
         prof.role = role;
         prof.display_name = email.split('@')[0];
       } else {
-        db.profiles.push({ user_id: userId, tenant_id: tenantId, role, display_name: email.split('@')[0] });
+        db.profiles.push({
+          user_id: userId,
+          tenant_id: tenantId,
+          role,
+          display_name: email.split('@')[0],
+        });
       }
       return NextResponse.json({ ok: true, userId });
     }
@@ -56,31 +98,52 @@ export async function POST(req: NextRequest) {
     // Try invite; if it fails due to existing, list users and match by email
     let userId: string | null = null;
     try {
-      const { data: invited } = await (admin as any).auth.admin.inviteUserByEmail(email);
+      const { data: invited } = await (
+        admin as any
+      ).auth.admin.inviteUserByEmail(email);
       userId = invited?.user?.id || null;
     } catch (_) {}
 
     if (!userId) {
       try {
-        const { data: created } = await (admin as any).auth.admin.createUser({ email, email_confirm: false });
+        const { data: created } = await (admin as any).auth.admin.createUser({
+          email,
+          email_confirm: false,
+        });
         userId = created?.user?.id || null;
       } catch (_) {}
     }
 
     if (!userId) {
       try {
-        const { data: list } = await (admin as any).auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const found = list?.users?.find((u: any) => String(u?.email).toLowerCase() === email.toLowerCase());
+        const { data: list } = await (admin as any).auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+        const found = list?.users?.find(
+          (u: any) => String(u?.email).toLowerCase() === email.toLowerCase(),
+        );
         userId = found?.id || null;
       } catch (_) {}
     }
 
-    if (!userId) return NextResponse.json({ ok: false, error: 'Unable to invite or create user' }, { status: 500 });
+    if (!userId)
+      return NextResponse.json(
+        { ok: false, error: 'Unable to invite or create user' },
+        { status: 500 },
+      );
 
-    await admin.from('profiles').upsert({ user_id: userId, tenant_id: tenantId, role, display_name: email.split('@')[0] });
+    await admin
+      .from('profiles')
+      .upsert({
+        user_id: userId,
+        tenant_id: tenantId,
+        role,
+        display_name: email.split('@')[0],
+      });
 
     // Best-effort audit
-    await logAudit((sb as any), {
+    await logAudit(sb as any, {
       tenantId,
       userId: (me as any)?.user_id,
       action: 'team.invite',
@@ -93,6 +156,9 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/team/invite', { id, error: e });
-    return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: 'Internal error', id },
+      { status: 500 },
+    );
   }
 }

@@ -22,4 +22,3 @@ export async function logAudit(sb: SupabaseClient, evt: AuditEvent) {
     });
   } catch {}
 }
-

@@ -6,7 +6,9 @@ let browserClient: SupabaseClient | null = null;
 let mockClient: SupabaseClient | null = null;
 
 function isMock() {
-  return process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
+  return (
+    process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1'
+  );
 }
 
 export const supabaseBrowser = () => {
@@ -33,5 +35,7 @@ export const supabaseBrowser = () => {
 };
 
 export const supabaseAdmin = () => {
-  throw new Error('supabaseAdmin moved to server-only module: import { supabaseAdmin } from "@/lib/supabaseAdmin"');
+  throw new Error(
+    'supabaseAdmin moved to server-only module: import { supabaseAdmin } from "@/lib/supabaseAdmin"',
+  );
 };

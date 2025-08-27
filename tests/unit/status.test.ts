@@ -8,4 +8,3 @@ describe('status', () => {
     expect(statusLabel('Net_Metered' as any)).toBe('Net Metered');
   });
 });
-

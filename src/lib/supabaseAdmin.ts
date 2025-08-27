@@ -3,7 +3,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getMockClient } from '@/lib/supabaseMock';
 
 function isMock() {
-  return process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
+  return (
+    process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1'
+  );
 }
 
 export const supabaseAdmin = (): SupabaseClient => {
@@ -15,4 +17,3 @@ export const supabaseAdmin = (): SupabaseClient => {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 };
-

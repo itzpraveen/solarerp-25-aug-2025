@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import React, { useEffect, useState } from 'react';
 import Select from '~/components/ui/Select';
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -40,14 +40,20 @@ export default function BranchSelect({
         .select('id,name')
         .eq('tenant_id', tId)
         .order('name', { ascending: true });
-      const rows = ((data as any[]) || []).map((b) => ({ id: b.id, name: b.name }));
+      const rows = ((data as any[]) || []).map((b) => ({
+        id: b.id,
+        name: b.name,
+      }));
       setBranches(rows);
       // Apply persisted selection on first load
       if (persist) {
         try {
           const key = `pref:branch:${tId}`;
           const saved = localStorage.getItem(key) as string | null;
-          if (saved && (saved === 'all' ? includeAll : rows.some((r) => r.id === saved))) {
+          if (
+            saved &&
+            (saved === 'all' ? includeAll : rows.some((r) => r.id === saved))
+          ) {
             onChange(saved as any);
           }
         } catch {}
@@ -64,7 +70,11 @@ export default function BranchSelect({
   }, [value, persist, tenantId]);
 
   return (
-    <Select className={className} value={value} onChange={(e) => onChange(e.target.value as any)}>
+    <Select
+      className={className}
+      value={value}
+      onChange={(e) => onChange(e.target.value as any)}
+    >
       {includeAll && <option value="all">{allLabel}</option>}
       {branches.map((b) => (
         <option key={b.id} value={b.id}>

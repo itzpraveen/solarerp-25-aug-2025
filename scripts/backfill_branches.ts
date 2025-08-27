@@ -10,7 +10,12 @@ type Args = {
 
 function parseArgs(): Args {
   const argv = process.argv.slice(2);
-  const out: Args = { tenant: null, branchId: null, branchName: null, dry: false };
+  const out: Args = {
+    tenant: null,
+    branchId: null,
+    branchName: null,
+    dry: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--tenant') out.tenant = argv[++i] || null;
@@ -21,9 +26,15 @@ function parseArgs(): Args {
   return out;
 }
 
-async function ensureBranchId(supabase: any, tenantId: string, branchId: string | null, branchName: string | null): Promise<string> {
+async function ensureBranchId(
+  supabase: any,
+  tenantId: string,
+  branchId: string | null,
+  branchName: string | null,
+): Promise<string> {
   if (branchId) return branchId;
-  if (!branchName) throw new Error('Provide either --branch-id or --branch-name');
+  if (!branchName)
+    throw new Error('Provide either --branch-id or --branch-name');
   // find or create by name under tenant
   const { data: existing } = await supabase
     .from('branches')
@@ -37,7 +48,10 @@ async function ensureBranchId(supabase: any, tenantId: string, branchId: string 
     .insert({ tenant_id: tenantId, name: branchName })
     .select('id')
     .single();
-  if (error || !created?.id) throw new Error(`Failed to create branch: ${error?.message || 'unknown error'}`);
+  if (error || !created?.id)
+    throw new Error(
+      `Failed to create branch: ${error?.message || 'unknown error'}`,
+    );
   return created.id as string;
 }
 
@@ -50,9 +64,15 @@ async function main() {
 
   const args = parseArgs();
   const tenantId = args.tenant || process.env.SEED_TENANT_ID || null;
-  if (!tenantId) throw new Error('Provide --tenant <uuid> or set SEED_TENANT_ID');
+  if (!tenantId)
+    throw new Error('Provide --tenant <uuid> or set SEED_TENANT_ID');
 
-  const bId = await ensureBranchId(supabase, tenantId, args.branchId, args.branchName);
+  const bId = await ensureBranchId(
+    supabase,
+    tenantId,
+    args.branchId,
+    args.branchName,
+  );
   console.log('Using tenant:', tenantId);
   console.log('Using branch:', bId);
 
@@ -103,4 +123,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

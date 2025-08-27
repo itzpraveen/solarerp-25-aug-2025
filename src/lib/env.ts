@@ -10,6 +10,8 @@ export const env = {
   cronSecret: process.env.CRON_SECRET!,
   depositDueDays: Number(process.env.NEXT_PUBLIC_DEPOSIT_DUE_DAYS || 7),
   rateLimitPdfPerMin: Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5),
-  rateLimitWhatsAppPerMin: Number(process.env.RATE_LIMIT_WHATSAPP_PER_MIN || 10),
+  rateLimitWhatsAppPerMin: Number(
+    process.env.RATE_LIMIT_WHATSAPP_PER_MIN || 10,
+  ),
   ksebFollowupDaysCsv: process.env.KSEB_FOLLOWUP_DAYS || '7,14',
 };

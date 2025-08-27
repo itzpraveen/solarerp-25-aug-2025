@@ -2,22 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body { height: 100%; }
-body { @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100; }
+html,
+body {
+  height: 100%;
+}
+body {
+  @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+}
 
 /* Improve default focus and selection */
-::selection { @apply bg-blue-600 text-white dark:bg-blue-500; }
+::selection {
+  @apply bg-blue-600 text-white dark:bg-blue-500;
+}
 
-a { @apply text-blue-600 dark:text-blue-400; }
-a:hover { @apply underline; }
+a {
+  @apply text-blue-600 dark:text-blue-400;
+}
+a:hover {
+  @apply underline;
+}
 
 /* Smooth tables on mobile */
-.table-wrap { @apply overflow-x-auto; }
+.table-wrap {
+  @apply overflow-x-auto;
+}
 
 /* Subtle custom scrollbar */
-*::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-thumb { background-color: rgb(203 213 225); border-radius: 9999px; }
-*::-webkit-scrollbar-track { background-color: transparent; }
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(203 213 225);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-track {
+  background-color: transparent;
+}
 
 /* Dark scrollbar */
-.dark *::-webkit-scrollbar-thumb { background-color: rgb(71 85 105); }
+.dark *::-webkit-scrollbar-thumb {
+  background-color: rgb(71 85 105);
+}

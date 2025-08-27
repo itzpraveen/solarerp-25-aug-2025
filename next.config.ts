@@ -18,12 +18,8 @@ const nextConfig: NextConfig = {
   // This helps when dynamic imports prevent static analysis.
   outputFileTracingIncludes: {
     // Match the API route handler for PDF generation
-    'app/api/pdf/invoice/route': [
-      './node_modules/@sparticuz/**',
-    ],
-    'app/api/pdf/invoice/route.ts': [
-      './node_modules/@sparticuz/**',
-    ],
+    'app/api/pdf/invoice/route': ['./node_modules/@sparticuz/**'],
+    'app/api/pdf/invoice/route.ts': ['./node_modules/@sparticuz/**'],
   },
 };
 
