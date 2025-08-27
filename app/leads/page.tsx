@@ -23,7 +23,8 @@ export default function LeadsPage() {
   const [phone, setPhone] = useState('');
   const [capacity, setCapacity] = useState<number>(1);
   const [source, setSource] = useState<string>('');
-  const [place, setPlace] = useState<string>('');
+  // Address input for quick add; previously labelled "Place"
+  const [addressInput, setAddressInput] = useState<string>('');
   const [remarks, setRemarks] = useState<string>('');
   const [nextFollowUp, setNextFollowUp] = useState<string>('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -283,7 +284,7 @@ export default function LeadsPage() {
       phone,
       source: source || null,
       interested_capacity_kw: capacity,
-      address: place || null,
+      address: addressInput || null,
       notes: remarks || null,
       next_follow_up_date: nextFollowUp || null,
       status: 'New',
@@ -299,7 +300,7 @@ export default function LeadsPage() {
     setPhone('');
     setCapacity(1);
     setSource('');
-    setPlace('');
+    setAddressInput('');
     setRemarks('');
     setNextFollowUp('');
     setAddBranchOverride('use-selected');
@@ -547,8 +548,8 @@ export default function LeadsPage() {
           />
           <Input
             placeholder="Address"
-            value={place}
-            onChange={(e) => setPlace(e.target.value)}
+            value={addressInput}
+            onChange={(e) => setAddressInput(e.target.value)}
           />
           <select
             className="rounded border px-3 py-2"
@@ -1043,7 +1044,7 @@ export default function LeadsPage() {
                         <>
                           <td className="p-2">{l.name || '—'}</td>
                           <td className="p-2">{l.phone || '—'}</td>
-                          <td className="p-2">{l.address || l.place || '—'}</td>
+                          <td className="p-2">{l.address || '—'}</td>
                           <td className="p-2">{l.source || '—'}</td>
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
