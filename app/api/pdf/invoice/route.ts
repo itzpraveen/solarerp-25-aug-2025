@@ -105,6 +105,14 @@ export async function POST(req: NextRequest) {
       try {
         (chromium as any).setHeadlessMode = true;
         (chromium as any).setGraphicsMode = false;
+        const mlFontUrl = process.env.NEXT_PUBLIC_ML_FONT_URL;
+        if (mlFontUrl) {
+          try {
+            await (chromium as any).font(mlFontUrl);
+          } catch (e) {
+            console.warn('api/pdf/invoice font-load-failed', { mlFontUrl, e });
+          }
+        }
       } catch {}
       chromiumMin = async () =>
         await import('@sparticuz/chromium-min').then(
@@ -268,13 +276,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const browser = await pptr.launch({
-      args: [
-        ...((chromium && chromium.args) || []),
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--font-render-hinting=medium',
-      ],
+      args: (chromium && chromium.args) || [],
       defaultViewport: (chromium && chromium.defaultViewport) ?? null,
       executablePath: executablePath || undefined,
       headless: (chromium && chromium.headless) ?? 'new',
