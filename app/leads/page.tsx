@@ -546,7 +546,7 @@ export default function LeadsPage() {
             onChange={(e) => setPhone(e.target.value)}
           />
           <Input
-            placeholder="Place/Address"
+            placeholder="Address"
             value={place}
             onChange={(e) => setPlace(e.target.value)}
           />
@@ -847,7 +847,7 @@ export default function LeadsPage() {
                   <th className="p-2">Date</th>
                   <th className="p-2">Name</th>
                   <th className="p-2">Phone</th>
-                  <th className="p-2">Place</th>
+                  <th className="p-2">Address</th>
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
                   <th className="p-2">Next Follow-up</th>

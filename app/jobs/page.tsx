@@ -394,14 +394,14 @@ export default function JobsPage() {
               </div>
               {showMore && (
                 <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-6">
-                  <FormField id="qc-location" label="Location/Place">
-                    <Input
-                      id="qc-location"
-                      placeholder="Location / Place"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                    />
-                  </FormField>
+                <FormField id="qc-location" label="Site Address">
+                  <Input
+                    id="qc-location"
+                    placeholder="Site address"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                  />
+                </FormField>
                   <FormField id="qc-roof" label="Roof type">
                     <Input
                       id="qc-roof"
