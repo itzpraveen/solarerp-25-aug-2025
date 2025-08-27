@@ -57,9 +57,8 @@ export async function POST(req: NextRequest) {
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
     // Lazy-load heavy deps to keep the bundle of other routes lean
     let chromium: any = null;
-    let chromiumMin: null | (()) => Promise<any> = null;
+    let chromiumMin: null | (() => Promise<any>) = null;
     let puppeteer: any = null;
-    let puppeteerFallback: any = null;
     try {
       chromium = await import('@sparticuz/chromium').then((m) => m.default || (m as any));
       try {
@@ -74,12 +73,7 @@ export async function POST(req: NextRequest) {
     }
     try {
       puppeteer = await import('puppeteer-core').then((m) => m.default || (m as any));
-    } catch {
-      try {
-        // Optional fallback if full puppeteer is installed locally
-        puppeteerFallback = await import('puppeteer').then((m) => m.default || (m as any));
-      } catch {}
-    }
+    } catch {}
     async function resolveExecutablePath() {
       const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
       // 0) If remote pack URL is provided, use -min to fetch+extract pack on demand (preferred when set)
@@ -191,7 +185,7 @@ export async function POST(req: NextRequest) {
     // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
     // Prefer chromium's defaults for serverless envs
     const launchEnv = { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH };
-    const pptr = puppeteer || puppeteerFallback;
+    const pptr = puppeteer;
     if (!pptr) {
       const id = Math.random().toString(36).slice(2, 10);
       return NextResponse.json({ ok: false, error: 'Puppeteer not available', id, hint: 'Ensure puppeteer-core or puppeteer is installed' }, { status: 500 });
