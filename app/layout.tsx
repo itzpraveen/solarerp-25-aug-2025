@@ -14,10 +14,15 @@ export const metadata: Metadata = {
   icons: { icon: '/favicon.svg' },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 z-50 rounded bg-blue-600 px-3 py-1 text-white">Skip to content</a>
         <Script id="theme-init" strategy="beforeInteractive">
           {`
           (function() {
@@ -37,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AppHeader />
               <KeyboardShortcuts />
               <CommandPalette />
-              <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+              <main id="main" className="mx-auto max-w-6xl px-4 py-6">{children}</main>
             </div>
           </ConfirmProvider>
         </ToastProvider>

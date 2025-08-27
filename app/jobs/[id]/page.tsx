@@ -7,6 +7,7 @@ import Breadcrumbs from '~/components/Breadcrumbs';
 import Button from '~/components/ui/Button';
 import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 import { useToast } from '~/components/ui/ToastProvider';
+import Badge from '~/components/ui/Badge';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 
 type Job = any;
@@ -1148,9 +1149,15 @@ function Proposals({ jobId }: { jobId: string }) {
             <span>
               {r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}
               {parseStatus(r.terms) ? (
-                <span className="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                <Badge className="ml-2" variant={
+                  parseStatus(r.terms) === 'Accepted'
+                    ? 'success'
+                    : parseStatus(r.terms) === 'Rejected'
+                    ? 'danger'
+                    : 'muted'
+                }>
                   {parseStatus(r.terms)}
-                </span>
+                </Badge>
               ) : null}
             </span>
             {r.pdf_url ? (
