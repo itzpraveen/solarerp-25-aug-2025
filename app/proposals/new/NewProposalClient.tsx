@@ -1009,6 +1009,36 @@ export default function NewProposalClient() {
           <a className="text-blue-600" target="_blank" href={signedUrl}>
             Open PDF
           </a>
+          {(customer?.phone || (leadId && (leads.find((l) => l.id === leadId)?.phone))) && (
+            <div className="mt-3">
+              <button
+                className="rounded border px-3 py-2 text-sm"
+                onClick={async () => {
+                  try {
+                    const phone = customer?.phone || (leads.find((l) => l.id === leadId)?.phone);
+                    if (!phone) return;
+                    const { data: session } = await supabase.auth.getSession();
+                    const token = session.session?.access_token;
+                    const res = await fetch('/api/whatsapp/send', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      body: JSON.stringify({
+                        to: phone,
+                        templateName: 'proposal_ready',
+                        variables: [customer?.name || 'Customer', String(job?.capacity_kw || ''), signedUrl],
+                      }),
+                    });
+                    if (!res.ok) throw new Error('WhatsApp send failed');
+                    alert('WhatsApp send enqueued');
+                  } catch (e) {
+                    alert(String((e as any)?.message || e));
+                  }
+                }}
+              >
+                Send via WhatsApp
+              </button>
+            </div>
+          )}
           {!jobId && leadId && (
             <div className="mt-3">
               <button

@@ -4,11 +4,13 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import Button from '~/components/ui/Button';
 import Input from '~/components/ui/Input';
 import Card from '~/components/ui/Card';
+import { useConfirm } from '~/components/ui/ConfirmProvider';
 
 type KitItemRow = { item_code: string; qty: number; items?: { name?: string | null; unit?: string | null } };
 
 export default function KitItemsEditor({ kitName }: { kitName: string }) {
   const supabase = supabaseBrowser();
+  const { confirm } = useConfirm();
   const [items, setItems] = useState<Array<{ item_code: string; name: string; unit?: string | null }>>([]);
   const [rows, setRows] = useState<KitItemRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,8 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
   };
 
   const remove = async (code: string) => {
-    if (!confirm('Remove this item from kit?')) return;
+    const ok = await confirm({ title: 'Remove item', description: 'Remove this item from the kit?', variant: 'danger', confirmText: 'Remove' });
+    if (!ok) return;
     await supabase.from('kit_items').delete().eq('kit_name', kitName).eq('item_code', code);
     await load();
   };

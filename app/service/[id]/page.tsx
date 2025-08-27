@@ -7,10 +7,14 @@ import Button from '~/components/ui/Button';
 import Input from '~/components/ui/Input';
 import Select from '~/components/ui/Select';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { useConfirm } from '~/components/ui/ConfirmProvider';
+import { useToast } from '~/components/ui/ToastProvider';
 
 export default function ServiceTicketDetail() {
   const params = useParams<{ id: string }>();
   const supabase = supabaseBrowser();
+  const { confirm } = useConfirm();
+  const { toast } = useToast();
   const [ticket, setTicket] = useState<any | null>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [team, setTeam] = useState<any[]>([]);
@@ -72,8 +76,7 @@ export default function ServiceTicketDetail() {
       .eq('id', params.id)
       .single();
     setTicket(t as any);
-    setFlash('Saved');
-    setTimeout(() => setFlash(null), 1500);
+    toast({ title: 'Saved', variant: 'success' });
   };
 
   const customerName = useMemo(() => {
@@ -93,11 +96,7 @@ export default function ServiceTicketDetail() {
       <Breadcrumbs
         items={[{ href: '/service', label: 'Service' }, { label: 'Ticket' }]}
       />
-      {flash && (
-        <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">
-          {flash}
-        </div>
-      )}
+      {/* toasts used for feedback too */}
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -244,7 +243,8 @@ export default function ServiceTicketDetail() {
           <button
             className="ml-auto text-red-600 text-sm"
             onClick={async () => {
-              if (!confirm('Delete this ticket?')) return;
+              const ok = await confirm({ title: 'Delete ticket', description: 'This cannot be undone', variant: 'danger', confirmText: 'Delete' });
+              if (!ok) return;
               await supabase
                 .from('service_tickets')
                 .delete()
