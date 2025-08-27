@@ -92,7 +92,13 @@ To quickly populate realistic demo data:
 
 - Minimal: `npm run seed` – adds one customer/job/proposal/invoice
 - Full: `npm run seed:full` – seeds items, kits, kit items, customers, jobs across statuses, proposals, invoices, payments, service tickets, tasks, and leads.
-  - Includes Kerala on‑grid kit templates: 1/2/3/4/5/6/8/10 kW with prefilled BoQ.
+  - Includes Kerala kit templates:
+    - On‑grid: 1/2/3/4/5/6/8/10 kW (prefilled BoQ and CT‑meter rule; env‑tunable)
+    - Hybrid: 3/5 kW with LFP storage
+    - Off‑grid: 3/5 kW with MPPT + LFP storage
+  - You can tune seeding heuristics via env:
+    - `SEED_CT_METER_KW` (default 8) – kW threshold to include CT meter
+    - `SEED_CABLE_M_PER_KW` (default 10) – DC cable meters per kW
 
 Both require env vars: `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. You can optionally pass `SEED_TENANT_ID` to seed into an existing tenant.
 
