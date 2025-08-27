@@ -56,22 +56,36 @@ export async function POST(req: NextRequest) {
     // Prefer serverless chromium on Vercel/AWS; fall back to local Chrome in dev
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
     // Lazy-load heavy deps to keep the bundle of other routes lean
-    const chromium = await import('@sparticuz/chromium').then(m => m.default || (m as any));
+    let chromium: any = null;
+    let chromiumMin: null | (()) => Promise<any> = null;
+    let puppeteer: any = null;
+    let puppeteerFallback: any = null;
     try {
-      // Prefer legacy headless and disable WebGL to reduce lib requirements
-      (chromium as any).setHeadlessMode = true;
-      (chromium as any).setGraphicsMode = false;
-    } catch {}
-    // Optional remote-pack fallback using -min when provided via env
-    const chromiumMin = async () =>
-      await import('@sparticuz/chromium-min').then((m) => m.default || (m as any));
-    const puppeteer = await import('puppeteer-core').then(m => m.default || (m as any));
+      chromium = await import('@sparticuz/chromium').then((m) => m.default || (m as any));
+      try {
+        (chromium as any).setHeadlessMode = true;
+        (chromium as any).setGraphicsMode = false;
+      } catch {}
+      chromiumMin = async () => await import('@sparticuz/chromium-min').then((m) => m.default || (m as any));
+    } catch (e) {
+      // Module may be excluded locally; continue with other strategies
+      chromium = null;
+      chromiumMin = null;
+    }
+    try {
+      puppeteer = await import('puppeteer-core').then((m) => m.default || (m as any));
+    } catch {
+      try {
+        // Optional fallback if full puppeteer is installed locally
+        puppeteerFallback = await import('puppeteer').then((m) => m.default || (m as any));
+      } catch {}
+    }
     async function resolveExecutablePath() {
       const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
       // 0) If remote pack URL is provided, use -min to fetch+extract pack on demand (preferred when set)
       try {
         const pack = process.env.CHROMIUM_PACK_URL || process.env.CHROMIUM_MIN_PACK_URL;
-        if (pack) {
+        if (pack && chromiumMin) {
           const cmin: any = await chromiumMin();
           const p: string | null = await cmin.executablePath(pack);
           if (p) return p;
@@ -80,8 +94,10 @@ export async function POST(req: NextRequest) {
 
       // 1) Otherwise, try @sparticuz/chromium helper (works on Vercel/AWS)
       try {
-        const p = await chromium.executablePath();
-        if (p) return p;
+        if (chromium && chromium.executablePath) {
+          const p = await chromium.executablePath();
+          if (p) return p;
+        }
       } catch {}
 
       // 2) Prefer explicit env/known paths
@@ -175,19 +191,41 @@ export async function POST(req: NextRequest) {
     // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
     // Prefer chromium's defaults for serverless envs
     const launchEnv = { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH };
-    const browser = await puppeteer.launch({
-      args: [...(chromium.args || []), '--no-sandbox', '--disable-dev-shm-usage'],
-      defaultViewport: chromium.defaultViewport ?? null,
-      executablePath,
-      headless: (chromium as any).headless ?? true,
+    const pptr = puppeteer || puppeteerFallback;
+    if (!pptr) {
+      const id = Math.random().toString(36).slice(2, 10);
+      return NextResponse.json({ ok: false, error: 'Puppeteer not available', id, hint: 'Ensure puppeteer-core or puppeteer is installed' }, { status: 500 });
+    }
+    const browser = await pptr.launch({
+      args: [
+        ...((chromium && chromium.args) || []),
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--font-render-hinting=medium',
+      ],
+      defaultViewport: (chromium && chromium.defaultViewport) ?? null,
+      executablePath: executablePath || undefined,
+      headless: (chromium && chromium.headless) ?? 'new',
       dumpio: true,
       userDataDir: '/tmp/chrome-user-data',
       env: launchEnv,
     });
     const page = await browser.newPage();
-    // Safer content load strategy on serverless: avoid hanging on external resources
-    page.setDefaultNavigationTimeout(20_000);
-    await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+    // Safer content load strategy on serverless: avoid hangs on external assets
+    page.setDefaultNavigationTimeout(25_000);
+    try {
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const rt = req.resourceType();
+        // Allow data: and inline requests; block external fonts/images if any
+        const url = req.url();
+        if (url.startsWith('data:')) return req.continue();
+        if (rt === 'image' || rt === 'media') return req.abort();
+        return req.continue();
+      });
+    } catch {}
+    await page.goto(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`, { waitUntil: 'networkidle0', timeout: 20_000 });
     await page.emulateMediaType('screen');
 
     const pdf = await page.pdf({
