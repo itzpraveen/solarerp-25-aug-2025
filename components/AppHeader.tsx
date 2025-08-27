@@ -3,9 +3,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useEffect, useState } from 'react';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X, Sun, Moon, Search, Plus } from 'lucide-react';
+import BranchSelect from '~/components/BranchSelect';
 
 const links = [
+  { href: '/overview', label: 'Overview' },
   { href: '/jobs', label: 'Jobs' },
   { href: '/customers', label: 'Customers' },
   { href: '/proposals', label: 'Proposals' },
@@ -24,6 +26,9 @@ export default function AppHeader() {
   const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [branchValue, setBranchValue] = useState<string | 'all'>('all');
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -37,6 +42,16 @@ export default function AppHeader() {
         setRole((prof as any)?.role ?? null);
       } else {
         setRole(null);
+      }
+      // Initialize tenant and saved branch
+      const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+      const tId = (prof as any)?.tenant_id as string | undefined;
+      if (tId) {
+        setTenantId(tId);
+        try {
+          const saved = localStorage.getItem(`pref:branch:${tId}`) as string | null;
+          if (saved) setBranchValue(saved as any);
+        } catch {}
       }
     });
   }, []);
@@ -73,7 +88,7 @@ export default function AppHeader() {
           <button className="md:hidden" aria-label="Toggle Menu" onClick={() => setOpen((v) => !v)}>
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <Link href="/jobs" className="font-semibold hover:opacity-90">SolarERP</Link>
+          <Link href="/overview" className="font-semibold hover:opacity-90">SolarERP</Link>
         </div>
         <nav className="hidden gap-4 md:flex">
           {links.map((l) => (
@@ -91,6 +106,64 @@ export default function AppHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-3 text-sm">
+          {tenantId && (
+            <div className="hidden min-w-[160px] lg:block">
+              <BranchSelect
+                value={branchValue}
+                onChange={(v) => {
+                  setBranchValue(v);
+                  try { if (tenantId) localStorage.setItem(`pref:branch:${tenantId}`, String(v)); } catch {}
+                  window.dispatchEvent(new CustomEvent('branch-change', { detail: { value: v } }));
+                }}
+                includeAll
+                allLabel="All"
+              />
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label="Open search"
+            onClick={() => window.dispatchEvent(new Event('open-cmdk'))}
+            className="hidden rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 sm:flex items-center gap-1"
+            title="Search (Ctrl/Cmd+K)"
+          >
+            <Search size={16} />
+            <span className="hidden md:inline">Search</span>
+            <span className="ml-1 hidden items-center gap-0.5 rounded border px-1 text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400 md:inline-flex">Ctrl K</span>
+          </button>
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={createOpen}
+              onClick={() => setCreateOpen((v) => !v)}
+              className="rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 flex items-center gap-1"
+              title="Create"
+            >
+              <Plus size={16} />
+              <span className="hidden md:inline">Create</span>
+            </button>
+            {createOpen && (
+              <div role="menu" className="absolute right-0 mt-2 w-44 rounded border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                {[
+                  { label: 'Lead', href: '/leads' },
+                  { label: 'Customer', href: '/customers' },
+                  { label: 'Job', href: '/jobs' },
+                  { label: 'Proposal', href: '/proposals/new' },
+                ].map((it) => (
+                  <a
+                    key={it.label}
+                    role="menuitem"
+                    href={it.href}
+                    onClick={() => setCreateOpen(false)}
+                    className="block px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    New {it.label}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             aria-label="Toggle theme"
@@ -127,6 +200,13 @@ export default function AppHeader() {
                 {l.label}
               </Link>
             ))}
+            <button
+              className="rounded border px-2 py-1 text-sm"
+              onClick={() => { setOpen(false); window.dispatchEvent(new Event('open-cmdk')); }}
+            >
+              Search…
+            </button>
+            <Link href="/proposals/new" className="rounded border px-2 py-1 text-sm" onClick={() => setOpen(false)}>New Proposal</Link>
           </div>
         </div>
       )}

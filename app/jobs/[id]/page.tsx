@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Breadcrumbs from '~/components/Breadcrumbs';
 import Button from '~/components/ui/Button';
 import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
+import { useToast } from '~/components/ui/ToastProvider';
+import { useConfirm } from '~/components/ui/ConfirmProvider';
 
 type Job = any;
 
@@ -20,6 +21,8 @@ export default function JobDetailPage() {
   const search = useSearchParams();
   const [edit, setEdit] = useState<any | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     (async () => {
@@ -75,15 +78,11 @@ export default function JobDetailPage() {
           Back
         </button>
       </div>
-      {flash && (
-        <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">
-          {flash}
-        </div>
-      )}
+      {/* toasts used instead of inline flash */}
       <Breadcrumbs
         items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]}
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="sticky top-16 z-10 flex flex-wrap gap-2 bg-gray-50 py-2 dark:bg-gray-950">
         {(
           [
             'overview',
@@ -127,18 +126,20 @@ export default function JobDetailPage() {
                 className="rounded border px-2 py-1 text-sm"
                 value={job?.status}
                 onChange={async (e) => {
-                  const newStatus = e.target.value as JobStatus;
-                  if (!confirm(`Change status to ${newStatus}?`)) return;
-                  const { data: session } = await supabase.auth.getSession();
-                  const token = session.session?.access_token;
-                  await fetch('/api/jobs/updateStatus', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    body: JSON.stringify({ jobId: params.id, newStatus }),
-                  });
+              const newStatus = e.target.value as JobStatus;
+              const ok = await confirm({ title: 'Change status', description: `Change status to ${statusLabel(newStatus)}?` });
+              if (!ok) return;
+              const prev = job?.status as JobStatus | undefined;
+              const { data: session } = await supabase.auth.getSession();
+              const token = session.session?.access_token;
+              await fetch('/api/jobs/updateStatus', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ jobId: params.id, newStatus }),
+              });
                   // Auto-fill milestone date
                   const today = new Date().toISOString().slice(0, 10);
                   const patch: any = {};
@@ -166,6 +167,19 @@ export default function JobDetailPage() {
                     .eq('id', params.id)
                     .single();
                   setJob(refreshed as any);
+                  toast({ title: `Status: ${statusLabel(newStatus)}`, actionLabel: prev ? 'Undo' : undefined, onAction: prev ? async () => {
+                    await fetch('/api/jobs/updateStatus', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      body: JSON.stringify({ jobId: params.id, newStatus: prev }),
+                    });
+                    const { data: again } = await supabase
+                      .from('jobs')
+                      .select('*, customers(name, phone, email)')
+                      .eq('id', params.id)
+                      .single();
+                    setJob(again as any);
+                  } : undefined });
                 }}
               >
                 {JOB_STATUSES.map((s: JobStatus) => (
@@ -294,8 +308,7 @@ export default function JobDetailPage() {
                   .eq('id', params.id)
                   .single();
                 setJob(data as any);
-                setFlash('Saved');
-                setTimeout(() => setFlash(null), 1500);
+                toast({ title: 'Saved', variant: 'success' });
               }}
             >
               Save Changes
@@ -430,6 +443,8 @@ function Finance({ jobId }: { jobId: string }) {
   >('UPI');
   const [payRef, setPayRef] = useState<string>('');
   const [err, setErr] = useState<string | null>(null);
+  const [upiId, setUpiId] = useState<string>('');
+  const [companyName, setCompanyName] = useState<string>('');
   useEffect(() => {
     (async () => {
       const { data: inv, error: iErr } = await supabase
@@ -446,6 +461,19 @@ function Finance({ jobId }: { jobId: string }) {
         );
       setInvoices(inv || []);
       setPayments(pay || []);
+      // Fetch settings and tenant for UPI
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .maybeSingle();
+      if (prof?.tenant_id) {
+        const [{ data: setg }, { data: ten }] = await Promise.all([
+          supabase.from('settings').select('*').eq('tenant_id', (prof as any).tenant_id).maybeSingle(),
+          supabase.from('tenants').select('name').eq('id', (prof as any).tenant_id).maybeSingle(),
+        ]);
+        if ((setg as any)?.upi_id) setUpiId((setg as any).upi_id as string);
+        if ((ten as any)?.name) setCompanyName((ten as any).name as string);
+      }
     })();
   }, [jobId]);
   return (
@@ -629,6 +657,16 @@ function Finance({ jobId }: { jobId: string }) {
               onChange={(e) => setPayRef(e.target.value)}
             />
           </div>
+          {payMode === 'UPI' && upiId && payAmt > 0 && (
+            <div className="text-xs text-gray-600">
+              <a
+                className="text-blue-600"
+                href={`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(companyName || 'Company')}&am=${encodeURIComponent(String(payAmt))}&cu=INR`}
+              >
+                Open UPI app to pay ₹{payAmt}
+              </a>
+            </div>
+          )}
           <button
             className="rounded bg-blue-600 px-3 py-2 text-white text-sm"
             onClick={async () => {
@@ -1054,8 +1092,7 @@ function Proposals({ jobId }: { jobId: string }) {
         body: JSON.stringify({ jobId, newStatus: 'Won' }),
       });
     }
-    setFlash(`Proposal marked ${status}${jobUpdate ? ' • Job updated' : ''}`);
-    setTimeout(() => setFlash(null), 2000);
+    toast({ title: `Proposal marked ${status}`, description: jobUpdate ? 'Job updated too' : undefined, variant: 'success' });
   };
 
   return (
@@ -1082,7 +1119,11 @@ function Proposals({ jobId }: { jobId: string }) {
           >
             <span>
               {r.date || '—'} • {r.kit_name || '—'} • ₹{r.total ?? '—'}
-              {parseStatus(r.terms) ? ` • ${parseStatus(r.terms)}` : ''}
+              {parseStatus(r.terms) ? (
+                <span className="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                  {parseStatus(r.terms)}
+                </span>
+              ) : null}
             </span>
             {r.pdf_url ? (
               <div className="flex items-center gap-3">
@@ -1111,24 +1152,25 @@ function Proposals({ jobId }: { jobId: string }) {
                       const { data: session } =
                         await supabase.auth.getSession();
                       const token = session.session?.access_token;
-                      await fetch('/api/whatsapp/send', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          ...(token
-                            ? { Authorization: `Bearer ${token}` }
-                            : {}),
-                        },
-                        body: JSON.stringify({
-                          to: customer!.phone,
-                          templateName: 'proposal_ready',
-                          variables: [
-                            customer!.name || 'Customer',
-                            String(capacity || ''),
-                            url,
-                          ],
-                        }),
+                    const res = await fetch('/api/whatsapp/send', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(token
+                          ? { Authorization: `Bearer ${token}` }
+                          : {}),
+                      },
+                      body: JSON.stringify({
+                        to: customer!.phone,
+                        templateName: 'proposal_ready',
+                        variables: [
+                          customer!.name || 'Customer',
+                          String(capacity || ''),
+                          url,
+                        ],
+                      }),
                       });
+                      if (!res.ok) throw new Error('WhatsApp send failed');
                       // Audit: proposal WhatsApp send
                       try {
                         const [{ data: prof }, { data: user }] =
@@ -1154,8 +1196,7 @@ function Proposals({ jobId }: { jobId: string }) {
                           });
                         }
                       } catch {}
-                      setFlash('WhatsApp send enqueued');
-                      setTimeout(() => setFlash(null), 1500);
+                      toast({ title: 'WhatsApp send enqueued', variant: 'success' });
                     }}
                   >
                     Send WhatsApp
@@ -1193,6 +1234,7 @@ function Proposals({ jobId }: { jobId: string }) {
 function Docs({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
   const [docs, setDocs] = useState<any[]>([]);
+  const [docSigned, setDocSigned] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<string>('upload');
   const [uploading, setUploading] = useState(false);
@@ -1229,15 +1271,13 @@ function Docs({ jobId }: { jobId: string }) {
       .maybeSingle();
     const key = `${prof!.tenant_id}/${crypto.randomUUID()}-${file.name}`;
     await supabase.storage.from('documents').upload(key, file);
-    const { data: signed } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(key, 60 * 60 * 24 * 7);
     const { data: doc } = await supabase
       .from('documents')
       .insert({
         tenant_id: prof!.tenant_id,
         job_id: jobId,
-        file_url: signed!.signedUrl,
+        // Store the storage key; sign when opening to avoid expired links
+        file_url: key,
         doc_type: docType || 'upload',
       })
       .select('id, file_url, doc_type')
@@ -1299,46 +1339,44 @@ function Docs({ jobId }: { jobId: string }) {
       </Card>
       <ul className="space-y-2">
         {docs.map((d) => {
-          const url: string = d.file_url || '';
-          const isImg = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
+          const stored: string = d.file_url || '';
+          const looksLikeKey = stored && !/^https?:\/\//i.test(stored);
           return (
             <li
               key={d.id}
               className="rounded border bg-white p-3 text-sm flex items-center justify-between gap-3"
             >
               <div className="flex items-center gap-3">
-                {isImg ? (
-                  <a href={url} target="_blank" rel="noreferrer">
-                    <Image
-                      src={url}
-                      alt="preview"
-                      width={48}
-                      height={48}
-                      className="h-12 w-12 rounded object-cover"
-                      unoptimized
-                    />
-                  </a>
-                ) : (
-                  <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-600">
-                    PDF
-                  </div>
-                )}
+                <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-600">
+                  File
+                </div>
                 <div>
                   <div className="text-gray-700">
                     {d.doc_type || 'document'}
                   </div>
-                  <div className="text-xs text-gray-500">Uploaded</div>
+                  <div className="text-xs text-gray-500 truncate max-w-[240px]" title={stored}>{stored}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <a
+                <button
                   className="text-blue-600"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={async () => {
+                    try {
+                      if (!looksLikeKey) { window.open(stored, '_blank'); return; }
+                      const existing = docSigned[stored];
+                      if (existing) { window.open(existing, '_blank'); return; }
+                      const { data: s } = await supabase.storage
+                        .from('documents')
+                        .createSignedUrl(stored, 60 * 60 * 24 * 7);
+                      if (s?.signedUrl) {
+                        setDocSigned((m) => ({ ...m, [stored]: s.signedUrl }));
+                        window.open(s.signedUrl, '_blank');
+                      }
+                    } catch {}
+                  }}
                 >
                   Open
-                </a>
+                </button>
                 <button
                   className="text-red-600"
                   onClick={async () => {
@@ -1508,7 +1546,8 @@ function Tasks({ jobId }: { jobId: string }) {
   };
 
   const removeTask = async (id: string) => {
-    if (!confirm('Delete this task?')) return;
+    const ok = await confirm({ title: 'Delete task', description: 'This cannot be undone', variant: 'danger', confirmText: 'Delete' });
+    if (!ok) return;
     const t = tasks.find((x) => x.id === id);
     await supabase.from('tasks').delete().eq('id', id);
     await audit('tasks.delete', { taskId: id, title: t?.title });
