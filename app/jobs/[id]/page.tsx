@@ -126,20 +126,23 @@ export default function JobDetailPage() {
                 className="rounded border px-2 py-1 text-sm"
                 value={job?.status}
                 onChange={async (e) => {
-              const newStatus = e.target.value as JobStatus;
-              const ok = await confirm({ title: 'Change status', description: `Change status to ${statusLabel(newStatus)}?` });
-              if (!ok) return;
-              const prev = job?.status as JobStatus | undefined;
-              const { data: session } = await supabase.auth.getSession();
-              const token = session.session?.access_token;
-              await fetch('/api/jobs/updateStatus', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ jobId: params.id, newStatus }),
-              });
+                  const newStatus = e.target.value as JobStatus;
+                  const ok = await confirm({
+                    title: 'Change status',
+                    description: `Change status to ${statusLabel(newStatus)}?`,
+                  });
+                  if (!ok) return;
+                  const prev = job?.status as JobStatus | undefined;
+                  const { data: session } = await supabase.auth.getSession();
+                  const token = session.session?.access_token;
+                  await fetch('/api/jobs/updateStatus', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ jobId: params.id, newStatus }),
+                  });
                   // Auto-fill milestone date
                   const today = new Date().toISOString().slice(0, 10);
                   const patch: any = {};
@@ -167,19 +170,33 @@ export default function JobDetailPage() {
                     .eq('id', params.id)
                     .single();
                   setJob(refreshed as any);
-                  toast({ title: `Status: ${statusLabel(newStatus)}`, actionLabel: prev ? 'Undo' : undefined, onAction: prev ? async () => {
-                    await fetch('/api/jobs/updateStatus', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                      body: JSON.stringify({ jobId: params.id, newStatus: prev }),
-                    });
-                    const { data: again } = await supabase
-                      .from('jobs')
-                      .select('*, customers(name, phone, email)')
-                      .eq('id', params.id)
-                      .single();
-                    setJob(again as any);
-                  } : undefined });
+                  toast({
+                    title: `Status: ${statusLabel(newStatus)}`,
+                    actionLabel: prev ? 'Undo' : undefined,
+                    onAction: prev
+                      ? async () => {
+                          await fetch('/api/jobs/updateStatus', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(token
+                                ? { Authorization: `Bearer ${token}` }
+                                : {}),
+                            },
+                            body: JSON.stringify({
+                              jobId: params.id,
+                              newStatus: prev,
+                            }),
+                          });
+                          const { data: again } = await supabase
+                            .from('jobs')
+                            .select('*, customers(name, phone, email)')
+                            .eq('id', params.id)
+                            .single();
+                          setJob(again as any);
+                        }
+                      : undefined,
+                  });
                 }}
               >
                 {JOB_STATUSES.map((s: JobStatus) => (
@@ -370,17 +387,15 @@ function ServiceForJob({ jobId }: { jobId: string }) {
       .from('profiles')
       .select('tenant_id')
       .maybeSingle();
-    await supabase
-      .from('service_tickets')
-      .insert({
-        tenant_id: (prof as any)!.tenant_id,
-        customer_id: customerId || null,
-        job_id: jobId,
-        date: new Date().toISOString().slice(0, 10),
-        summary: summary.trim(),
-        status: 'Open',
-        priority: 'Medium',
-      });
+    await supabase.from('service_tickets').insert({
+      tenant_id: (prof as any)!.tenant_id,
+      customer_id: customerId || null,
+      job_id: jobId,
+      date: new Date().toISOString().slice(0, 10),
+      summary: summary.trim(),
+      status: 'Open',
+      priority: 'Medium',
+    });
     setSummary('');
     load();
   };
@@ -468,8 +483,16 @@ function Finance({ jobId }: { jobId: string }) {
         .maybeSingle();
       if (prof?.tenant_id) {
         const [{ data: setg }, { data: ten }] = await Promise.all([
-          supabase.from('settings').select('*').eq('tenant_id', (prof as any).tenant_id).maybeSingle(),
-          supabase.from('tenants').select('name').eq('id', (prof as any).tenant_id).maybeSingle(),
+          supabase
+            .from('settings')
+            .select('*')
+            .eq('tenant_id', (prof as any).tenant_id)
+            .maybeSingle(),
+          supabase
+            .from('tenants')
+            .select('name')
+            .eq('id', (prof as any).tenant_id)
+            .maybeSingle(),
         ]);
         if ((setg as any)?.upi_id) setUpiId((setg as any).upi_id as string);
         if ((ten as any)?.name) setCompanyName((ten as any).name as string);
@@ -1093,7 +1116,11 @@ function Proposals({ jobId }: { jobId: string }) {
         body: JSON.stringify({ jobId, newStatus: 'Won' }),
       });
     }
-    toast({ title: `Proposal marked ${status}`, description: jobUpdate ? 'Job updated too' : undefined, variant: 'success' });
+    toast({
+      title: `Proposal marked ${status}`,
+      description: jobUpdate ? 'Job updated too' : undefined,
+      variant: 'success',
+    });
   };
 
   return (
@@ -1153,23 +1180,23 @@ function Proposals({ jobId }: { jobId: string }) {
                       const { data: session } =
                         await supabase.auth.getSession();
                       const token = session.session?.access_token;
-                    const res = await fetch('/api/whatsapp/send', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        ...(token
-                          ? { Authorization: `Bearer ${token}` }
-                          : {}),
-                      },
-                      body: JSON.stringify({
-                        to: customer!.phone,
-                        templateName: 'proposal_ready',
-                        variables: [
-                          customer!.name || 'Customer',
-                          String(capacity || ''),
-                          url,
-                        ],
-                      }),
+                      const res = await fetch('/api/whatsapp/send', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token
+                            ? { Authorization: `Bearer ${token}` }
+                            : {}),
+                        },
+                        body: JSON.stringify({
+                          to: customer!.phone,
+                          templateName: 'proposal_ready',
+                          variables: [
+                            customer!.name || 'Customer',
+                            String(capacity || ''),
+                            url,
+                          ],
+                        }),
                       });
                       if (!res.ok) throw new Error('WhatsApp send failed');
                       // Audit: proposal WhatsApp send
@@ -1197,7 +1224,10 @@ function Proposals({ jobId }: { jobId: string }) {
                           });
                         }
                       } catch {}
-                      toast({ title: 'WhatsApp send enqueued', variant: 'success' });
+                      toast({
+                        title: 'WhatsApp send enqueued',
+                        variant: 'success',
+                      });
                     }}
                   >
                     Send WhatsApp
@@ -1355,7 +1385,12 @@ function Docs({ jobId }: { jobId: string }) {
                   <div className="text-gray-700">
                     {d.doc_type || 'document'}
                   </div>
-                  <div className="text-xs text-gray-500 truncate max-w-[240px]" title={stored}>{stored}</div>
+                  <div
+                    className="text-xs text-gray-500 truncate max-w-[240px]"
+                    title={stored}
+                  >
+                    {stored}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -1363,9 +1398,15 @@ function Docs({ jobId }: { jobId: string }) {
                   className="text-blue-600"
                   onClick={async () => {
                     try {
-                      if (!looksLikeKey) { window.open(stored, '_blank'); return; }
+                      if (!looksLikeKey) {
+                        window.open(stored, '_blank');
+                        return;
+                      }
                       const existing = docSigned[stored];
-                      if (existing) { window.open(existing, '_blank'); return; }
+                      if (existing) {
+                        window.open(existing, '_blank');
+                        return;
+                      }
                       const { data: s } = await supabase.storage
                         .from('documents')
                         .createSignedUrl(stored, 60 * 60 * 24 * 7);
@@ -1407,6 +1448,7 @@ function Docs({ jobId }: { jobId: string }) {
 
 function Tasks({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
+  const { confirm } = useConfirm();
   const [tasks, setTasks] = useState<any[]>([]);
   const [team, setTeam] = useState<any[]>([]);
   const [memberMap, setMemberMap] = useState<Record<string, any>>({});
@@ -1547,7 +1589,12 @@ function Tasks({ jobId }: { jobId: string }) {
   };
 
   const removeTask = async (id: string) => {
-    const ok = await confirm({ title: 'Delete task', description: 'This cannot be undone', variant: 'danger', confirmText: 'Delete' });
+    const ok = await confirm({
+      title: 'Delete task',
+      description: 'This cannot be undone',
+      variant: 'danger',
+      confirmText: 'Delete',
+    });
     if (!ok) return;
     const t = tasks.find((x) => x.id === id);
     await supabase.from('tasks').delete().eq('id', id);
