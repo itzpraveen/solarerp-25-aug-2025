@@ -995,6 +995,7 @@ function Activity({ jobId }: { jobId: string }) {
 
 function Proposals({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
+  const { toast } = useToast();
   const [rows, setRows] = useState<any[]>([]);
   const [signed, setSigned] = useState<Record<string, string>>({});
   const [customer, setCustomer] = useState<{
