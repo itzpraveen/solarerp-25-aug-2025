@@ -270,7 +270,10 @@ Templates expected:
 
 ### Manual QA Checklist
 
-- Auth: Sign in via magic link/phone at `/auth/signin`; `POST /api/auth/ensureProfile` creates your tenant/profile/settings on first login.
+- Auth:
+  - Production (invite-only): set `ALLOW_SELF_SIGNUP=0` and `NEXT_PUBLIC_ALLOW_SELF_SIGNUP=0` (Vercel env), disable "Email signups" in Supabase Auth. New users must be invited from Settings → Team & Roles. First login does not create a tenant.
+  - Demo/dev (open signup): set both to `1`. First login auto-creates a new tenant and owner profile.
+  - Sign in at `/auth/signin` using magic link or phone OTP.
 - Customers: Add a customer; open detail; create a job.
 - Jobs: Kanban visible; drag status; open job; edit Overview fields and Save; Proposals tab → generate PDF; Docs tab → upload; Tasks tab → add task.
 - Leads: Add a lead; Edit a row; Convert → creates customer + job and redirects.
