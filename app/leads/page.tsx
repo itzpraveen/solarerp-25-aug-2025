@@ -4,14 +4,19 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
+import Skeleton from '~/components/ui/Skeleton';
+import { useToast } from '~/components/ui/ToastProvider';
 import EmptyState from '~/components/ui/EmptyState';
 import { isPhone, required } from '@/lib/validation';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import BranchSelect from '~/components/BranchSelect';
+import { useConfirm } from '~/components/ui/ConfirmProvider';
 
 export default function LeadsPage() {
   const supabase = supabaseBrowser();
+  const { confirm } = useConfirm();
   const [leads, setLeads] = useState<any[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [capacity, setCapacity] = useState<number>(1);
@@ -45,6 +50,7 @@ export default function LeadsPage() {
   const [branches, setBranches] = useState<any[]>([]);
   // Per-add override: use selected branch, specific branch, or unassigned
   const [addBranchOverride, setAddBranchOverride] = useState<string>('use-selected');
+  const { toast } = useToast();
 
   useEffect(() => {
     (async () => {
@@ -86,7 +92,32 @@ export default function LeadsPage() {
     })();
   }, [branchId]);
 
+  // Realtime updates for leads
+  useEffect(() => {
+    const channel = supabase
+      .channel('leads-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+        load();
+      })
+      .subscribe();
+    return () => {
+      try { supabase.removeChannel(channel); } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Listen for global header branch changes
+  useEffect(() => {
+    const h = (e: any) => {
+      const v = e?.detail?.value as string | 'all' | undefined;
+      if (v !== undefined) setBranchId(v);
+    };
+    window.addEventListener('branch-change', h as any);
+    return () => window.removeEventListener('branch-change', h as any);
+  }, []);
+
   const load = async () => {
+    setLoadingList(true);
     let q = supabase.from('leads').select('*').order('date', { ascending: false });
     if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
     const { data, error } = await q;
@@ -107,9 +138,11 @@ export default function LeadsPage() {
         console.error('Failed to load leads (unserializable error):', error);
         setErr('Failed to load leads. Please try again.');
       }
+      setLoadingList(false);
       return;
     }
     setLeads(data || []);
+    setLoadingList(false);
   };
 
   useEffect(() => {
@@ -154,7 +187,7 @@ export default function LeadsPage() {
         branch_id: branchForInsert,
       });
     setAdding(false);
-    if (error) return setErr(error.message);
+    if (error) { setErr(error.message); setAdding(false); return; }
     setName('');
     setPhone('');
     setCapacity(1);
@@ -164,6 +197,7 @@ export default function LeadsPage() {
     setNextFollowUp('');
     setAddBranchOverride('use-selected');
     load();
+    toast({ title: 'Lead added', variant: 'success' });
   };
 
   const csvLeads =
@@ -189,6 +223,68 @@ export default function LeadsPage() {
           <BranchSelect value={branchId} onChange={setBranchId} />
         </div>
       </div>
+      {/* Quick add: single field capture */}
+      <Card>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+          <Input
+            className="md:col-span-2"
+            placeholder="Quick add: Name or Phone"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Input
+            placeholder="Phone (optional)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <Input
+            type="number"
+            min={0}
+            step={0.1}
+            placeholder="Capacity kW"
+            value={capacity}
+            onChange={(e) => setCapacity(Number(e.target.value))}
+          />
+          <Button
+            onClick={async () => {
+              // Parse single-field entry if phone omitted
+              let nm = name.trim();
+              let ph = phone.trim();
+              if (!ph && /\d{7,}/.test(nm)) {
+                // If digits present in name field, assume it is phone
+                ph = nm.replace(/[^\d+]/g, '');
+                nm = 'Lead';
+              }
+              setErr(null);
+              if (!required(nm)) { setErr('Name or phone required'); return; }
+              if (ph && !isPhone(ph)) { setErr('Enter a valid phone'); return; }
+              setAdding(true);
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('tenant_id')
+                .maybeSingle();
+              const today = new Date().toISOString().slice(0, 10);
+              const bId = branchId !== 'all' ? (branchId as string) : null;
+              await supabase.from('leads').insert({
+                tenant_id: (prof as any)!.tenant_id,
+                date: today,
+                name: nm || null,
+                phone: ph || null,
+                interested_capacity_kw: capacity || null,
+                next_follow_up_date: today,
+                status: 'New',
+                branch_id: bId,
+              });
+              setAdding(false);
+              setName(''); setPhone(''); setCapacity(1);
+              load();
+            }}
+            loading={adding}
+          >
+            Quick Add
+          </Button>
+        </div>
+      </Card>
       {/* KPI tiles (server-side aggregates) */}
       {!kpiLoading && kpis && (
         kpis.scope === 'all' ? (
@@ -376,8 +472,11 @@ export default function LeadsPage() {
                   if (!res.ok || !out?.ok) throw new Error(out?.error || 'Import failed');
                   setImportResult(out);
                   load();
+                  toast({ title: 'Import complete', description: `${out.created} created, ${out.updated} updated, ${out.skipped} skipped.`, variant: 'success' });
                 } catch (e: any) {
-                  setImportResult({ ok: false, error: e?.message || String(e) });
+                  const msg = e?.message || String(e);
+                  setImportResult({ ok: false, error: msg });
+                  toast({ title: 'Import failed', description: msg, variant: 'error' });
                 } finally {
                   setImporting(false);
                 }
@@ -409,13 +508,58 @@ export default function LeadsPage() {
           </div>
         )}
       </Card>
-      {leads.length === 0 ? (
+      {loadingList ? (
+        <div className="space-y-2">
+          <Skeleton className="h-10" />
+          <Skeleton className="h-10" />
+          <Skeleton className="h-10" />
+        </div>
+      ) : leads.length === 0 ? (
         <EmptyState
           title="No leads yet"
           description="Capture interested customers so you can follow-up and convert."
         />
       ) : (
         <>
+          {/* Bulk actions */}
+          {Object.values(selected).some(Boolean) && (
+            <div className="flex flex-wrap items-center gap-2 rounded border bg-white p-2 text-sm">
+              <span className="text-gray-700">Bulk actions for {Object.values(selected).filter(Boolean).length} selected:</span>
+              <select
+                className="rounded border px-2 py-1"
+                onChange={async (e) => {
+                  const val = e.target.value;
+                  e.currentTarget.selectedIndex = 0;
+                  if (!val) return;
+                  const ids = Object.entries(selected).filter(([k, v]) => v).map(([k]) => k);
+                  if (val.startsWith('branch:')) {
+                    const id = val.slice('branch:'.length);
+                    await supabase.from('leads').update({ branch_id: id || null }).in('id', ids);
+                    toast({ title: 'Branch assigned', variant: 'success' });
+                  } else if (val === 'status:Converted' || val === 'status:Lost') {
+                    await supabase.from('leads').update({ status: val.split(':')[1] }).in('id', ids);
+                    toast({ title: 'Status updated', variant: 'success' });
+                  } else if (val === 'followup:today') {
+                    const today = new Date().toISOString().slice(0, 10);
+                    await supabase.from('leads').update({ next_follow_up_date: today }).in('id', ids);
+                    toast({ title: 'Follow-up set to today', variant: 'success' });
+                  }
+                  setSelected({});
+                  load();
+                }}
+              >
+                <option value="">Bulk action…</option>
+                <option value="followup:today">Next Follow-up: today</option>
+                <option value="status:Converted">Mark Converted</option>
+                <option value="status:Lost">Mark Lost</option>
+                <option disabled>Assign branch…</option>
+                <option value="branch:">Unassigned</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={`branch:${b.id}`}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="rounded border bg-white overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -623,6 +767,28 @@ export default function LeadsPage() {
                             }>
                               {l.next_follow_up_date || '—'}
                             </span>
+                            <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-600">
+                              {['+1d','+3d','+7d'].map((lbl) => (
+                                <button
+                                  key={lbl}
+                                  className="rounded border px-1 py-0.5"
+                                  title={`Snooze ${lbl}`}
+                                  onClick={async () => {
+                                    const base = l.next_follow_up_date || todayStr;
+                                    const d = new Date(base);
+                                    const add = lbl === '+1d' ? 1 : lbl === '+3d' ? 3 : 7;
+                                    d.setDate(d.getDate() + add);
+                                    await supabase
+                                      .from('leads')
+                                      .update({ next_follow_up_date: d.toISOString().slice(0,10) })
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  {lbl}
+                                </button>
+                              ))}
+                            </div>
                           </td>
                           <td className="p-2 text-xs text-gray-600">
                             {l.last_contacted_at || '—'}
@@ -657,16 +823,18 @@ export default function LeadsPage() {
                               size="sm"
                               className="ml-2"
                               onClick={() => {
-                                if (!confirm('Convert this lead to a Job?'))
-                                  return;
-                                setConvertingId(l.id);
-                                setConvertForm({
-                                  address: '',
-                                  program_type: 'PM_Surya',
-                                  system_type: 'On-grid',
-                                  capacity_kw: l.interested_capacity_kw || 1,
-                                  location: '',
-                                  roof_type: '',
+                                // confirmation dialog
+                                confirm({ title: 'Convert lead', description: 'Convert this lead to a Job?', confirmText: 'Convert' }).then((ok) => {
+                                  if (!ok) return;
+                                  setConvertingId(l.id);
+                                  setConvertForm({
+                                    address: '',
+                                    program_type: 'PM_Surya',
+                                    system_type: 'On-grid',
+                                    capacity_kw: l.interested_capacity_kw || 1,
+                                    location: '',
+                                    roof_type: '',
+                                  });
                                 });
                               }}
                             >
@@ -694,6 +862,20 @@ export default function LeadsPage() {
                               }}
                             >
                               Set Next
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-2"
+                              onClick={async () => {
+                                await supabase
+                                  .from('leads')
+                                  .update({ last_contacted_at: todayStr, status: 'Contacted' })
+                                  .eq('id', l.id);
+                                load();
+                              }}
+                            >
+                              Mark contacted
                             </Button>
                           </td>
                         </>
