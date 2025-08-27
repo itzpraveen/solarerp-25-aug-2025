@@ -44,6 +44,7 @@ export default function JobsPage() {
     id: string;
     name: string;
   } | null>(null);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -54,6 +55,19 @@ export default function JobsPage() {
       setCustomers((data as any[]) || []);
     })();
   }, []);
+
+  // Persist quick create visibility preference
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pref:jobs:showQuickCreate');
+      if (saved === '1') setShowQuickCreate(true);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('pref:jobs:showQuickCreate', showQuickCreate ? '1' : '0');
+    } catch {}
+  }, [showQuickCreate]);
 
   // Prefill last used
   useEffect(() => {
@@ -152,6 +166,7 @@ export default function JobsPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Jobs</h1>
         <div className="flex items-center gap-2">
+          <div className="hidden text-xs text-gray-600 md:block">Branch</div>
           <div className="min-w-[220px]">
             <BranchSelect value={branchId} onChange={setBranchId} />
           </div>
@@ -159,22 +174,32 @@ export default function JobsPage() {
             variant="outline"
             size="sm"
             onClick={() => router.push('/customers')}
+            title="Manage customers"
           >
             Customers
           </Button>
-          <Button size="sm" onClick={() => router.push('/leads')}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/leads')}
+            title="Manage leads"
+          >
             Leads
+          </Button>
+          <Button size="sm" onClick={() => setShowQuickCreate((v) => !v)}>
+            {showQuickCreate ? 'Hide New Job' : 'New Job'}
           </Button>
         </div>
       </div>
-      <Card
-        title="Quick Create Job"
-        actions={
-          <span className="hidden md:inline text-xs text-gray-600">
-            Fill minimum fields; extras under More options
-          </span>
-        }
-      >
+      {showQuickCreate && (
+        <Card
+          title="Quick Create Job"
+          actions={
+            <span className="hidden md:inline text-xs text-gray-600">
+              Only key fields required; add details under More options
+            </span>
+          }
+        >
         <div aria-live="polite" className="mb-2">
           {msg && <Alert variant="error">{msg}</Alert>}
         </div>
@@ -335,9 +360,7 @@ export default function JobsPage() {
           <div className="text-xs text-gray-600">
             Target branch:{' '}
             <span className="font-medium">
-              {branchId === 'all'
-                ? 'Unassigned (select a branch in header to set)'
-                : 'Selected branch'}
+              {branchId === 'all' ? 'Unassigned (set branch above)' : 'Selected branch'}
             </span>
           </div>
         </div>
@@ -354,10 +377,13 @@ export default function JobsPage() {
             if (!location && address) setLocation(address);
           }}
         />
+        </Card>
+      )}
+      <Card title="Pipeline">
+        <PipelineBoard
+          branchId={branchId === 'all' ? null : (branchId as string)}
+        />
       </Card>
-      <PipelineBoard
-        branchId={branchId === 'all' ? null : (branchId as string)}
-      />
     </div>
   );
 }
