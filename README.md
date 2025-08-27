@@ -22,14 +22,14 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
   - Separate English/Malayalam templates via language selector; files saved with -en/-ml suffix
 - Scheduling: Vercel Cron → POST /api/cron/daily
 - Messaging: WhatsApp Cloud API
-- Tests: Vitest (unit), Playwright (smoke)
+- Tests: Vitest (unit)
 - Lint/Format: ESLint + Prettier
 
 ## CI/CD
 
 - GitHub Actions
   - Unit tests: `.github/workflows/unit.yml` (Node 20, `npm ci`, `npm run lint`, `npm run test:unit`).
-  - E2E tests: `.github/workflows/e2e.yml` (builds app, installs Playwright, runs `playwright test` with mock backend and starts server via `next start`). Artifacts uploaded: `playwright-report/` and `test-results/`.
+  - CI runs unit tests on push and PRs.
   - Deploy: `.github/workflows/deploy.yml` (optional). If the following repo secrets are set, pushes to `main` deploy to Vercel production and Pull Requests get preview deployments:
     - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
   - Workflows use concurrency to cancel superseded runs per branch.
@@ -37,7 +37,7 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
 Note: Never commit a `.env`. Use `.env.example` as the source of truth for required variables and keep secrets only in your local `.env` or CI secrets.
 
 - Pre-commit hook
-  - `.githooks/pre-commit` runs Prettier check, ESLint on staged files, and unit tests only (Vitest). It avoids running Playwright under Vitest.
+- `.githooks/pre-commit` runs Prettier check, ESLint on staged files, and unit tests (Vitest).
   - Ensure Git uses repo hooks: `git config core.hookspath .githooks` (already set in this repo).
 
 ## Monorepo Layout
@@ -112,7 +112,7 @@ Magic-link login uses these values. If not set, links may redirect to `http://lo
 
 ### Mock Mode and Demo UI
 
-For local demos and E2E, a mock in-memory backend can be enabled.
+For local demos, a mock in-memory backend can be enabled.
 
 - `NEXT_PUBLIC_E2E_MOCK=1`: enable mock backend (no network calls).
 - `NEXT_PUBLIC_DEMO_UI=1`: show “Demo quick sign-in” buttons on `/auth/signin`.
@@ -256,7 +256,7 @@ Templates expected:
 ## Testing
 
 - Unit: `pnpm test` – checks PDF HTML generator
-- E2E: `pnpm test:e2e` – basic smoke that root redirects to `/jobs`
+  
 
 ### Manual QA Checklist
 
