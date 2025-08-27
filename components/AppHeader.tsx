@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useEffect, useState } from 'react';
-import { Menu, X, Sun, Moon, Search, Plus } from 'lucide-react';
+import { Menu, X, Sun, Moon, Search, Plus, Bell } from 'lucide-react';
 import BranchSelect from '~/components/BranchSelect';
 
 const links = [
@@ -31,6 +31,9 @@ export default function AppHeader() {
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [dueLeadsCount, setDueLeadsCount] = useState(0);
+  const [overdueInvCount, setOverdueInvCount] = useState(0);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -62,6 +65,30 @@ export default function AppHeader() {
       }
     });
   }, []);
+
+  // Lightweight notifications: leads due today + overdue invoices
+  useEffect(() => {
+    (async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        let lq = supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('next_follow_up_date', today)
+          .neq('status', 'Closed');
+        if (branchValue !== 'all') lq = lq.eq('branch_id', branchValue as string);
+        const { count: c1 } = await lq;
+        setDueLeadsCount(c1 || 0);
+
+        const { count: c2 } = await supabase
+          .from('invoices')
+          .select('id', { count: 'exact', head: true })
+          .lt('due_date', today)
+          .neq('status', 'Paid');
+        setOverdueInvCount(c2 || 0);
+      } catch {}
+    })();
+  }, [branchValue]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -145,6 +172,40 @@ export default function AppHeader() {
             <button
               type="button"
               aria-haspopup="menu"
+              aria-expanded={notifOpen}
+              onClick={() => setNotifOpen((v) => !v)}
+              className="relative rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              title="Notifications"
+            >
+              <Bell size={16} />
+              {(dueLeadsCount + overdueInvCount) > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 inline-block h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </button>
+            {notifOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-60 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+              >
+                <div className="flex items-center justify-between px-2 py-1 text-sm">
+                  <span className="text-gray-700 dark:text-gray-200">Leads due today</span>
+                  <span className={dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'}>{dueLeadsCount}</span>
+                </div>
+                <div className="flex items-center justify-between px-2 py-1 text-sm">
+                  <span className="text-gray-700 dark:text-gray-200">Overdue invoices</span>
+                  <span className={overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'}>{overdueInvCount}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2 px-2">
+                  <a className="text-blue-600 text-sm" href="/leads">Open Leads</a>
+                  <a className="text-blue-600 text-sm" href="/jobs?tab=finance">Finance</a>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              aria-haspopup="menu"
               aria-expanded={createOpen}
               onClick={() => setCreateOpen((v) => !v)}
               className="rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 flex items-center gap-1"
@@ -203,6 +264,29 @@ export default function AppHeader() {
                   role="menu"
                   className="absolute right-0 mt-2 w-56 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
                 >
+                  {tenantId && (
+                    <div className="mb-2">
+                      <div className="px-2 pb-1 text-xs text-gray-500">Branch</div>
+                      <BranchSelect
+                        value={branchValue}
+                        onChange={(v) => {
+                          setBranchValue(v);
+                          try {
+                            if (tenantId)
+                              localStorage.setItem(
+                                `pref:branch:${tenantId}`,
+                                String(v),
+                              );
+                          } catch {}
+                          window.dispatchEvent(
+                            new CustomEvent('branch-change', { detail: { value: v } }),
+                          );
+                        }}
+                        includeAll
+                        allLabel="All"
+                      />
+                    </div>
+                  )}
                   <div className="px-2 py-1 text-xs text-gray-500">Signed in</div>
                   <div className="truncate px-2 pb-2 text-sm text-gray-700 dark:text-gray-300">
                     {email}
@@ -230,7 +314,7 @@ export default function AppHeader() {
         </div>
       </div>
       {open && (
-        <div className="mx-auto max-w-6xl px-4 pb-3 md:hidden">
+        <div className="mx-auto max-w-7xl px-4 pb-3 md:hidden">
           <div className="flex flex-wrap gap-3">
             {links.map((l) => {
               const active = pathname.startsWith(l.href);
@@ -250,22 +334,32 @@ export default function AppHeader() {
                 </Link>
               );
             })}
-            <button
-              className="rounded border px-2 py-1 text-sm"
-              onClick={() => {
-                setOpen(false);
-                window.dispatchEvent(new Event('open-cmdk'));
-              }}
-            >
-              Search…
-            </button>
-            <Link
-              href="/proposals/new"
-              className="rounded border px-2 py-1 text-sm"
-              onClick={() => setOpen(false)}
-            >
-              New Proposal
-            </Link>
+            <div className="flex w-full flex-wrap gap-2">
+              <button
+                className="rounded border px-2 py-1 text-sm"
+                onClick={() => {
+                  setOpen(false);
+                  window.dispatchEvent(new Event('open-cmdk'));
+                }}
+              >
+                Search…
+              </button>
+              {[
+                { label: 'Lead', href: '/leads' },
+                { label: 'Customer', href: '/customers' },
+                { label: 'Job', href: '/jobs' },
+                { label: 'Proposal', href: '/proposals/new' },
+              ].map((it) => (
+                <Link
+                  key={it.label}
+                  href={it.href}
+                  className="rounded border px-2 py-1 text-sm"
+                  onClick={() => setOpen(false)}
+                >
+                  New {it.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
