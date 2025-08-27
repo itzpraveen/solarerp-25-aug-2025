@@ -197,8 +197,12 @@ export async function POST(req: NextRequest) {
     try {
       const ld = process.env.LD_LIBRARY_PATH || '';
       const extraParts = [
+        // Paths where @sparticuz/chromium inflates assets on serverless platforms
         '/tmp',
         '/tmp/swiftshader',
+        // Newer @sparticuz/chromium (v127+) inflates platform libs here
+        '/tmp/al2/lib',
+        '/tmp/al2023/lib',
         // When using chromium-min pack, libs may live here
         '/tmp/chromium-pack',
         '/tmp/chromium-pack/lib',
@@ -207,7 +211,7 @@ export async function POST(req: NextRequest) {
         '/opt/chromium',
         '/opt/chromium/lib',
         '/opt/chromium/swiftshader',
-        // Vercel: bundled libs inside node_modules
+        // Vercel: bundled libs inside node_modules (older packaging)
         '/var/task/node_modules/@sparticuz/chromium/lib',
         '/var/task/node_modules/@sparticuz/chromium/swiftshader',
       ];
@@ -216,14 +220,20 @@ export async function POST(req: NextRequest) {
       // Helpful defaults for font/config caches in ephemeral fs
       if (!process.env.XDG_CACHE_HOME) process.env.XDG_CACHE_HOME = '/tmp';
       if (!process.env.FONTCONFIG_PATH) process.env.FONTCONFIG_PATH = '/tmp';
+      if (!process.env.HOME) process.env.HOME = '/tmp';
     } catch {}
 
     const executablePath = await resolveExecutablePath();
     try {
       if (process.env.LOG_PDF_DEBUG === '1') {
         console.log('api/pdf/invoice execPath', executablePath);
+        console.log('api/pdf/invoice LD_LIBRARY_PATH', process.env.LD_LIBRARY_PATH);
         // Surface whether expected lib paths exist at runtime
         const checks = [
+          // Newer @sparticuz/chromium inflates NSS libs here
+          '/tmp/al2/lib/libnss3.so',
+          '/tmp/al2023/lib/libnss3.so',
+          // Legacy/custom pack locations
           '/tmp/libnss3.so',
           '/tmp/chromium-pack/libnss3.so',
           '/tmp/chromium-pack/aws/libnss3.so',
