@@ -6,6 +6,8 @@ import Input from '~/components/ui/Input';
 import { isEmail, isPhone, required } from '@/lib/validation';
 import Card from '~/components/ui/Card';
 import EmptyState from '~/components/ui/EmptyState';
+import DataTable, { type Column } from '~/components/ui/DataTable';
+import { useToast } from '~/components/ui/ToastProvider';
 
 export default function CustomersPage() {
   const supabase = supabaseBrowser();
@@ -17,6 +19,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const load = async () => {
     const { data } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
@@ -31,7 +34,7 @@ export default function CustomersPage() {
     if (phone && !isPhone(phone)) return setErr('Invalid phone');
     setAdding(true);
     const { data: prof, error: pErr } = await supabase.from('profiles').select('tenant_id').maybeSingle();
-    if (pErr || !prof?.tenant_id) { setAdding(false); return setErr('Profile not ready'); }
+    if (pErr || !prof?.tenant_id) { setAdding(false); setErr('Profile not ready'); toast({ title: 'Profile not ready', variant: 'error' }); return; }
     // duplicate phone check within tenant
     if (phone) {
       const { data: dup } = await supabase.from('customers').select('id').eq('tenant_id', prof.tenant_id).eq('phone', phone).maybeSingle();
@@ -39,8 +42,9 @@ export default function CustomersPage() {
     }
     const { error } = await supabase.from('customers').insert({ tenant_id: prof!.tenant_id, name, phone: phone || null, email: email || null, address: address || null });
     setAdding(false);
-    if (error) return setErr(error.message);
+    if (error) { setErr(error.message); toast({ title: 'Add failed', description: error.message, variant: 'error' }); return; }
     setName(''); setPhone(''); setEmail(''); setAddress('');
+    toast({ title: 'Customer added', variant: 'success' });
     load();
   };
 
@@ -70,17 +74,18 @@ export default function CustomersPage() {
       {customers.length === 0 ? (
         <EmptyState title="No customers yet" description="Add a customer to start creating jobs and proposals." action={<Button onClick={add} disabled={!name}>Quick add</Button>} />
       ) : (
-        <ul className="space-y-2">
-          {customers.filter((c) => !search || `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(search.toLowerCase())).map((c) => (
-            <li key={c.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
-              <div>
-                <div className="font-medium">{c.name || '—'}</div>
-                <div className="text-gray-600">{c.phone || '—'}</div>
-              </div>
+        <DataTable
+          rows={customers.filter((c) => !search || `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(search.toLowerCase()))}
+          columns={[
+            { key: 'name', header: 'Name' },
+            { key: 'phone', header: 'Phone' },
+            { key: 'email', header: 'Email' },
+            { key: 'address', header: 'Address' },
+            { key: 'actions', header: 'Actions', render: (c: any) => (
               <a href={`/customers/${c.id}`} className="text-blue-600">Open</a>
-            </li>
-          ))}
-        </ul>
+            ) },
+          ] as Column<any>[]}
+        />
       )}
     </div>
   );

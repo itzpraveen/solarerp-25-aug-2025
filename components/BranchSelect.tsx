@@ -11,14 +11,17 @@ export default function BranchSelect({
   includeAll = true,
   allLabel = 'All branches',
   className,
+  persist = true,
 }: {
   value: string | 'all';
   onChange: (val: string | 'all') => void;
   includeAll?: boolean;
   allLabel?: string;
   className?: string;
+  persist?: boolean;
 }) {
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const supabase = supabaseBrowser();
 
   useEffect(() => {
@@ -29,15 +32,36 @@ export default function BranchSelect({
         .from('profiles')
         .select('tenant_id')
         .maybeSingle();
-      if (!prof?.tenant_id) return;
+      const tId = (prof as any)?.tenant_id as string | undefined;
+      if (!tId) return;
+      setTenantId(tId);
       const { data } = await supabase
         .from('branches')
         .select('id,name')
-        .eq('tenant_id', (prof as any).tenant_id)
+        .eq('tenant_id', tId)
         .order('name', { ascending: true });
-      setBranches(((data as any[]) || []).map((b) => ({ id: b.id, name: b.name })));
+      const rows = ((data as any[]) || []).map((b) => ({ id: b.id, name: b.name }));
+      setBranches(rows);
+      // Apply persisted selection on first load
+      if (persist) {
+        try {
+          const key = `pref:branch:${tId}`;
+          const saved = localStorage.getItem(key) as string | null;
+          if (saved && (saved === 'all' ? includeAll : rows.some((r) => r.id === saved))) {
+            onChange(saved as any);
+          }
+        } catch {}
+      }
     })();
-  }, []);
+  }, [persist, includeAll]);
+
+  // Persist whenever value changes
+  useEffect(() => {
+    if (!persist || !tenantId) return;
+    try {
+      localStorage.setItem(`pref:branch:${tenantId}`, String(value));
+    } catch {}
+  }, [value, persist, tenantId]);
 
   return (
     <Select className={className} value={value} onChange={(e) => onChange(e.target.value as any)}>
@@ -50,4 +74,3 @@ export default function BranchSelect({
     </Select>
   );
 }
-
