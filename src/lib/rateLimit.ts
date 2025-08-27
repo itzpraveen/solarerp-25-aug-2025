@@ -24,3 +24,17 @@ export function ipFromHeaders(headers: Headers) {
   // First IP in the list
   return fwd.split(',')[0].trim() || 'unknown';
 }
+
+// Convenience wrapper to rate-limit a request by client IP with a route prefix.
+// Returns { ok, remaining, resetAt } similar to takeToken() and the derived ip.
+export function limitByIp(
+  headers: Headers,
+  prefix: string,
+  limit: number,
+  windowMs: number,
+) {
+  const ip = ipFromHeaders(headers);
+  const key = `${prefix}:${ip}`;
+  const res = takeToken(key, limit, windowMs);
+  return { ...res, ip };
+}

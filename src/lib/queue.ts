@@ -1,6 +1,6 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
-import { getBaseUrl } from '@/lib/baseUrl';
+import { env } from '@/lib/env';
 
 export type BackgroundJob = {
   id: string;
@@ -47,12 +47,39 @@ export async function processDueJobs() {
       switch (job.type) {
         case 'whatsapp_template': {
           const { to, templateName, variables } = job.payload || {};
-          const base = getBaseUrl();
-          await fetch(`${base}/api/whatsapp/send`, {
+          // Send directly to WhatsApp Graph API using server credentials
+          const token = env.whatsappToken;
+          const phoneId = env.whatsappPhoneId;
+          const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+          const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to, templateName, variables }),
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to,
+              type: 'template',
+              template: {
+                name: templateName,
+                language: { code: 'en' },
+                components: [
+                  {
+                    type: 'body',
+                    parameters: (variables || []).map((v: string) => ({
+                      type: 'text',
+                      text: v,
+                    })),
+                  },
+                ],
+              },
+            }),
           });
+          if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(`WA send failed: ${res.status} ${txt}`);
+          }
           break;
         }
         case 'create_followup_task': {

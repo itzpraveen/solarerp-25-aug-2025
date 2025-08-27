@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
+import { limitByIp } from '@/lib/rateLimit';
 
 const BodySchema = z.object({
   userId: z.string().uuid(),
@@ -10,6 +11,14 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Apply per-IP rate limit: up to 60 requests/minute for this endpoint
+    const { ok } = limitByIp(req.headers, 'team:member', 60, 60_000);
+    if (!ok)
+      return NextResponse.json(
+        { ok: false, error: 'Rate limit exceeded' },
+        { status: 429 },
+      );
+
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     if (!sb)
       return NextResponse.json(
