@@ -12,7 +12,7 @@ test.describe('RBAC mock flows', () => {
     // Staff should see forbidden message on settings
     await page.goto('/settings');
     await expect(
-      page.getByText('Only owners can view and edit settings.'),
+      page.getByText('Only Owner/Admin can view and edit settings.'),
     ).toBeVisible();
 
     // Now sign in as owner

@@ -267,7 +267,7 @@ export default function SettingsPage() {
     <RequireOwner
       fallback={
         <div className="rounded border bg-white p-4 text-sm text-gray-600">
-          Only admins can view and edit settings.
+          Only Owner/Admin can view and edit settings.
         </div>
       }
     >
