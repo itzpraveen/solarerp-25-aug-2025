@@ -3,7 +3,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Ensure enough time on Vercel
 
-import { renderLongInvoiceHtml, LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
+import {
+  renderLongInvoiceHtml,
+  LongInvoiceData,
+} from '@/lib/renderLongInvoiceHtml';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import fs from 'node:fs';
@@ -19,20 +22,46 @@ export async function POST(req: NextRequest) {
   try {
     // Basic rate limit: 5/min per IP (configurable). Best-effort, single-instance only.
     const ip = ipFromHeaders(req.headers);
-    const { ok, remaining } = takeToken(`pdf:${ip}`, Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5), 60_000);
-    if (!ok) return NextResponse.json({ ok: false, error: 'Rate limit exceeded. Please try later.' }, { status: 429 });
+    const { ok, remaining } = takeToken(
+      `pdf:${ip}`,
+      Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5),
+      60_000,
+    );
+    if (!ok)
+      return NextResponse.json(
+        { ok: false, error: 'Rate limit exceeded. Please try later.' },
+        { status: 429 },
+      );
 
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     // In mock mode, sb will be a mock client even without Authorization
-    if (!sb) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    if (!sb)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
 
     const parsed = BodySchema.safeParse(await req.json());
-    if (!parsed.success) return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
-    const { tenantId, pathKey, payload } = parsed.data as { tenantId: string; pathKey?: string; payload: LongInvoiceData };
+    if (!parsed.success)
+      return NextResponse.json(
+        { ok: false, error: 'Invalid payload' },
+        { status: 400 },
+      );
+    const { tenantId, pathKey, payload } = parsed.data as {
+      tenantId: string;
+      pathKey?: string;
+      payload: LongInvoiceData;
+    };
     // Ensure the caller belongs to the same tenantId
-    const { data: me } = await sb.from('profiles').select('tenant_id').maybeSingle();
+    const { data: me } = await sb
+      .from('profiles')
+      .select('tenant_id')
+      .maybeSingle();
     if (!me || (me as any).tenant_id !== tenantId) {
-      return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
     }
 
     // Helper: sanitize filename
@@ -42,12 +71,22 @@ export async function POST(req: NextRequest) {
         .replace(/[^A-Za-z0-9_\-]/g, '_');
 
     // Short-circuit in mock mode: return a fake signed URL without rendering
-    if (process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1') {
+    if (
+      process.env.NEXT_PUBLIC_E2E_MOCK === '1' ||
+      process.env.E2E_MOCK === '1'
+    ) {
       const lang = (payload as any)?.lang === 'ml' ? 'ml' : 'en';
       const safeQuote = sanitize((payload as any).meta.quoteNo || 'quote');
       const key = `${tenantId}/${safeQuote}-${lang}.pdf`;
-      await sb.storage.from('documents').upload(key, new Uint8Array(), { contentType: 'application/pdf', upsert: true } as any);
-      const { data: signed } = await sb.storage.from('documents').createSignedUrl(key, 60 * 60 * 24 * 7);
+      await sb.storage
+        .from('documents')
+        .upload(key, new Uint8Array(), {
+          contentType: 'application/pdf',
+          upsert: true,
+        } as any);
+      const { data: signed } = await sb.storage
+        .from('documents')
+        .createSignedUrl(key, 60 * 60 * 24 * 7);
       return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
     }
 
@@ -60,25 +99,37 @@ export async function POST(req: NextRequest) {
     let chromiumMin: null | (() => Promise<any>) = null;
     let puppeteer: any = null;
     try {
-      chromium = await import('@sparticuz/chromium').then((m) => m.default || (m as any));
+      chromium = await import('@sparticuz/chromium').then(
+        (m) => m.default || (m as any),
+      );
       try {
         (chromium as any).setHeadlessMode = true;
         (chromium as any).setGraphicsMode = false;
       } catch {}
-      chromiumMin = async () => await import('@sparticuz/chromium-min').then((m) => m.default || (m as any));
+      chromiumMin = async () =>
+        await import('@sparticuz/chromium-min').then(
+          (m) => m.default || (m as any),
+        );
     } catch (e) {
       // Module may be excluded locally; continue with other strategies
       chromium = null;
       chromiumMin = null;
     }
     try {
-      puppeteer = await import('puppeteer-core').then((m) => m.default || (m as any));
+      puppeteer = await import('puppeteer-core').then(
+        (m) => m.default || (m as any),
+      );
     } catch {}
     async function resolveExecutablePath() {
-      const debug: any = { envCandidates: [] as string[], localCandidates: [] as string[], isServerless };
+      const debug: any = {
+        envCandidates: [] as string[],
+        localCandidates: [] as string[],
+        isServerless,
+      };
       // 0) If remote pack URL is provided, use -min to fetch+extract pack on demand (preferred when set)
       try {
-        const pack = process.env.CHROMIUM_PACK_URL || process.env.CHROMIUM_MIN_PACK_URL;
+        const pack =
+          process.env.CHROMIUM_PACK_URL || process.env.CHROMIUM_MIN_PACK_URL;
         if (pack && chromiumMin) {
           const cmin: any = await chromiumMin();
           const p: string | null = await cmin.executablePath(pack);
@@ -105,7 +156,9 @@ export async function POST(req: NextRequest) {
       ].filter(Boolean) as string[];
       debug.envCandidates = envCandidates;
       for (const p of envCandidates) {
-        try { if (p && fs.existsSync(p)) return p; } catch {}
+        try {
+          if (p && fs.existsSync(p)) return p;
+        } catch {}
       }
 
       // 3) Try common local Chrome/Chromium paths (dev workstations)
@@ -119,11 +172,16 @@ export async function POST(req: NextRequest) {
       ];
       debug.localCandidates = localCandidates;
       for (const p of localCandidates) {
-        try { if (fs.existsSync(p)) return p; } catch {}
+        try {
+          if (fs.existsSync(p)) return p;
+        } catch {}
       }
 
       // 4) Final fallback: try chromium helper again
-      try { const p = await chromium.executablePath(); if (p) return p; } catch {}
+      try {
+        const p = await chromium.executablePath();
+        if (p) return p;
+      } catch {}
       // Log for debugging on server
       console.error('api/pdf/invoice chrome-resolve-failed', debug);
       return null;
@@ -137,10 +195,15 @@ export async function POST(req: NextRequest) {
         '/tmp/swiftshader',
         // When using chromium-min pack, libs may live here
         '/tmp/chromium-pack',
+        '/tmp/chromium-pack/lib',
         '/tmp/chromium-pack/swiftshader',
         // Common AWS Lambda layer paths
         '/opt/chromium',
+        '/opt/chromium/lib',
         '/opt/chromium/swiftshader',
+        // Vercel: bundled libs inside node_modules
+        '/var/task/node_modules/@sparticuz/chromium/lib',
+        '/var/task/node_modules/@sparticuz/chromium/swiftshader',
       ];
       const extra = Array.from(new Set(extraParts.filter(Boolean))).join(':');
       process.env.LD_LIBRARY_PATH = ld ? `${extra}:${ld}` : extra;
@@ -161,11 +224,15 @@ export async function POST(req: NextRequest) {
         '/opt/chromium/libnss3.so',
         '/opt/chromium/lib/libnss3.so',
       ];
-      console.log('api/pdf/invoice lib checks', Object.fromEntries(checks.map(p => [p, fs.existsSync(p)])));
+      console.log(
+        'api/pdf/invoice lib checks',
+        Object.fromEntries(checks.map((p) => [p, fs.existsSync(p)])),
+      );
     } catch {}
     try {
       process.env.CHROME_PATH = executablePath || process.env.CHROME_PATH || '';
-      process.env.PUPPETEER_EXECUTABLE_PATH = executablePath || process.env.PUPPETEER_EXECUTABLE_PATH || '';
+      process.env.PUPPETEER_EXECUTABLE_PATH =
+        executablePath || process.env.PUPPETEER_EXECUTABLE_PATH || '';
     } catch {}
     if (!executablePath) {
       const id = Math.random().toString(36).slice(2, 10);
@@ -175,8 +242,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: 'Chrome/Chromium executable not found',
           id,
-          hint:
-            'Install Google Chrome locally or set PUPPETEER_EXECUTABLE_PATH/CHROME_PATH. On Vercel, ensure @sparticuz/chromium is bundled and optionally set PUPPETEER_EXECUTABLE_PATH=/var/task/node_modules/@sparticuz/chromium/bin/chromium. For dev without Chrome, set NEXT_PUBLIC_E2E_MOCK=1.',
+          hint: 'Install Google Chrome locally or set PUPPETEER_EXECUTABLE_PATH/CHROME_PATH. On Vercel, ensure @sparticuz/chromium is bundled and optionally set PUPPETEER_EXECUTABLE_PATH=/var/task/node_modules/@sparticuz/chromium/bin/chromium. For dev without Chrome, set NEXT_PUBLIC_E2E_MOCK=1.',
         },
         { status: 500 },
       );
@@ -184,11 +250,22 @@ export async function POST(req: NextRequest) {
 
     // Use chromium args universally for broader compatibility; local Chrome ignores unknown flags
     // Prefer chromium's defaults for serverless envs
-    const launchEnv = { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH };
+    const launchEnv = {
+      ...process.env,
+      LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH,
+    };
     const pptr = puppeteer;
     if (!pptr) {
       const id = Math.random().toString(36).slice(2, 10);
-      return NextResponse.json({ ok: false, error: 'Puppeteer not available', id, hint: 'Ensure puppeteer-core or puppeteer is installed' }, { status: 500 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Puppeteer not available',
+          id,
+          hint: 'Ensure puppeteer-core or puppeteer is installed',
+        },
+        { status: 500 },
+      );
     }
     const browser = await pptr.launch({
       args: [
@@ -219,7 +296,10 @@ export async function POST(req: NextRequest) {
         return req.continue();
       });
     } catch {}
-    await page.goto(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`, { waitUntil: 'networkidle0', timeout: 20_000 });
+    await page.goto(
+      `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
+      { waitUntil: 'networkidle0', timeout: 20_000 },
+    );
     await page.emulateMediaType('screen');
 
     const pdf = await page.pdf({
@@ -240,7 +320,12 @@ export async function POST(req: NextRequest) {
     });
     if (error) {
       const id = Math.random().toString(36).slice(2, 10);
-      console.error('api/pdf/invoice upload-failed', { id, tenantId, key, error });
+      console.error('api/pdf/invoice upload-failed', {
+        id,
+        tenantId,
+        key,
+        error,
+      });
       return NextResponse.json(
         {
           ok: false,
