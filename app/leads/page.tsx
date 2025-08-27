@@ -672,20 +672,7 @@ export default function LeadsPage() {
                             >
                               Convert
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="ml-2"
-                              onClick={async () => {
-                                await supabase
-                                  .from('leads')
-                                  .update({ last_contacted_at: todayStr })
-                                  .eq('id', l.id);
-                                load();
-                              }}
-                            >
-                              Followed up
-                            </Button>
+                            {/* Removed 'Followed up' button to reduce clutter */}
                             {l.phone && (
                               <a
                                 href={`https://wa.me/${String(l.phone).replace(/\D+/g,'')}`}
