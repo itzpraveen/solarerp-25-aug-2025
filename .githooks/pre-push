@@ -24,7 +24,12 @@ E2E_FULL_CI=${E2E_FULL_CI:-$E2E_FULL_CI_DEFAULT}
 
 if [[ "$E2E_FULL_CI" == "1" ]]; then
   echo "[pre-push] Building production app for CI-like run…"
-  NEXT_TELEMETRY_DISABLED=1 npm run -s build
+  NEXT_TELEMETRY_DISABLED=1 \
+  NEXT_PUBLIC_E2E_MOCK=1 \
+  NEXT_PUBLIC_SUPABASE_URL=http://localhost \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=anon \
+  SUPABASE_SERVICE_ROLE_KEY=service \
+  npm run -s build
   echo "[pre-push] Running Playwright in CI mode (may include Firefox/WebKit)…"
   CI=1 npm run -s test:e2e
 else
@@ -33,4 +38,3 @@ else
 fi
 
 echo "[pre-push] E2E checks passed. Proceeding with push."
-
