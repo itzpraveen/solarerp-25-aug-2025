@@ -26,6 +26,19 @@ Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Ne
 - Tests: Vitest (unit), Playwright (smoke)
 - Lint/Format: ESLint + Prettier
 
+## CI/CD
+
+- GitHub Actions
+  - Unit tests: `.github/workflows/unit.yml` (Node 20, `npm ci`, `npm run lint`, `npm run test:unit`).
+  - E2E tests: `.github/workflows/e2e.yml` (builds app, installs Playwright, runs `playwright test` with mock backend and starts server via `next start`). Artifacts uploaded: `playwright-report/` and `test-results/`.
+  - Deploy: `.github/workflows/deploy.yml` (optional). If the following repo secrets are set, pushes to `main` deploy to Vercel production and Pull Requests get preview deployments:
+    - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+  - Workflows use concurrency to cancel superseded runs per branch.
+
+- Pre-commit hook
+  - `.githooks/pre-commit` runs Prettier check, ESLint on staged files, and unit tests only (Vitest). It avoids running Playwright under Vitest.
+  - Ensure Git uses repo hooks: `git config core.hookspath .githooks` (already set in this repo).
+
 ## Monorepo Layout
 
 - `app/` – Next.js App Router (pages + API routes)
