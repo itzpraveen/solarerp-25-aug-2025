@@ -147,6 +147,14 @@ Migrations:
 
 Vercel function runtime: configured via `vercel.json` to use 1024MB/60s for the PDF route.
 
+### Troubleshooting PDF generation
+
+- Local dev: install Google Chrome and set `PUPPETEER_EXECUTABLE_PATH` (or `CHROME_PATH`) to the Chrome binary. Alternatively, install `puppeteer` to allow a bundled Chromium in dev.
+- Serverless (Vercel/AWS): keep `@sparticuz/chromium` as a dependency. Optionally set `PUPPETEER_EXECUTABLE_PATH=/var/task/node_modules/@sparticuz/chromium/bin/chromium`.
+- Prebuilt Chromium: host a tarball and set `CHROMIUM_PACK_URL` (or `CHROMIUM_MIN_PACK_URL`) to its URL.
+- Malayalam fonts: set `NEXT_PUBLIC_ML_FONT_URL` to a TTF served by your app or set `PDF_ML_FONT_BASE64`.
+- If errors occur, the API responds with `{ ok: false, id, cause }`. For local flows/tests, set `NEXT_PUBLIC_E2E_MOCK=1` to bypass real rendering.
+
 ### Example Payload (for quick test)
 
 POST `http://localhost:3000/api/pdf/invoice`
