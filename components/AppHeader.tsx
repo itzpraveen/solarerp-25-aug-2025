@@ -34,34 +34,40 @@ export default function AppHeader() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [dueLeadsCount, setDueLeadsCount] = useState(0);
   const [overdueInvCount, setOverdueInvCount] = useState(0);
+  const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       setEmail(data.user?.email ?? null);
-      if (data.user?.id) {
+      const uid = data.user?.id;
+      setAuthed(!!uid);
+      if (uid) {
         const { data: prof } = await supabase
           .from('profiles')
           .select('role')
-          .eq('user_id', data.user.id)
+          .eq('user_id', uid)
           .single();
         setRole((prof as any)?.role ?? null);
       } else {
         setRole(null);
       }
       // Initialize tenant and saved branch
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .maybeSingle();
-      const tId = (prof as any)?.tenant_id as string | undefined;
-      if (tId) {
-        setTenantId(tId);
-        try {
-          const saved = localStorage.getItem(`pref:branch:${tId}`) as
-            | string
-            | null;
-          if (saved) setBranchValue(saved as any);
-        } catch {}
+      if (uid) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', uid)
+          .maybeSingle();
+        const tId = (prof as any)?.tenant_id as string | undefined;
+        if (tId) {
+          setTenantId(tId);
+          try {
+            const saved = localStorage.getItem(`pref:branch:${tId}`) as
+              | string
+              | null;
+            if (saved) setBranchValue(saved as any);
+          } catch {}
+        }
       }
     });
   }, []);
@@ -69,6 +75,7 @@ export default function AppHeader() {
   // Lightweight notifications: leads due today + overdue invoices
   useEffect(() => {
     (async () => {
+      if (!authed) return;
       try {
         const today = new Date().toISOString().slice(0, 10);
         let lq = supabase
@@ -88,7 +95,7 @@ export default function AppHeader() {
         setOverdueInvCount(c2 || 0);
       } catch {}
     })();
-  }, [branchValue]);
+  }, [branchValue, authed]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

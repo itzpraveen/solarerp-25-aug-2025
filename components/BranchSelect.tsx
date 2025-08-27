@@ -28,9 +28,11 @@ export default function BranchSelect({
     (async () => {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session) return;
+      const uid = session.session.user.id;
       const { data: prof } = await supabase
         .from('profiles')
         .select('tenant_id')
+        .eq('user_id', uid)
         .maybeSingle();
       const tId = (prof as any)?.tenant_id as string | undefined;
       if (!tId) return;
