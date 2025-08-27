@@ -17,7 +17,7 @@
 - `npm run lint` / `npm run format`: ESLint / Prettier.
 - `npm run db:generate`: Generate Drizzle migrations to `drizzle/` from `src/db/schema.ts`.
 - `npm run db:migrate`: Push migrations (requires `DATABASE_URL`). `npm run db:studio`: schema browser.
-- `npm run seed`: Demo data. `npm run doctor`: build/start/probe and save logs.
+- Minimal scripts: `npm run dev`, `build`, `start`, `lint`, `format`, `test`, `db:*`.
 
 ## Coding Style & Naming Conventions
 

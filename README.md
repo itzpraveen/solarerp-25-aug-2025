@@ -86,21 +86,11 @@ Use Supabase SQL Editor or Drizzle push:
 
 On first login, the app auto-creates a `tenant`, `profile`, and default `settings` for your user.
 
-### Demo Data (optional)
+### Scripts
 
-To quickly populate realistic demo data:
+Kept minimal for clarity:
 
-- Minimal: `npm run seed` – adds one customer/job/proposal/invoice
-- Seed demo data: `npm run seed` – seeds items, kits, customers, example jobs and related data.
-  - Includes Kerala kit templates:
-    - On‑grid: 1/2/3/4/5/6/8/10 kW (prefilled BoQ and CT‑meter rule; env‑tunable)
-    - Hybrid: 3/5 kW with LFP storage
-    - Off‑grid: 3/5 kW with MPPT + LFP storage
-  - You can tune seeding heuristics via env:
-    - `SEED_CT_METER_KW` (default 8) – kW threshold to include CT meter
-    - `SEED_CABLE_M_PER_KW` (default 10) – DC cable meters per kW
-
-Both require env vars: `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. You can optionally pass `SEED_TENANT_ID` to seed into an existing tenant.
+- `dev`, `build`, `start`, `lint`, `format`, `test`, and `db:*`
 
 Verify server is healthy: `GET /api/health` should return `{ ok: true }`.
 
