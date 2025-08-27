@@ -29,28 +29,44 @@ export default function SignIn() {
       } = await supabase.auth.getSession();
       if (session?.user) {
         const token = session.access_token;
-        await fetch('/api/auth/ensureProfile', {
+        const res = await fetch('/api/auth/ensureProfile', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         });
-        router.replace('/jobs');
+        if (res.ok) router.replace('/jobs');
+        else {
+          const msg =
+            res.status === 403
+              ? 'Invite required. Ask your admin to add you to their tenant.'
+              : 'Sign-in error. Please try again.';
+          setMessage(msg);
+          await supabase.auth.signOut();
+        }
       }
     })();
     const { data: sub } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
           const token = session.access_token;
-          await fetch('/api/auth/ensureProfile', {
+          const res = await fetch('/api/auth/ensureProfile', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
           });
-          router.replace('/jobs');
+          if (res.ok) router.replace('/jobs');
+          else {
+            const msg =
+              res.status === 403
+                ? 'Invite required. Ask your admin to add you to their tenant.'
+                : 'Sign-in error. Please try again.';
+            setMessage(msg);
+            await supabase.auth.signOut();
+          }
         }
       },
     );
@@ -61,12 +77,13 @@ export default function SignIn() {
     setLoading(true);
     setMessage(null);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const allowSelf = process.env.NEXT_PUBLIC_ALLOW_SELF_SIGNUP === '1';
     const { error } = await supabase!.auth.signInWithOtp({
       email,
       options: {
         // Ensure magic link lands back on this app in any environment
         emailRedirectTo: origin ? `${origin}/auth/signin` : undefined,
-        shouldCreateUser: true,
+        shouldCreateUser: !!allowSelf,
       },
     });
     setLoading(false);
