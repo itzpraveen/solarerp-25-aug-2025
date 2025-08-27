@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
@@ -44,12 +44,17 @@ export default function AppHeader() {
         setRole(null);
       }
       // Initialize tenant and saved branch
-      const { data: prof } = await supabase.from('profiles').select('tenant_id').maybeSingle();
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .maybeSingle();
       const tId = (prof as any)?.tenant_id as string | undefined;
       if (tId) {
         setTenantId(tId);
         try {
-          const saved = localStorage.getItem(`pref:branch:${tId}`) as string | null;
+          const saved = localStorage.getItem(`pref:branch:${tId}`) as
+            | string
+            | null;
           if (saved) setBranchValue(saved as any);
         } catch {}
       }
@@ -65,7 +70,9 @@ export default function AppHeader() {
     // Initialize theme from storage or system
     try {
       const stored = localStorage.getItem('theme') as 'light' | 'dark' | null;
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const prefersDark = window.matchMedia(
+        '(prefers-color-scheme: dark)',
+      ).matches;
       const initial = stored || (prefersDark ? 'dark' : 'light');
       setTheme(initial);
       document.documentElement.classList.toggle('dark', initial === 'dark');
@@ -85,25 +92,35 @@ export default function AppHeader() {
     <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/80">
       <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button className="md:hidden" aria-label="Toggle Menu" onClick={() => setOpen((v) => !v)}>
+          <button
+            className="md:hidden"
+            aria-label="Toggle Menu"
+            onClick={() => setOpen((v) => !v)}
+          >
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <Link href="/overview" className="font-semibold hover:opacity-90">SolarERP</Link>
+          <Link href="/overview" className="font-semibold hover:opacity-90">
+            SolarERP
+          </Link>
         </div>
-        <nav className="hidden gap-4 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`text-sm transition-colors ${
-                pathname.startsWith(l.href)
-                  ? 'font-medium text-blue-700 dark:text-blue-400'
-                  : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+        <nav className="hidden gap-1 md:flex">
+          {links.map((l) => {
+            const active = pathname.startsWith(l.href);
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={
+                  'text-sm rounded-md px-2 py-1 transition-colors ' +
+                  (active
+                    ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800')
+                }
+              >
+                {l.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="flex items-center gap-3 text-sm">
           {tenantId && (
@@ -112,8 +129,16 @@ export default function AppHeader() {
                 value={branchValue}
                 onChange={(v) => {
                   setBranchValue(v);
-                  try { if (tenantId) localStorage.setItem(`pref:branch:${tenantId}`, String(v)); } catch {}
-                  window.dispatchEvent(new CustomEvent('branch-change', { detail: { value: v } }));
+                  try {
+                    if (tenantId)
+                      localStorage.setItem(
+                        `pref:branch:${tenantId}`,
+                        String(v),
+                      );
+                  } catch {}
+                  window.dispatchEvent(
+                    new CustomEvent('branch-change', { detail: { value: v } }),
+                  );
                 }}
                 includeAll
                 allLabel="All"
@@ -129,7 +154,9 @@ export default function AppHeader() {
           >
             <Search size={16} />
             <span className="hidden md:inline">Search</span>
-            <span className="ml-1 hidden items-center gap-0.5 rounded border px-1 text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400 md:inline-flex">Ctrl K</span>
+            <span className="ml-1 hidden items-center gap-0.5 rounded border px-1 text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400 md:inline-flex">
+              Ctrl K
+            </span>
           </button>
           <div className="relative hidden sm:block">
             <button
@@ -144,7 +171,10 @@ export default function AppHeader() {
               <span className="hidden md:inline">Create</span>
             </button>
             {createOpen && (
-              <div role="menu" className="absolute right-0 mt-2 w-44 rounded border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-44 rounded border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+              >
                 {[
                   { label: 'Lead', href: '/leads' },
                   { label: 'Customer', href: '/customers' },
@@ -175,38 +205,66 @@ export default function AppHeader() {
           </button>
           {email ? (
             <>
-              <span className="hidden sm:inline text-gray-600 dark:text-gray-300">{email}{role ? ` • ${String(role).charAt(0).toUpperCase()}${String(role).slice(1)}` : ''}</span>
-              <button onClick={signOut} className="rounded border px-2 py-1 dark:border-gray-700">Sign out</button>
+              <span className="hidden sm:inline text-gray-600 dark:text-gray-300">
+                {email}
+                {role
+                  ? ` • ${String(role).charAt(0).toUpperCase()}${String(role).slice(1)}`
+                  : ''}
+              </span>
+              <button
+                onClick={signOut}
+                className="rounded border px-2 py-1 dark:border-gray-700"
+              >
+                Sign out
+              </button>
             </>
           ) : (
-            <Link href="/auth/signin" className="rounded border px-2 py-1 dark:border-gray-700">Sign in</Link>
+            <Link
+              href="/auth/signin"
+              className="rounded border px-2 py-1 dark:border-gray-700"
+            >
+              Sign in
+            </Link>
           )}
         </div>
       </div>
       {open && (
         <div className="mx-auto max-w-6xl px-4 pb-3 md:hidden">
           <div className="flex flex-wrap gap-3">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={`text-sm ${
-                  pathname.startsWith(l.href)
-                    ? 'font-medium text-blue-700 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300'
-                }`}
-                onClick={() => setOpen(false)}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {links.map((l) => {
+              const active = pathname.startsWith(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={
+                    'text-sm rounded-md px-2 py-1 ' +
+                    (active
+                      ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800')
+                  }
+                  onClick={() => setOpen(false)}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
             <button
               className="rounded border px-2 py-1 text-sm"
-              onClick={() => { setOpen(false); window.dispatchEvent(new Event('open-cmdk')); }}
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(new Event('open-cmdk'));
+              }}
             >
               Search…
             </button>
-            <Link href="/proposals/new" className="rounded border px-2 py-1 text-sm" onClick={() => setOpen(false)}>New Proposal</Link>
+            <Link
+              href="/proposals/new"
+              className="rounded border px-2 py-1 text-sm"
+              onClick={() => setOpen(false)}
+            >
+              New Proposal
+            </Link>
           </div>
         </div>
       )}
