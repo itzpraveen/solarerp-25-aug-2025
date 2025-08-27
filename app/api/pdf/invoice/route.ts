@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
     page.setDefaultNavigationTimeout(25_000);
     try {
       await page.setRequestInterception(true);
-      page.on('request', (req) => {
+      page.on('request', (req: any) => {
         const rt = req.resourceType();
         // Allow data: and inline requests; block external fonts/images if any
         const url = req.url();
