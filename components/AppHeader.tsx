@@ -178,7 +178,7 @@ export default function AppHeader() {
               {isMac ? '⌘ K' : 'Ctrl K'}
             </span>
           </button>
-          <div className="relative hidden sm:block">
+          <div className="relative">
             <button
               type="button"
               aria-haspopup="menu"
@@ -189,7 +189,9 @@ export default function AppHeader() {
             >
               <Bell size={16} />
               {dueLeadsCount + overdueInvCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 inline-block h-2 w-2 rounded-full bg-red-500" />
+                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-4 text-white">
+                  {Math.min(99, dueLeadsCount + overdueInvCount)}
+                </span>
               )}
             </button>
             {notifOpen && (
