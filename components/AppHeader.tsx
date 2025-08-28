@@ -401,6 +401,49 @@ export default function AppHeader() {
                 </Link>
               ))}
             </div>
+            {/* Mobile notifications summary */}
+            <div className="mt-1 w-full rounded border p-2 text-sm dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="text-gray-700 dark:text-gray-200">
+                  Follow-ups today
+                </div>
+                <div className={dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'}>
+                  {dueLeadsCount}
+                </div>
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <div className="text-gray-700 dark:text-gray-200">Overdue invoices</div>
+                <div className={overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'}>
+                  {overdueInvCount}
+                </div>
+              </div>
+              <div className="mt-2 flex gap-3">
+                <Link
+                  href="/leads?due=today"
+                  className="text-blue-600"
+                  onClick={() => setOpen(false)}
+                >
+                  Open Leads
+                </Link>
+                <Link
+                  href="/jobs?tab=finance"
+                  className="text-blue-600"
+                  onClick={() => setOpen(false)}
+                >
+                  Finance
+                </Link>
+              </div>
+            </div>
+            {/* Mobile theme toggle */}
+            <button
+              className="mt-1 w-full rounded border px-2 py-2 text-left text-sm dark:border-gray-700"
+              onClick={() => {
+                toggleTheme();
+                setOpen(false);
+              }}
+            >
+              {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            </button>
           </div>
         </div>
       )}
