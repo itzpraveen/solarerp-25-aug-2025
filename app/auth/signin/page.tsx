@@ -22,52 +22,55 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!supabase) return;
-    // Handle session present on initial load (e.g., after magic-link redirect)
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        const token = session.access_token;
-        const res = await fetch('/api/auth/ensureProfile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        if (res.ok) router.replace('/jobs');
-        else {
-          const msg =
-            res.status === 403
-              ? 'Invite required. Ask your admin to add you to their tenant.'
-              : 'Sign-in error. Please try again.';
-          setMessage(msg);
-          await supabase.auth.signOut();
-        }
-      }
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          const token = session.access_token;
+    // Helper: after auth, try ensureProfile; if forbidden, allow bootstrap fallback
+    const afterAuth = async (token?: string | null) => {
+      try {
+        if (token) {
           const res = await fetch('/api/auth/ensureProfile', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              Authorization: `Bearer ${token}`,
             },
           });
-          if (res.ok) router.replace('/jobs');
-          else {
-            const msg =
-              res.status === 403
-                ? 'Invite required. Ask your admin to add you to their tenant.'
-                : 'Sign-in error. Please try again.';
-            setMessage(msg);
+          if (res.ok) {
+            router.replace('/jobs');
+            return;
+          }
+          // If invite-only (403), check whether DB bootstrap already created a profile
+          if (res.status === 403) {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('tenant_id')
+              .maybeSingle();
+            if (prof?.tenant_id) {
+              router.replace('/jobs');
+              return;
+            }
+            setMessage(
+              'Invite required. Ask your admin to add you to their tenant.',
+            );
             await supabase.auth.signOut();
+            return;
           }
         }
+        setMessage('Sign-in error. Please try again.');
+        await supabase.auth.signOut();
+      } catch {
+        setMessage('Sign-in error. Please try again.');
+        await supabase.auth.signOut();
+      }
+    };
+
+    // Handle session present on initial load (e.g., after magic-link redirect)
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) await afterAuth(data.session.access_token);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user) await afterAuth(session.access_token);
       },
     );
     return () => sub.subscription.unsubscribe();
