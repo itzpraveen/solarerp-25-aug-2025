@@ -109,16 +109,9 @@ After connecting your Supabase project, set these in Supabase → Authentication
 
 Magic-link login uses these values. If not set, links may redirect to `http://localhost:3000` on production.
 
-### Mock Mode and Demo UI
+### Demo mode (removed)
 
-For local demos, a mock in-memory backend can be enabled.
-
-- `NEXT_PUBLIC_E2E_MOCK=1`: enable mock backend (no network calls).
-- `NEXT_PUBLIC_DEMO_UI=1`: show “Demo quick sign-in” buttons on `/auth/signin`.
-
-Notes:
-
-- In mock mode, the app starts with no session by default; click a demo sign-in button to authenticate.
+To keep the project simple and production-focused, the earlier mock/demo mode has been removed. The app always talks to Supabase.
 - For production/staging, do not set these flags.
 
 ## Data Model

@@ -1,21 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getMockClient } from '@/lib/supabaseMock';
 
 // Use a module-level singleton in the browser to avoid multiple GoTrueClient instances
 let browserClient: SupabaseClient | null = null;
 let mockClient: SupabaseClient | null = null;
 
-function isMock() {
-  return (
-    process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1'
-  );
-}
-
 export const supabaseBrowser = () => {
-  if (isMock()) {
-    if (!mockClient) mockClient = getMockClient() as unknown as SupabaseClient;
-    return mockClient;
-  }
   if (typeof window === 'undefined') {
     // In server environments, just create a new client (not persisted)
     return createClient(

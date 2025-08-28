@@ -111,54 +111,6 @@ export default function SignIn() {
             you are not invited, the magic link will not create a new account.
           </div>
         )}
-        {process.env.NEXT_PUBLIC_E2E_MOCK === '1' &&
-          process.env.NEXT_PUBLIC_DEMO_UI === '1' && (
-            <div className="rounded border bg-yellow-50 p-3 text-sm text-gray-800">
-              <div className="mb-2 font-medium">Demo quick sign-in (mock)</div>
-              <div className="flex gap-2">
-                <button
-                  className="rounded bg-blue-600 px-2 py-1 text-white"
-                  onClick={async () => {
-                    await supabase!.auth.signInWithOtp({
-                      email: 'owner@demo.local',
-                    });
-                  }}
-                >
-                  Sign in as Owner
-                </button>
-                <button
-                  className="rounded bg-gray-700 px-2 py-1 text-white"
-                  onClick={async () => {
-                    await supabase!.auth.signInWithOtp({
-                      email: 'staff@demo.local',
-                    });
-                  }}
-                >
-                  Sign in as Staff
-                </button>
-                <button
-                  className="rounded bg-emerald-700 px-2 py-1 text-white"
-                  onClick={async () => {
-                    await supabase!.auth.signInWithOtp({
-                      email: 'admin@demo.local',
-                    });
-                  }}
-                >
-                  Admin
-                </button>
-                <button
-                  className="rounded bg-indigo-700 px-2 py-1 text-white"
-                  onClick={async () => {
-                    await supabase!.auth.signInWithOtp({
-                      email: 'tech@demo.local',
-                    });
-                  }}
-                >
-                  Technician
-                </button>
-              </div>
-            </div>
-          )}
         <div>
           <label className="block text-sm font-medium">Email</label>
           <Input

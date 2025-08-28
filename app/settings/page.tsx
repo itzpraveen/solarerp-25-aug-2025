@@ -450,24 +450,7 @@ export default function SettingsPage() {
               <Button onClick={save} loading={saving}>
                 Save
               </Button>
-              {process.env.NEXT_PUBLIC_E2E_MOCK === '1' && (
-                <div className="mt-4 rounded border bg-yellow-50 p-3 text-xs text-gray-800">
-                  <div className="flex items-center justify-between">
-                    <span>Mock mode is ON. Reset demo data?</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        await fetch('/api/mock/reset', { method: 'POST' });
-                        alert('Demo data reset. Reloading…');
-                        location.reload();
-                      }}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* Mock mode removed for production simplicity */}
             </div>
             <div className="rounded border bg-white p-4 space-y-3">
               <h2 className="text-lg font-medium">Team & Roles</h2>
