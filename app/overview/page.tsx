@@ -71,11 +71,14 @@ export default function OverviewPage() {
           .map((row: any) => row.id)
           .filter(Boolean);
 
-        // Leads due today
+        // Leads follow-ups due today (open only)
         let lq = supabase
           .from('leads')
           .select('id, name, phone, next_follow_up_date, branch_id')
-          .eq('next_follow_up_date', today);
+          .eq('next_follow_up_date', today)
+          .neq('status', 'Closed')
+          .neq('status', 'Converted')
+          .neq('status', 'Lost');
         if (branchId !== 'all') lq = lq.eq('branch_id', branchId as string);
         const { data: l } = await lq;
         setLeadsDue(l || []);

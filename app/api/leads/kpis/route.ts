@@ -54,7 +54,9 @@ export async function GET(req: NextRequest) {
           .from('leads')
           .eq('branch_id', branchId)
           .eq('next_follow_up_date', today)
-          .neq('status', 'Closed'),
+          .neq('status', 'Closed')
+          .neq('status', 'Converted')
+          .neq('status', 'Lost'),
       );
       const overdue = await count(
         sb,
@@ -62,7 +64,9 @@ export async function GET(req: NextRequest) {
           .from('leads')
           .eq('branch_id', branchId)
           .lte('next_follow_up_date', today)
-          .neq('status', 'Closed'),
+          .neq('status', 'Closed')
+          .neq('status', 'Converted')
+          .neq('status', 'Lost'),
       );
       const newWeek = await count(
         sb,
@@ -116,7 +120,9 @@ export async function GET(req: NextRequest) {
               .from('leads')
               .eq('branch_id', b.id)
               .eq('next_follow_up_date', today)
-              .neq('status', 'Closed'),
+              .neq('status', 'Closed')
+              .neq('status', 'Converted')
+              .neq('status', 'Lost'),
           ),
           count(
             sb,
@@ -124,7 +130,9 @@ export async function GET(req: NextRequest) {
               .from('leads')
               .eq('branch_id', b.id)
               .lte('next_follow_up_date', today)
-              .neq('status', 'Closed'),
+              .neq('status', 'Closed')
+              .neq('status', 'Converted')
+              .neq('status', 'Lost'),
           ),
           count(
             sb,
@@ -172,7 +180,9 @@ export async function GET(req: NextRequest) {
           .from('leads')
           .is('branch_id', null)
           .eq('next_follow_up_date', today)
-          .neq('status', 'Closed'),
+          .neq('status', 'Closed')
+          .neq('status', 'Converted')
+          .neq('status', 'Lost'),
       ),
       count(
         sb,
@@ -180,7 +190,9 @@ export async function GET(req: NextRequest) {
           .from('leads')
           .is('branch_id', null)
           .lte('next_follow_up_date', today)
-          .neq('status', 'Closed'),
+          .neq('status', 'Closed')
+          .neq('status', 'Converted')
+          .neq('status', 'Lost'),
       ),
       count(
         sb,

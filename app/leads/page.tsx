@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
@@ -17,6 +18,7 @@ import Segmented from '~/components/ui/Segmented';
 export default function LeadsPage() {
   const supabase = supabaseBrowser();
   const { confirm } = useConfirm();
+  const search = useSearchParams();
   const [leads, setLeads] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [name, setName] = useState('');
@@ -55,7 +57,10 @@ export default function LeadsPage() {
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
   );
-  const [dueOnly, setDueOnly] = useState(false);
+  const initialDue =
+    (search.get('due') || '').toLowerCase() === 'today' ||
+    (search.get('due') || '') === '1';
+  const [dueOnly, setDueOnly] = useState(initialDue);
   // Branches for add/edit choices
   const [branches, setBranches] = useState<any[]>([]);
   // Per-add override: use selected branch, specific branch, or unassigned

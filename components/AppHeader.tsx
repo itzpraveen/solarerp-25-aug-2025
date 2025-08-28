@@ -82,7 +82,9 @@ export default function AppHeader() {
           .from('leads')
           .select('id', { count: 'exact', head: true })
           .eq('next_follow_up_date', today)
-          .neq('status', 'Closed');
+          .neq('status', 'Closed')
+          .neq('status', 'Converted')
+          .neq('status', 'Lost');
         if (branchValue !== 'all')
           lq = lq.eq('branch_id', branchValue as string);
         const { count: c1 } = await lq;
@@ -196,8 +198,11 @@ export default function AppHeader() {
                 className="absolute right-0 mt-2 w-60 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
               >
                 <div className="flex items-center justify-between px-2 py-1 text-sm">
-                  <span className="text-gray-700 dark:text-gray-200">
-                    Leads due today
+                  <span
+                    className="text-gray-700 dark:text-gray-200"
+                    title="Open leads with follow-ups due today"
+                  >
+                    Follow-ups due today
                   </span>
                   <span
                     className={
@@ -220,7 +225,7 @@ export default function AppHeader() {
                   </span>
                 </div>
                 <div className="mt-2 flex items-center gap-2 px-2">
-                  <a className="text-blue-600 text-sm" href="/leads">
+                  <a className="text-blue-600 text-sm" href="/leads?due=today">
                     Open Leads
                   </a>
                   <a className="text-blue-600 text-sm" href="/jobs?tab=finance">
