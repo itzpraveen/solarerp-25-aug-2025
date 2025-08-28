@@ -402,10 +402,16 @@ function LeadsPageInner() {
                 .from('profiles')
                 .select('tenant_id')
                 .maybeSingle();
+              const tenantId = (prof as any)?.tenant_id as string | undefined;
+              if (!tenantId) {
+                setAdding(false);
+                setErr('Profile not ready');
+                return;
+              }
               const today = new Date().toISOString().slice(0, 10);
               const bId = branchId !== 'all' ? (branchId as string) : null;
               await supabase.from('leads').insert({
-                tenant_id: (prof as any)!.tenant_id,
+                tenant_id: tenantId,
                 date: today,
                 name: nm || null,
                 phone: ph || null,

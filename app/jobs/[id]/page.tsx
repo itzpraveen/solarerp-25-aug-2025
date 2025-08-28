@@ -396,8 +396,13 @@ function ServiceForJob({ jobId }: { jobId: string }) {
       .from('profiles')
       .select('tenant_id')
       .maybeSingle();
+    const tenantId = (prof as any)?.tenant_id as string | undefined;
+    if (!tenantId) {
+      setErr('Profile not ready');
+      return;
+    }
     await supabase.from('service_tickets').insert({
-      tenant_id: (prof as any)!.tenant_id,
+      tenant_id: tenantId,
       customer_id: customerId || null,
       job_id: jobId,
       date: new Date().toISOString().slice(0, 10),
@@ -597,12 +602,17 @@ function Finance({ jobId }: { jobId: string }) {
                     .from('profiles')
                     .select('tenant_id')
                     .maybeSingle();
+                  const tenantId = (prof as any)?.tenant_id as string | undefined;
+                  if (!tenantId) {
+                    alert('Profile not ready');
+                    return;
+                  }
                   const due = new Date();
                   due.setDate(due.getDate() + 7);
                   const { data: created } = await supabase
                     .from('invoices')
                     .insert({
-                      tenant_id: prof!.tenant_id,
+                      tenant_id: tenantId,
                       job_id: jobId,
                       date: new Date().toISOString().slice(0, 10),
                       invoice_type: invType,
@@ -617,7 +627,7 @@ function Finance({ jobId }: { jobId: string }) {
                   // Audit: invoice created
                   const { data: user } = await supabase.auth.getUser();
                   await supabase.from('audit_logs').insert({
-                    tenant_id: (prof as any)!.tenant_id,
+                    tenant_id: tenantId,
                     user_id: (user?.user as any)?.id || null,
                     action: 'invoices.create',
                     entity: 'jobs',
@@ -714,10 +724,15 @@ function Finance({ jobId }: { jobId: string }) {
                 .from('profiles')
                 .select('tenant_id')
                 .maybeSingle();
+              const tenantId = (prof as any)?.tenant_id as string | undefined;
+              if (!tenantId) {
+                alert('Profile not ready');
+                return;
+              }
               const { data: created } = await supabase
                 .from('payments')
                 .insert({
-                  tenant_id: prof!.tenant_id,
+                  tenant_id: tenantId,
                   invoice_id: inv.id,
                   date: payDate || new Date().toISOString().slice(0, 10),
                   mode: payMode,
@@ -729,7 +744,7 @@ function Finance({ jobId }: { jobId: string }) {
               // Audit: payment recorded
               const { data: user } = await supabase.auth.getUser();
               await supabase.from('audit_logs').insert({
-                tenant_id: (prof as any)!.tenant_id,
+                tenant_id: tenantId,
                 user_id: (user?.user as any)?.id || null,
                 action: 'payments.create',
                 entity: 'jobs',
@@ -1318,12 +1333,18 @@ function Docs({ jobId }: { jobId: string }) {
       .from('profiles')
       .select('tenant_id')
       .maybeSingle();
-    const key = `${prof!.tenant_id}/${crypto.randomUUID()}-${file.name}`;
+    const tenantId2 = (prof as any)?.tenant_id as string | undefined;
+    if (!tenantId2) {
+      setMsg('Profile not ready');
+      setUploading(false);
+      return;
+    }
+    const key = `${tenantId2}/${crypto.randomUUID()}-${file.name}`;
     await supabase.storage.from('documents').upload(key, file);
     const { data: doc } = await supabase
       .from('documents')
       .insert({
-        tenant_id: prof!.tenant_id,
+        tenant_id: tenantId2,
         job_id: jobId,
         // Store the storage key; sign when opening to avoid expired links
         file_url: key,
@@ -1334,7 +1355,7 @@ function Docs({ jobId }: { jobId: string }) {
     // Audit: document uploaded
     const { data: user } = await supabase.auth.getUser();
     await supabase.from('audit_logs').insert({
-      tenant_id: (prof as any)!.tenant_id,
+      tenant_id: tenantId2,
       user_id: (user?.user as any)?.id || null,
       action: 'documents.upload',
       entity: 'jobs',
@@ -1568,10 +1589,16 @@ function Tasks({ jobId }: { jobId: string }) {
         .from('profiles')
         .select('tenant_id')
         .maybeSingle();
+      const tenantId = (prof as any)?.tenant_id as string | undefined;
+      if (!tenantId) {
+        setErr('Profile not ready');
+        setAdding(false);
+        return;
+      }
       const { data: created } = await supabase
         .from('tasks')
         .insert({
-          tenant_id: (prof as any)!.tenant_id,
+          tenant_id: tenantId,
           job_id: jobId,
           title: title.trim(),
           due_date: dueDate || null,

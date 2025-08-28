@@ -138,7 +138,12 @@ export default function JobsPage() {
         .from('profiles')
         .select('tenant_id')
         .maybeSingle();
-      const tenantId = (prof as any)!.tenant_id as string;
+      const tenantId = (prof as any)?.tenant_id as string | undefined;
+      if (!tenantId) {
+        setMsg('Profile not ready');
+        setCreating(false);
+        return;
+      }
 
       // Ensure a corresponding lead exists to avoid pipeline/leads mismatch
       let leadId: string | null = null;

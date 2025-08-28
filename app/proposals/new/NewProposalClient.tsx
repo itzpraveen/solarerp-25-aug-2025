@@ -397,7 +397,13 @@ export default function NewProposalClient() {
                         .from('profiles')
                         .select('tenant_id')
                         .maybeSingle();
-                      const tenantId = (prof as any)!.tenant_id as string;
+                      const tenantId = (prof as any)?.tenant_id as
+                        | string
+                        | undefined;
+                      if (!tenantId) {
+                        alert('Profile not ready');
+                        return;
+                      }
                       // Reuse existing customer by phone if available
                       let customerId: string | null = null;
                       if (l.phone) {
@@ -1194,13 +1200,18 @@ export default function NewProposalClient() {
                       .from('profiles')
                       .select('tenant_id')
                       .maybeSingle();
+                    const tId = (prof as any)?.tenant_id as string | undefined;
+                    if (!tId) {
+                      setErrorMsg('Profile not ready');
+                      return;
+                    }
                     // create or reuse customer by phone within tenant
                     let custId: string | null = null;
                     if (lead?.phone) {
                       const { data: dup } = await supabase
                         .from('customers')
                         .select('id')
-                        .eq('tenant_id', prof!.tenant_id)
+                        .eq('tenant_id', tId)
                         .eq('phone', lead.phone)
                         .maybeSingle();
                       custId = dup?.id || null;
@@ -1209,7 +1220,7 @@ export default function NewProposalClient() {
                       const { data: cust } = await supabase
                         .from('customers')
                         .insert({
-                          tenant_id: prof!.tenant_id,
+                          tenant_id: tId,
                           name: lead?.name || 'Customer',
                           phone: lead?.phone || null,
                           address: lead?.address || null,
@@ -1221,7 +1232,7 @@ export default function NewProposalClient() {
                     const { data: jobRow } = await supabase
                       .from('jobs')
                       .insert({
-                        tenant_id: prof!.tenant_id,
+                        tenant_id: tId,
                         customer_id: custId!,
                         lead_id: leadId,
                         system_type: 'On-grid',
@@ -1242,9 +1253,11 @@ export default function NewProposalClient() {
                     const total = beforeTax + taxAmt;
                     // We used mock PDF API key earlier in out.key path; reuse payload meta for quoteNo
                     const qn = quoteNo || `Q-${Date.now()}`;
-                    const keyGuess = `${tenantId}/${qn.replace(/\s+/g, '_').replace(/[^A-Za-z0-9_\-]/g, '_')}.pdf`;
+                    const keyGuess = `${tId}/${qn
+                      .replace(/\s+/g, '_')
+                      .replace(/[^A-Za-z0-9_\-]/g, '_')}.pdf`;
                     await supabase.from('proposals').insert({
-                      tenant_id: tenantId,
+                      tenant_id: tId,
                       job_id: (jobRow as any).id,
                       date: new Date().toISOString().slice(0, 10),
                       kit_name: kitName,
