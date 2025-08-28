@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
@@ -12,7 +12,7 @@ import { useConfirm } from '~/components/ui/ConfirmProvider';
 
 type Job = any;
 
-export default function JobDetailPage() {
+function JobDetailPageInner() {
   const params = useParams<{ id: string }>();
   const supabase = supabaseBrowser();
   const [job, setJob] = useState<Job | null>(null);
@@ -344,6 +344,14 @@ export default function JobDetailPage() {
       {tab === 'proposals' && <Proposals jobId={params.id} />}
       {tab === 'activity' && <Activity jobId={params.id} />}
     </div>
+  );
+}
+
+export default function JobDetailPage() {
+  return (
+    <Suspense fallback={<div />}> 
+      <JobDetailPageInner />
+    </Suspense>
   );
 }
 

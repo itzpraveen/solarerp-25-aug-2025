@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
@@ -15,7 +15,7 @@ import RequireOwner from '~/components/RequireOwner';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import Segmented from '~/components/ui/Segmented';
 
-export default function LeadsPage() {
+function LeadsPageInner() {
   const supabase = supabaseBrowser();
   const { confirm } = useConfirm();
   const search = useSearchParams();
@@ -1468,5 +1468,13 @@ export default function LeadsPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={<div />}> 
+      <LeadsPageInner />
+    </Suspense>
   );
 }
