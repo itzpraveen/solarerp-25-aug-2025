@@ -357,95 +357,124 @@ export default function AppHeader() {
         </div>
       </div>
       {open && (
-        <div className="mx-auto max-w-7xl px-4 pb-3 md:hidden">
-          <div className="flex flex-wrap gap-3">
-            {links.map((l) => {
-              const active = pathname.startsWith(l.href);
-              return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={
-                    'text-sm rounded-md px-2 py-1 ' +
-                    (active
-                      ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800')
-                  }
-                  onClick={() => setOpen(false)}
-                >
-                  {l.label}
-                </Link>
-              );
-            })}
-            <div className="flex w-full flex-wrap gap-2">
-              <button
-                className="rounded border px-2 py-1 text-sm"
-                onClick={() => {
-                  setOpen(false);
-                  window.dispatchEvent(new Event('open-cmdk'));
-                }}
-              >
-                Search…
-              </button>
-              {[
-                { label: 'Lead', href: '/leads' },
-                { label: 'Customer', href: '/customers' },
-                { label: 'Job', href: '/jobs' },
-                { label: 'Proposal', href: '/proposals/new' },
-              ].map((it) => (
-                <Link
-                  key={it.label}
-                  href={it.href}
-                  className="rounded border px-2 py-1 text-sm"
-                  onClick={() => setOpen(false)}
-                >
-                  New {it.label}
-                </Link>
-              ))}
-            </div>
-            {/* Mobile notifications summary */}
-            <div className="mt-1 w-full rounded border p-2 text-sm dark:border-gray-700">
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute inset-x-0 top-0 h-[88vh] overflow-y-auto rounded-b-lg border-b bg-white shadow-xl dark:border-gray-800 dark:bg-gray-950">
+            <div className="mx-auto max-w-7xl p-3">
               <div className="flex items-center justify-between">
-                <div className="text-gray-700 dark:text-gray-200">
-                  Follow-ups today
+                <div className="font-semibold">Menu</div>
+                <button
+                  className="rounded-md border px-2 py-1 dark:border-gray-700"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {/* Primary navigation */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {links.map((l) => {
+                  const active = pathname.startsWith(l.href);
+                  return (
+                    <Link
+                      key={l.href}
+                      href={l.href}
+                      className={
+                        'rounded-lg border px-3 py-2 text-center text-sm ' +
+                        (active
+                          ? 'border-blue-600 bg-blue-600/10 text-blue-700 dark:text-blue-300'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-900')
+                      }
+                      onClick={() => setOpen(false)}
+                    >
+                      {l.label}
+                    </Link>
+                  );
+                })}
+              </div>
+              {/* Quick actions */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[
+                  { label: 'New Lead', href: '/leads' },
+                  { label: 'New Customer', href: '/customers' },
+                  { label: 'New Job', href: '/jobs' },
+                  { label: 'New Proposal', href: '/proposals/new' },
+                ].map((it) => (
+                  <Link
+                    key={it.label}
+                    href={it.href}
+                    className="rounded-lg border px-3 py-2 text-center text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+                    onClick={() => setOpen(false)}
+                  >
+                    {it.label}
+                  </Link>
+                ))}
+              </div>
+              {/* Notifications summary */}
+              <div className="mt-3 w-full rounded-lg border p-3 text-sm dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="text-gray-700 dark:text-gray-200">Follow-ups today</div>
+                  <div className={dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'}>
+                    {dueLeadsCount}
+                  </div>
                 </div>
-                <div className={dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'}>
-                  {dueLeadsCount}
+                <div className="mt-1 flex items-center justify-between">
+                  <div className="text-gray-700 dark:text-gray-200">Overdue invoices</div>
+                  <div className={overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'}>
+                    {overdueInvCount}
+                  </div>
+                </div>
+                <div className="mt-2 flex gap-3">
+                  <Link
+                    href="/leads?due=today"
+                    className="text-blue-600"
+                    onClick={() => setOpen(false)}
+                  >
+                    Open Leads
+                  </Link>
+                  <Link
+                    href="/jobs?tab=finance"
+                    className="text-blue-600"
+                    onClick={() => setOpen(false)}
+                  >
+                    Finance
+                  </Link>
                 </div>
               </div>
-              <div className="mt-1 flex items-center justify-between">
-                <div className="text-gray-700 dark:text-gray-200">Overdue invoices</div>
-                <div className={overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'}>
-                  {overdueInvCount}
-                </div>
+              {/* Utilities */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  className="rounded-lg border px-3 py-2 text-sm dark:border-gray-700"
+                  onClick={() => {
+                    setOpen(false);
+                    window.dispatchEvent(new Event('open-cmdk'));
+                  }}
+                >
+                  Search…
+                </button>
+                <button
+                  className="rounded-lg border px-3 py-2 text-sm dark:border-gray-700"
+                  onClick={() => {
+                    toggleTheme();
+                    setOpen(false);
+                  }}
+                >
+                  {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                </button>
               </div>
-              <div className="mt-2 flex gap-3">
-                <Link
-                  href="/leads?due=today"
-                  className="text-blue-600"
+              <div className="mt-4 flex justify-center">
+                <button
+                  className="rounded-full border px-4 py-1 text-sm dark:border-gray-700"
                   onClick={() => setOpen(false)}
                 >
-                  Open Leads
-                </Link>
-                <Link
-                  href="/jobs?tab=finance"
-                  className="text-blue-600"
-                  onClick={() => setOpen(false)}
-                >
-                  Finance
-                </Link>
+                  Done
+                </button>
               </div>
             </div>
-            {/* Mobile theme toggle */}
-            <button
-              className="mt-1 w-full rounded border px-2 py-2 text-left text-sm dark:border-gray-700"
-              onClick={() => {
-                toggleTheme();
-                setOpen(false);
-              }}
-            >
-              {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            </button>
           </div>
         </div>
       )}
