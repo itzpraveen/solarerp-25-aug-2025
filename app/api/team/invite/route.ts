@@ -4,7 +4,6 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import { logAudit } from '@/lib/audit';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { getDbRef } from '@/lib/supabaseMock';
 
 const BodySchema = z.object({
   email: z.string().email(),
@@ -21,12 +20,6 @@ const BodySchema = z.object({
     ])
     .default('staff'),
 });
-
-function isMock() {
-  return (
-    process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1'
-  );
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,9 +46,12 @@ export async function POST(req: NextRequest) {
       );
     const { email, role } = parsed.data;
 
+    const { data: authUser } = await (sb as any).auth.getUser();
+    const uid = (authUser?.user as any)?.id as string | undefined;
     const { data: me } = await sb
       .from('profiles')
       .select('tenant_id, role')
+      .eq('user_id', uid as any)
       .maybeSingle();
     if (!me?.tenant_id)
       return NextResponse.json(
@@ -69,29 +65,6 @@ export async function POST(req: NextRequest) {
       );
 
     const tenantId = (me as any).tenant_id as string;
-
-    // Mock mode: create a user + profile in the in-memory DB
-    if (isMock()) {
-      const db = getDbRef();
-      const existing = db.users.find((u) => u.email === email);
-      const userId =
-        existing?.id || `u_${Math.random().toString(36).slice(2, 10)}`;
-      if (!existing) db.users.push({ id: userId, email });
-      const prof = db.profiles.find((p) => p.user_id === userId);
-      if (prof) {
-        prof.tenant_id = tenantId;
-        prof.role = role;
-        prof.display_name = email.split('@')[0];
-      } else {
-        db.profiles.push({
-          user_id: userId,
-          tenant_id: tenantId,
-          role,
-          display_name: email.split('@')[0],
-        });
-      }
-      return NextResponse.json({ ok: true, userId });
-    }
 
     // Real environment: invite or create the user and upsert profile
     const admin = supabaseAdmin();
