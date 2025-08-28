@@ -62,10 +62,12 @@ export default function SettingsPage() {
         setLoading(true);
         setErrorMsg(null);
         const { data: user } = await supabase.auth.getUser();
-        setMyUserId((user?.user as any)?.id || '');
+        const uid = (user?.user as any)?.id || '';
+        setMyUserId(uid);
         const { data: prof } = await supabase
           .from('profiles')
           .select('tenant_id, role')
+          .eq('user_id', uid)
           .maybeSingle();
         setMyRole((prof as any)?.role ?? null);
         if (!prof?.tenant_id) {
@@ -84,6 +86,7 @@ export default function SettingsPage() {
           const { data: prof2 } = await supabase
             .from('profiles')
             .select('tenant_id, role')
+            .eq('user_id', uid)
             .maybeSingle();
           if (!prof2?.tenant_id) {
             setErrorMsg(
