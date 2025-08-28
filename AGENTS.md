@@ -14,8 +14,12 @@
 - `npm run build`: Production build. `npm start`: Serve built app.
 - `npm test`: Run Vitest unit tests (headless). `npm run test:ui`: interactive Vitest.
 - `npm run lint` / `npm run format`: ESLint / Prettier.
-- Migrations: apply the SQL files in `drizzle/` via Supabase SQL editor.
-- Minimal scripts: `npm run dev`, `build`, `start`, `lint`, `format`, `test`, `db:*`.
+- Database:
+  - `npm run db:bootstrap`: Concatenate all `drizzle/*.sql` into `supabase/bootstrap_all.sql`.
+  - `npm run db:push`: Stage migrations to `supabase/migrations` and run `supabase db push`.
+  - `npm run db:reset`: Reset local Supabase stack and re-apply staged migrations (for local Docker usage).
+  - Dashboard-only path: paste `supabase/bootstrap_all.sql` in Supabase SQL editor and run once.
+  - Note: We intentionally keep raw SQL migrations; do not renumber without coordination.
 
 ## Coding Style & Naming Conventions
 
@@ -38,4 +42,5 @@
 
 - Never commit `.env`; update `.env.example` when adding variables (e.g., `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`).
 - Keep secrets server‑only (avoid exposing non‑public values via `NEXT_PUBLIC_*`).
-- Respect multi‑tenant RLS and tenant‑prefixed storage keys defined in migrations.
+- Respect multi-tenant RLS and tenant-prefixed storage keys defined in migrations.
+- The first user is auto-provisioned (tenant + owner). All other users should be invited via the Team API/UI.

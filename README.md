@@ -1,6 +1,6 @@
-# SolarERP (Kerala) – MVP
+# SolarERP – Fresh Start Guide
 
-Minimal, multi-tenant ERP for a solo solar entrepreneur in Kerala. Built with Next.js 15 (App Router), Supabase (Postgres + Auth + Storage), Drizzle ORM, Tailwind, and Puppeteer for multi-page “long invoice / quotation” PDFs. WhatsApp Cloud API integration allows sharing proposal/invoice links.
+Multi‑tenant ERP for solar businesses built on Next.js (App Router) + Supabase. This README focuses on a clean, future‑proof setup with minimal steps and the right defaults.
 
 ## Features
 
@@ -49,52 +49,51 @@ Note: Never commit a `.env`. Use `.env.example` as the source of truth for requi
 - `components/` – UI components
 - `scripts/` – Seeds
 
-## Getting Started
+## Quick Start (new project)
 
-1. Prerequisites
+1) Create a Supabase project and copy keys (URL, anon, service role).
 
-- Supabase project (URL + keys), Auth Email (magic link) and optionally Phone OTP enabled.
-- Vercel project connected to this repo.
+2) Configure env vars (Vercel → Project Settings → Environment Variables):
 
-2. Configure environment
+- `NEXT_PUBLIC_SUPABASE_URL` (public)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public)
+- `SUPABASE_SERVICE_ROLE_KEY` (server)
+- `CRON_SECRET` (server)
+- Optional: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_BASE_URL`, WhatsApp variables, `NEXT_PUBLIC_ML_FONT_URL`.
 
-Copy `.env.example` to `.env` and set values:
+3) Apply the database schema (pick one):
 
-- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (server-only)
-- `DATABASE_URL` (optional, used for Drizzle push)
-- `CRON_SECRET` (used by Vercel cron to authenticate)
-- `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`
+- Easiest: Dashboard only — run one SQL file
+  - `npm run db:bootstrap` → generates `supabase/bootstrap_all.sql` (concatenated migrations)
+  - Open Supabase → SQL Editor → paste contents of `supabase/bootstrap_all.sql` → Run
 
-3. Apply migrations and policies
+- CLI: use migrations
+  - `npx supabase login` → `npx supabase link --project-ref <ref>`
+  - `npm run db:push` (stages `drizzle/*` → `supabase/migrations` and pushes)
 
-Use Supabase SQL Editor or Drizzle push:
+What this sets up: tables, RLS, private Storage bucket `documents` with tenant‑scoped keys, helper functions, indexes, and safety guards.
 
-- Paste and run `drizzle/0001_init.sql` in Supabase SQL editor (recommended)
-- Or run: `pnpm db:migrate` (requires `DATABASE_URL` with service role Postgres)
+4) First login
 
-4. Create Storage bucket (if not created by migration)
+- Visit `/auth/signin` and sign in with your primary admin email.
+- The first user is auto‑provisioned (tenant + owner profile + default settings). All other users should be invited via Team.
 
-- Migration inserts `storage.buckets` row for `documents`. If missing, create bucket `documents` (private = false unchecked) and run the Storage RLS policies in `drizzle/0001_init.sql`.
+5) Development
 
-5. Development
-
-- `pnpm i`
-- `pnpm dev`
-- Visit `http://localhost:3000`
-- Sign in via magic link or phone OTP at `/auth/signin`
-
-On first login, the app auto-creates a `tenant`, `profile`, and default `settings` for your user.
+- `npm i`
+- `npm run dev`
+- `http://localhost:3000`
 
 ### Scripts
 
-Kept minimal for clarity:
+- `dev`, `build`, `start`, `lint`, `format`, `test`
+- `db:bootstrap` → generate `supabase/bootstrap_all.sql`
+- `db:push` → push migrations via Supabase CLI
+- `db:reset` → local Docker stack reset (for local `supabase start` use)
 
-- `dev`, `build`, `start`, `lint`, `format`, `test`, and `db:*`
+Health check: `GET /api/health` → `{ ok: true }`.
 
-Verify server is healthy: `GET /api/health` should return `{ ok: true }`.
-
-6. Deploy to Vercel
+## Deploy to Vercel
 
 - Import repo into Vercel
 - Add env vars listed above in Vercel → Project Settings → Environment Variables
