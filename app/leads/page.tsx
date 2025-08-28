@@ -67,18 +67,27 @@ function LeadsPageInner() {
   const [addBranchOverride, setAddBranchOverride] =
     useState<string>('use-selected');
   const { toast } = useToast();
+  // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
+  const getTenantId = async (): Promise<string | null> => {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = (u?.user as any)?.id as string | undefined;
+    if (!uid) return null;
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', uid)
+      .maybeSingle();
+    return ((prof as any)?.tenant_id as string) || null;
+  };
 
   useEffect(() => {
     (async () => {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .maybeSingle();
-      if (!prof?.tenant_id) return;
+      const tenantId = await getTenantId();
+      if (!tenantId) return;
       const { data: br } = await supabase
         .from('branches')
         .select('id,name')
-        .eq('tenant_id', (prof as any).tenant_id)
+        .eq('tenant_id', tenantId)
         .order('name');
       const map: Record<string, string> = {};
       for (const b of (br as any[]) || []) map[b.id] = b.name || '—';
@@ -266,11 +275,8 @@ function LeadsPageInner() {
     if (!required(name)) return setErr('Name is required');
     if (!isPhone(phone)) return setErr('Valid phone required');
     setAdding(true);
-    const { data: prof, error: pErr } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
-    if (pErr || !prof?.tenant_id) {
+    const tenantId = await getTenantId();
+    if (!tenantId) {
       setAdding(false);
       return setErr('Profile not ready');
     }
@@ -283,7 +289,7 @@ function LeadsPageInner() {
           ? null
           : (addBranchOverride as string);
     const { error } = await supabase.from('leads').insert({
-      tenant_id: prof!.tenant_id,
+      tenant_id: tenantId,
       date: new Date().toISOString().slice(0, 10),
       name,
       phone,
@@ -398,11 +404,7 @@ function LeadsPageInner() {
                 return;
               }
               setAdding(true);
-              const { data: prof } = await supabase
-                .from('profiles')
-                .select('tenant_id')
-                .maybeSingle();
-              const tenantId = (prof as any)?.tenant_id as string | undefined;
+              const tenantId = await getTenantId();
               if (!tenantId) {
                 setAdding(false);
                 setErr('Profile not ready');
@@ -1125,12 +1127,8 @@ function LeadsPageInner() {
                                   size="sm"
                                   onClick={async () => {
                                     // Create a corresponding lead and link this job
-                                    const { data: prof } = await supabase
-                                      .from('profiles')
-                                      .select('tenant_id')
-                                      .maybeSingle();
-                                    const tenantId = (prof as any)
-                                      ?.tenant_id as string;
+                                    const tenantId = await getTenantId();
+                                    if (!tenantId) return alert('Profile not ready');
                                     const today = new Date()
                                       .toISOString()
                                       .slice(0, 10);
@@ -1373,12 +1371,8 @@ function LeadsPageInner() {
                               <Button
                                 size="sm"
                                 onClick={async () => {
-                                  const { data: prof } = await supabase
-                                    .from('profiles')
-                                    .select('tenant_id')
-                                    .maybeSingle();
-                                  const tenantId = (prof as any)!
-                                    .tenant_id as string;
+                                  const tenantId = await getTenantId();
+                                  if (!tenantId) return alert('Profile not ready');
                                   // Reuse existing customer by phone within tenant if present, else create
                                   let customerId: string | null = null;
                                   if (l.phone) {
