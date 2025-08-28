@@ -42,3 +42,7 @@ create trigger trg_handle_new_auth_user
   for each row
   execute function public.handle_new_auth_user();
 
+-- Hardening: prevent direct execution; only the trigger should invoke this.
+revoke all on function public.handle_new_auth_user() from public;
+revoke all on function public.handle_new_auth_user() from anon;
+revoke all on function public.handle_new_auth_user() from authenticated;
