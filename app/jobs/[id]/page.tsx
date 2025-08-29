@@ -1530,12 +1530,18 @@ function Tasks({ jobId }: { jobId: string }) {
     (async () => {
       setErr(null);
       try {
-        const [{ data: user }, { data: prof }] = await Promise.all([
-          supabase.auth.getUser(),
-          supabase.from('profiles').select('tenant_id').maybeSingle(),
-        ]);
+        // Get my user id, then fetch my profile explicitly to avoid
+        // maybeSingle() errors when multiple profiles exist in the tenant.
+        const { data: user } = await supabase.auth.getUser();
         const uid = (user?.user as any)?.id || '';
         setMyUserId(uid);
+        const { data: prof } = uid
+          ? await supabase
+              .from('profiles')
+              .select('tenant_id')
+              .eq('user_id', uid)
+              .maybeSingle()
+          : ({ data: null } as any);
         const tenantId = (prof as any)?.tenant_id;
         const [{ data: t }, { data: members }] = await Promise.all([
           supabase.from('tasks').select('*').eq('job_id', jobId),
