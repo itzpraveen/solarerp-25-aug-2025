@@ -43,6 +43,26 @@ export async function POST(req: NextRequest) {
       .eq('id', jobId);
     if (upErr) throw upErr;
 
+    // Enforce stage gates: required tasks whose completion allows this stage
+    const { data: gates } = await sb
+      .from('task_templates')
+      .select('code,label')
+      .eq('tenant_id', (job as any).tenant_id)
+      .eq('gates_stage', newStatus);
+    if (gates && gates.length > 0) {
+      for (const g of gates as any[]) {
+        const { data: t } = await sb
+          .from('tasks')
+          .select('status')
+          .eq('job_id', jobId)
+          .or(`template_code.eq.${g.code},title.eq.${(g.label || '').replace(',', '\,')}`)
+          .maybeSingle();
+        if (!t || (t as any).status !== 'Done') {
+          return NextResponse.json({ ok: false, error: `Complete '${g.code || g.label}' before moving to ${newStatus}` }, { status: 400 });
+        }
+      }
+    }
+
     if (newStatus === 'Won') {
       const { data: settings } = await sb
         .from('settings')
@@ -113,8 +133,40 @@ export async function POST(req: NextRequest) {
         },
       ],
     };
+    
+    // Insert default templates for tenant if none exist (idempotent)
+    const { data: anyTpl } = await sb
+      .from('task_templates')
+      .select('id')
+      .eq('tenant_id', (job as any).tenant_id)
+      .limit(1);
+    if (!anyTpl || anyTpl.length === 0) {
+      const defaults: any[] = [
+        { code: 'temp_quote', label: 'Temporary quotation', milestone: 'Sales', at_stage_trigger: 'Qualified', due_days: 1, role: 'Sales', required: true },
+        { code: 'site_visit', label: 'Site visit', milestone: 'Sales', at_stage_trigger: 'Qualified', due_days: 2, role: 'Ops', required: true },
+        { code: 'customer_confirmation', label: 'Customer confirmation', milestone: 'Sales', at_stage_trigger: 'Quoted', due_days: 2, role: 'Sales', required: true, gates_stage: 'Won' },
+        { code: 'pm_surya_registration', label: 'PM Surya registration', milestone: 'Regulatory', at_stage_trigger: 'Won', due_days: 2, role: 'Ops', required: true, program_required: 'PM_Surya' },
+        { code: 'kseb_feasibility', label: 'KSEB feasibility', milestone: 'Regulatory', at_stage_trigger: 'Won', due_days: 5, role: 'Ops', required: true },
+        { code: 'agreement_preparation', label: 'Agreement preparation', milestone: 'Sales', at_stage_trigger: 'Won', due_days: 2, role: 'Sales', required: true },
+        { code: 'material_dispatch', label: 'Material despatch', milestone: 'Execution', at_stage_trigger: 'KSEB_Submitted', due_days: 3, role: 'Stores', required: true },
+        { code: 'install_structure', label: 'Installation: Structure work', milestone: 'Execution', at_stage_trigger: 'KSEB_Submitted', due_days: 2, role: 'Ops', required: true },
+        { code: 'install_wiring', label: 'Installation: DC & AC wiring completion', milestone: 'Execution', at_stage_trigger: 'KSEB_Submitted', due_days: 3, role: 'Ops', required: true, gates_stage: 'Installed' },
+        { code: 'kseb_plant_registration', label: 'KSEB paperwork: Plant registration', milestone: 'Commissioning', at_stage_trigger: 'Installed', due_days: 2, role: 'Ops', required: true },
+        { code: 'net_meter_change', label: 'Plant commissioning: Net meter change', milestone: 'Commissioning', at_stage_trigger: 'Installed', due_days: 5, role: 'Ops', required: true, gates_stage: 'Net_Metered' },
+        { code: 'post_commissioning_handover', label: 'Post commissioning visit & handover', milestone: 'Handover', at_stage_trigger: 'Net_Metered', due_days: 3, role: 'Ops', required: true, gates_stage: 'Handover' }
+      ];
+      await sb.from('task_templates').upsert(
+        defaults.map(d => ({ tenant_id: (job as any).tenant_id, ...d })), { onConflict: 'tenant_id,code' } as any
+      );
+      await sb.from('task_dependencies').upsert([
+        { tenant_id: (job as any).tenant_id, template_code: 'customer_confirmation', depends_on: 'temp_quote' },
+        { tenant_id: (job as any).tenant_id, template_code: 'customer_confirmation', depends_on: 'site_visit' }
+      ], { onConflict: 'tenant_id,template_code,depends_on' } as any);
+    }
+
     const tmpl = templates[newStatus];
     if (tmpl && tmpl.length) {
+
       const { data: existing } = await sb
         .from('tasks')
         .select('title')
