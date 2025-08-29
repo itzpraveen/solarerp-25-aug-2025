@@ -25,6 +25,9 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const debugMode =
+      process.env.PDF_DEBUG_VERBOSE === '1' || url.searchParams.get('debug') === '1';
     // Basic rate limit: 5/min per IP (configurable). Best-effort, single-instance only.
     const ip = ipFromHeaders(req.headers);
     const { ok, remaining } = takeToken(
@@ -40,11 +43,14 @@ export async function POST(req: NextRequest) {
 
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
     // In mock mode, sb will be a mock client even without Authorization
-    if (!sb)
+    if (!sb) {
       return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
+        debugMode
+          ? { ok: false, error: 'Unauthorized', hint: 'Missing Authorization bearer token' }
+          : { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
+    }
 
     const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success)
@@ -402,12 +408,24 @@ export async function POST(req: NextRequest) {
         error,
       });
       return NextResponse.json(
-        {
-          ok: false,
-          error: 'Failed to upload PDF to storage',
-          id,
-          hint: "Ensure Supabase bucket 'documents' exists and your storage policies allow writes to '<tenant_id>/*'",
-        },
+        debugMode
+          ? {
+              ok: false,
+              error: 'Failed to upload PDF to storage',
+              id,
+              tenantId,
+              key,
+              storageError: (error as any)?.message || String(error),
+              hint:
+                "Ensure Supabase bucket 'documents' exists and storage RLS allows writes to '<tenant_id>/*'.",
+            }
+          : {
+              ok: false,
+              error: 'Failed to upload PDF to storage',
+              id,
+              hint:
+                "Ensure Supabase bucket 'documents' exists and your storage policies allow writes to '<tenant_id>/*'",
+            },
         { status: 500 },
       );
     }
@@ -423,12 +441,18 @@ export async function POST(req: NextRequest) {
     console.error('api/pdf/invoice', { id, error: e });
     // Provide a more descriptive error for easier debugging in UI
     return NextResponse.json(
-      {
-        ok: false,
-        error: 'PDF generation failed',
-        id,
-        cause: msg.slice(0, 500),
-      },
+      process.env.PDF_DEBUG_VERBOSE === '1'
+        ? {
+            ok: false,
+            error: 'PDF generation failed',
+            id,
+            cause: msg.slice(0, 500),
+          }
+        : {
+            ok: false,
+            error: 'PDF generation failed',
+            id,
+          },
       { status: 500 },
     );
   }
