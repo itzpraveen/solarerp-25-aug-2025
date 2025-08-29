@@ -68,9 +68,18 @@ export async function POST(req: NextRequest) {
       .from('profiles')
       .select('tenant_id')
       .maybeSingle();
-    // Prefer authenticated tenant; fallback to body when available.
-    // Storage RLS still enforces correct tenant write permissions.
-    const tenantId = ((me as any)?.tenant_id as string | undefined) || tenantIdFromBody || undefined;
+    // Prefer authenticated tenant; fallback to body when available. If still
+    // missing, and the project is single‑tenant, use that tenant id so we
+    // don't fail due to undefined path (RLS still applies on upload).
+    let tenantId = ((me as any)?.tenant_id as string | undefined) || tenantIdFromBody || undefined;
+    if (!tenantId) {
+      try {
+        const { supabaseAdmin } = await import('@/lib/supabaseAdmin');
+        const admin = supabaseAdmin();
+        const { data: t } = await admin.from('tenants').select('id').limit(2);
+        if ((t || []).length === 1) tenantId = (t as any)[0].id as string;
+      } catch {}
+    }
     // Ignore mismatched or missing body tenantId here; rely on RLS at upload time.
 
     // Helper: sanitize filename
