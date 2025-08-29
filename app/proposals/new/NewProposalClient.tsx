@@ -495,10 +495,17 @@ export default function NewProposalClient() {
                         .select('id')
                         .single();
                       // Persist proposal row and attach
-                      const addOnSum = computedAddOns.reduce(
-                        (s, a) => s + (a.amount || 0),
-                        0,
-                      );
+                      const addOnSum = [
+                        ...addOns,
+                        ...(quotationType === 'Provisional' && (Number(bufferPct) || 0) > 0
+                          ? [
+                              {
+                                label: `Uncertainty buffer (${Number(bufferPct)}%)`,
+                                amount: Math.round(((Number(price) || 0) * Number(bufferPct)) / 100),
+                              },
+                            ]
+                          : []),
+                      ].reduce((s, a) => s + (a.amount || 0), 0);
                       const beforeTax = (Number(price) || 0) + addOnSum;
                       const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
                       const total = beforeTax + taxAmt;
