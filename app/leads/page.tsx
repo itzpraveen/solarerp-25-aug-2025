@@ -58,6 +58,7 @@ function LeadsPageInner() {
   const [pageSize, setPageSize] = useState(20);
   const [dense, setDense] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   // Filters
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
@@ -801,7 +802,7 @@ function LeadsPageInner() {
             </div>
           )}
           <div className="rounded border bg-white overflow-x-auto">
-            <div className="flex items-center justify-between p-2 text-xs text-gray-600">
+            <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
               <label className="flex items-center gap-1">
                 <input type="checkbox" checked={dense} onChange={(e)=>setDense(e.target.checked)} /> Compact
               </label>
@@ -812,9 +813,9 @@ function LeadsPageInner() {
                 </select>
               </div>
             </div>
-            <table className="w-full text-sm">
+            <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
               <thead>
-                <tr className="border-b bg-gray-50 text-left sticky top-0">
+                <tr className="border-b bg-gray-50 text-left sticky top-8">
                   <th className="p-2">
                     <input
                       type="checkbox"
@@ -1431,6 +1432,54 @@ function LeadsPageInner() {
                 ))}
               </tbody>
             </table>
+          </div>
+          {/* Bottom pager */}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">
+            <div>
+              Page {page} of {totalPages} • {totalCount} leads
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(1)}
+                aria-label="First page"
+                title="First"
+              >
+                « First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+                title="Previous"
+              >
+                ‹ Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next page"
+                title="Next"
+              >
+                Next ›
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(totalPages)}
+                aria-label="Last page"
+                title="Last"
+              >
+                Last »
+              </Button>
+            </div>
           </div>
           {Object.values(selected).some(Boolean) && (
             <div className="mt-3">

@@ -27,6 +27,15 @@ a:hover {
   @apply overflow-x-auto;
 }
 
+/* Compact table density helper used by Leads */
+.table-dense {
+  font-size: 0.875rem; /* text-sm */
+}
+.table-dense th,
+.table-dense td {
+  padding: 0.25rem; /* p-1 */
+}
+
 /* Subtle custom scrollbar */
 *::-webkit-scrollbar {
   width: 10px;
