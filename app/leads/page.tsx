@@ -1181,7 +1181,8 @@ function LeadsPageInner() {
                                     if (!ok) return;
                                     setConvertingId(l.id);
                                     setConvertForm({
-                                      address: '',
+                                      // Prefill from lead.address so users don't have to retype
+                                      address: (l as any)?.address || '',
                                       program_type: 'PM_Surya',
                                       system_type: 'On-grid',
                                       capacity_kw:
