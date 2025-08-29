@@ -1,46 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[pre-push] Playwright E2E checks starting…"
-
-# Allow opt-out when needed
-if [[ "${SKIP_E2E:-}" == "1" ]]; then
-  echo "[pre-push] SKIP_E2E=1 set — skipping e2e."
-  exit 0
-fi
-
-# Only run locally when explicitly enabled
-if [[ "${RUN_E2E_PREPUSH:-0}" != "1" ]]; then
-  echo "[pre-push] RUN_E2E_PREPUSH!=1 — skipping e2e (CI will run them)."
-  exit 0
-fi
+echo "[pre-push] Running local build check…"
 
 BIN="./node_modules/.bin"
-PLAYWRIGHT="$BIN/playwright"
 
-if [ ! -x "$PLAYWRIGHT" ]; then
-  echo "[pre-push] Missing Playwright CLI. Run 'npm i' and 'npx playwright install'." >&2
-  exit 1
+if [ ! -d node_modules ]; then
+  echo "[pre-push] Installing deps…"
+  npm ci
 fi
 
-# Full CI-like run builds first and then runs Playwright with CI=1,
-# which uses the production server and all CI reporters/projects.
-E2E_FULL_CI_DEFAULT=1
-E2E_FULL_CI=${E2E_FULL_CI:-$E2E_FULL_CI_DEFAULT}
+# Run unit tests and a production build. This mirrors what CI does and
+# what Vercel runs server-side.
+npm test --silent
+npm run -s build
 
-if [[ "$E2E_FULL_CI" == "1" ]]; then
-  echo "[pre-push] Building production app for CI-like run…"
-  NEXT_TELEMETRY_DISABLED=1 \
-  NEXT_PUBLIC_E2E_MOCK=1 \
-  NEXT_PUBLIC_SUPABASE_URL=http://localhost \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=anon \
-  SUPABASE_SERVICE_ROLE_KEY=service \
-  npm run -s build
-  echo "[pre-push] Running Playwright in CI mode (may include Firefox/WebKit)…"
-  CI=1 npm run -s test:e2e
-else
-  echo "[pre-push] Running Playwright in dev mode (Chromium projects)…"
-  npm run -s test:e2e
-fi
+echo "[pre-push] Tests + build ok. Proceeding with push."
 
-echo "[pre-push] E2E checks passed. Proceeding with push."
