@@ -11,7 +11,8 @@ const links = [
   { href: '/jobs', label: 'Jobs' },
   { href: '/customers', label: 'Customers' },
   { href: '/proposals', label: 'Proposals' },
-  { href: '/leads', label: 'Leads' },
+  // Clarify that this page lists CRM leads (not pipeline status)
+  { href: '/leads', label: 'Leads (CRM)' },
   { href: '/kits', label: 'Kits' },
   { href: '/items', label: 'Items' },
   { href: '/service', label: 'Service' },

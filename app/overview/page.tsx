@@ -456,19 +456,19 @@ export default function OverviewPage() {
         ))}
       </div>
 
-      {/* Leads summary: Total and Open */}
+      {/* Leads summary: Total and Open (CRM leads) */}
       {leadSummary && (
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           <div className="rounded border bg-white p-3 text-center">
-            <div className="text-xs text-gray-500">Leads Total</div>
+            <div className="text-xs text-gray-500" title="CRM leads in the leads table (all statuses)">Leads Total (CRM)</div>
             <div className="text-lg font-semibold">{leadSummary.total}</div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
-            <div className="text-xs text-gray-500">Leads Open</div>
+            <div className="text-xs text-gray-500" title="CRM leads that are not Converted/Closed/Lost">Leads Open (CRM)</div>
             <div className="text-lg font-semibold">{leadSummary.open}</div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
-            <div className="text-xs text-gray-500">Leads Due Today</div>
+            <div className="text-xs text-gray-500" title="CRM leads whose next follow-up date is today">Leads Due Today</div>
             <div
               className={`text-lg font-semibold ${leadSummary.dueToday > 0 ? 'text-red-600' : ''}`}
             >
@@ -476,7 +476,7 @@ export default function OverviewPage() {
             </div>
           </div>
           <div className="rounded border bg-white p-3 text-center">
-            <div className="text-xs text-gray-500">Leads Overdue</div>
+            <div className="text-xs text-gray-500" title="CRM leads whose next follow-up is overdue">Leads Overdue</div>
             <div
               className={`text-lg font-semibold ${leadSummary.overdue > 0 ? 'text-red-600' : ''}`}
             >
@@ -486,7 +486,7 @@ export default function OverviewPage() {
         </div>
       )}
 
-      {/* Sales KPIs */}
+      {/* Sales KPIs (derived from CRM + proposals) */}
       {salesKpis && (
         <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
           <div className="rounded border bg-white p-3 text-center">

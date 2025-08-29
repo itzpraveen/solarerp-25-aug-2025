@@ -207,57 +207,8 @@ function LeadsPageInner() {
     }
     let rows: any[] = (data as any[]) || [];
 
-    // Merge job-only Lead-stage cards as read-only rows (unless Due-only or Converted filter)
-    if (!dueOnly && filterMode !== 'converted') {
-      try {
-        let jq = supabase
-          .from('jobs')
-          .select(
-            'id, customer_id, branch_id, date_lead, created_at, status, lead_id',
-          )
-          .eq('status', 'Lead')
-          .is('lead_id', null)
-          .order('created_at', { ascending: false });
-        if (branchId !== 'all') jq = jq.eq('branch_id', branchId as string);
-        const { data: jrows } = await jq;
-        const jobs = ((jrows as any[]) || []) as any[];
-        if (jobs.length > 0) {
-          const ids = Array.from(
-            new Set(jobs.map((r) => r.customer_id).filter(Boolean)),
-          );
-          let cmap = new Map<string, any>();
-          if (ids.length > 0) {
-            const { data: custs } = await supabase
-              .from('customers')
-              .select('id, name, phone, address')
-              .in('id', ids as any);
-            for (const c of ((custs as any[]) || []) as any[])
-              cmap.set(c.id, c);
-          }
-          const jobLeads = jobs.map((j) => {
-            const c = cmap.get(j.customer_id) || {};
-            const date = j.date_lead || j.created_at?.slice(0, 10) || todayStr;
-            return {
-              id: `job-${j.id}`,
-              date,
-              name: c.name || '—',
-              phone: c.phone || '',
-              address: c.address || '',
-              source: 'Job',
-              interested_capacity_kw: null,
-              next_follow_up_date: null,
-              last_contacted_at: null,
-              status: 'Lead (job)',
-              branch_id: j.branch_id || null,
-              notes: '',
-              _jobOnly: true,
-              _jobId: j.id,
-            } as any;
-          });
-          rows = [...jobLeads, ...rows];
-        }
-      } catch {}
-    }
+    // Note: previously we merged “job-only” Lead-stage cards here. To avoid confusion,
+    // the Leads page now strictly shows CRM leads from the leads table.
 
     setLeads(rows);
     setLoadingList(false);
