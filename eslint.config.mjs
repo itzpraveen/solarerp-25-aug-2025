@@ -1,7 +1,6 @@
 // ESLint flat config for ESLint v9+
 // Uses Next.js recommended rules and project-specific overrides.
 // Ensure modern module resolution for shared configs/plugins
-import '@rushstack/eslint-patch/modern-module-resolution.js';
 import next from 'eslint-config-next';
 
 export default [
