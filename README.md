@@ -100,6 +100,17 @@ Health check: `GET /api/health` → `{ ok: true }`.
 - Ensure `vercel.json` is present; it grants extra memory/duration to the PDF function and configures a cron at 03:00 UTC.
 - Set a cron secret and configure Vercel Cron to call `POST /api/cron/daily` with `Authorization: Bearer $CRON_SECRET`
 
+### Preview deployments (recommended)
+
+- Use PRs only; do not push directly to `main`.
+- Vercel will auto‑create a Preview URL per PR when the repo is linked.
+- Add these safeguards:
+  - GitHub → Settings → Branches → protect `main`, require PR and status checks.
+  - Require checks: `build-and-test` CI, and Vercel Preview (enable in Vercel Git integration).
+- Optional (already added): `.github/workflows/vercel-preview.yml` can run a local Vercel build and deploy a prebuilt preview via CLI.
+  - Requires secrets in this repo: `VERCEL_TOKEN` (and linked project via `vercel pull`).
+  - This mirrors the Vercel build remotely and posts a Preview URL in the PR summary.
+
 ### Supabase Auth URL Configuration (Important)
 
 After connecting your Supabase project, set these in Supabase → Authentication → URL Configuration:
