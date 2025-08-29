@@ -57,9 +57,7 @@ function LeadsPageInner() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [dense, setDense] = useState(false);
-  const totalPages = Math.max(1, Math.ceil(leads.length / pageSize));
-  const start = (page - 1) * pageSize;
-  const pageRows = leads.slice(start, start + pageSize);
+  const [totalCount, setTotalCount] = useState(0);
   // Filters
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
@@ -181,8 +179,8 @@ function LeadsPageInner() {
     setLoadingList(true);
     let q = supabase
       .from('leads')
-      .select('*')
-      .order('date', { ascending: false });
+      .select('*', { count: 'exact' })
+      .order('date', { ascending: false })
     if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
     if (filterMode === 'open')
       q = q
@@ -191,7 +189,9 @@ function LeadsPageInner() {
         .neq('status', 'Lost');
     else if (filterMode === 'converted') q = q.eq('status', 'Converted');
     if (dueOnly) q = q.eq('next_follow_up_date', todayStr);
-    const { data, error } = await q;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const { data, count, error } = await q.range(from, to);
     if (error) {
       // Surface server-side error details and show a friendly UI error
       try {
@@ -213,9 +213,7 @@ function LeadsPageInner() {
       return;
     }
     let rows: any[] = (data as any[]) || [];
-
-    // Note: previously we merged “job-only” Lead-stage cards here. To avoid confusion,
-    // the Leads page now strictly shows CRM leads from the leads table.
+    setTotalCount(count || 0)
 
     setLeads(rows);
     setLoadingList(false);
@@ -226,9 +224,10 @@ function LeadsPageInner() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) load();
     });
-  }, [branchId, filterMode, dueOnly]);
+  }, [branchId, filterMode, dueOnly])
   // reset to first page on filter change
   useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly]);
+  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize]);
 
   const add = async () => {
     setErr(null);
@@ -844,7 +843,7 @@ function LeadsPageInner() {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((l) => (
+                {leads.map((l) => (
                   <React.Fragment key={l.id}>
                     <tr className="border-b">
                       <td className="p-2">
