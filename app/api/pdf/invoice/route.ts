@@ -14,8 +14,11 @@ import { z } from 'zod';
 import { getBaseUrl } from '@/lib/baseUrl';
 import path from 'node:path';
 
+// Accept tenantId in payload for backward compatibility, but the server
+// derives the effective tenant id from the authenticated profile to avoid
+// mismatches causing 403s.
 const BodySchema = z.object({
-  tenantId: z.string().min(1),
+  tenantId: z.string().optional(),
   pathKey: z.string().optional(),
   payload: z.any(),
 });
@@ -49,17 +52,25 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Invalid payload' },
         { status: 400 },
       );
-    const { tenantId, pathKey, payload } = parsed.data as {
-      tenantId: string;
+    const { tenantId: tenantIdFromBody, pathKey, payload } = parsed.data as {
+      tenantId?: string;
       pathKey?: string;
       payload: LongInvoiceData;
     };
-    // Ensure the caller belongs to the same tenantId
+    // Resolve caller's tenantId authoritatively from profile under RLS
     const { data: me } = await sb
       .from('profiles')
       .select('tenant_id')
       .maybeSingle();
-    if (!me || (me as any).tenant_id !== tenantId) {
+    const tenantId = (me as any)?.tenant_id as string | undefined;
+    if (!tenantId) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
+    // If client passed a tenantId, it must match the authenticated tenant
+    if (tenantIdFromBody && tenantIdFromBody !== tenantId) {
       return NextResponse.json(
         { ok: false, error: 'Forbidden' },
         { status: 403 },
