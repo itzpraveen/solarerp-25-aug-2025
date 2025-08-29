@@ -1250,17 +1250,20 @@ function LeadsPageInner() {
                       <tr className="bg-gray-50" key={`${l.id}-convert`}>
                         <td className="p-2" colSpan={8}>
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
-                            <Input
-                              className="md:col-span-2"
-                              placeholder="Address"
-                              value={convertForm.address}
-                              onChange={(e) =>
-                                setConvertForm({
-                                  ...convertForm,
-                                  address: e.target.value,
-                                })
-                              }
-                            />
+                            {/* Hide Address input if the lead already has an address */}
+                            {!((l as any)?.address) && (
+                              <Input
+                                className="md:col-span-2"
+                                placeholder="Address"
+                                value={convertForm.address}
+                                onChange={(e) =>
+                                  setConvertForm({
+                                    ...convertForm,
+                                    address: e.target.value,
+                                  })
+                                }
+                              />
+                            )}
                             <select
                               className="rounded border px-3 py-2"
                               value={convertForm.program_type}
@@ -1344,7 +1347,10 @@ function LeadsPageInner() {
                                         tenant_id: tenantId,
                                         name: l.name,
                                         phone: l.phone || null,
-                                        address: convertForm.address || null,
+                                        address:
+                                          convertForm.address ||
+                                          (l as any)?.address ||
+                                          null,
                                       })
                                       .select('id')
                                       .single();
@@ -1363,7 +1369,10 @@ function LeadsPageInner() {
                                       program_type: convertForm.program_type,
                                       status: 'Lead',
                                       capacity_kw: convertForm.capacity_kw,
-                                      location: convertForm.address || null,
+                                      location:
+                                        convertForm.address ||
+                                        (l as any)?.address ||
+                                        null,
                                       roof_type: convertForm.roof_type || null,
                                       date_lead: (l as any)?.date || today,
                                       branch_id:
