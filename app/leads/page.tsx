@@ -43,9 +43,6 @@ function LeadsPageInner() {
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const totalPages = Math.max(1, Math.ceil(leads.length / pageSize));
-  const start = (page - 1) * pageSize;
-  const pageRows = leads.slice(start, start + pageSize);
   const [branchId, setBranchId] = useState<string | 'all'>('all');
   const [branchNames, setBranchNames] = useState<Record<string, string>>({});
   const [kpis, setKpis] = useState<any | null>(null);
@@ -60,6 +57,9 @@ function LeadsPageInner() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [dense, setDense] = useState(false);
+  const totalPages = Math.max(1, Math.ceil(leads.length / pageSize));
+  const start = (page - 1) * pageSize;
+  const pageRows = leads.slice(start, start + pageSize);
   // Filters
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
