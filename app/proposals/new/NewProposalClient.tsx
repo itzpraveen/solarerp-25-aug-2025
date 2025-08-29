@@ -53,54 +53,86 @@ export default function NewProposalClient() {
 
   useEffect(() => {
     (async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .maybeSingle();
-      setTenantId(profile!.tenant_id);
-      const { data: setg } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('tenant_id', profile!.tenant_id)
-        .single();
-      setSettings(setg);
-      setTaxRate(Number(setg?.default_tax_rate || 0));
-      setMlNote(setg?.proposal_note_ml || '');
-      setCompanyPhone(setg?.company_phone || '');
-      setCompanyEmail(setg?.company_email || '');
-      setCompanyAddress(setg?.company_address || 'Kerala');
-      setCompanyLogo(setg?.company_logo_url || '');
-      const { data: k } = await supabase
-        .from('kits')
-        .select('*')
-        .eq('tenant_id', profile!.tenant_id);
-      setKits(k || []);
-      if (jobId) {
-        const { data: j } = await supabase
-          .from('jobs')
-          .select('*, customers(name, phone, address), tenants(name)')
-          .eq('id', jobId)
-          .single();
-        setJob(j);
-        setCustomer((j as any)?.customers?.[0] || null);
-        if ((j as any)?.program_type)
-          setProgram((j as any).program_type as 'PM_Surya' | 'Commercial');
-        if (k && k.length) {
-          setKitName(k[0].kit_name);
-          setPrice(Number(k[0].selling_price || 0));
+      try {
+        setErrorMsg(null);
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess.session) {
+          setErrorMsg('Please sign in to create a proposal.');
+          return;
         }
-      } else {
-        // No job: still allow generating a PDF
-        if (k && k.length) {
-          setKitName(k[0].kit_name);
-          setPrice(Number(k[0].selling_price || 0));
+        // Try fetch profile; if missing, ensure it exists (first-user bootstrap)
+        let { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .maybeSingle();
+        if (!profile?.tenant_id) {
+          const token = sess.session.access_token;
+          try {
+            const res = await fetch('/api/auth/ensureProfile', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const out = await res.json();
+            if (res.ok && out?.ok && out.tenantId) {
+              profile = { tenant_id: out.tenantId } as any;
+            }
+          } catch {}
         }
-        // Load leads for selection
-        const { data: lds } = await supabase
-          .from('leads')
+        if (!profile?.tenant_id) {
+          setErrorMsg('Profile not found. Ask an admin to invite you.');
+          return;
+        }
+        setTenantId(profile.tenant_id);
+
+        const { data: setg } = await supabase
+          .from('settings')
           .select('*')
-          .order('date', { ascending: false });
-        setLeads(lds || []);
+          .eq('tenant_id', profile.tenant_id)
+          .single();
+        setSettings(setg);
+        setTaxRate(Number(setg?.default_tax_rate || 0));
+        setMlNote(setg?.proposal_note_ml || '');
+        setCompanyPhone(setg?.company_phone || '');
+        setCompanyEmail(setg?.company_email || '');
+        setCompanyAddress(setg?.company_address || 'Kerala');
+        setCompanyLogo(setg?.company_logo_url || '');
+
+        const { data: k, error: kErr } = await supabase
+          .from('kits')
+          .select('*')
+          .eq('tenant_id', profile.tenant_id);
+        if (kErr) throw kErr;
+        setKits(k || []);
+
+        if (jobId) {
+          const { data: j } = await supabase
+            .from('jobs')
+            .select('*, customers(name, phone, address), tenants(name)')
+            .eq('id', jobId)
+            .single();
+          setJob(j);
+          setCustomer((j as any)?.customers?.[0] || null);
+          if ((j as any)?.program_type)
+            setProgram((j as any).program_type as 'PM_Surya' | 'Commercial');
+          if (k && k.length) {
+            setKitName(k[0].kit_name);
+            setPrice(Number(k[0].selling_price || 0));
+          }
+        } else {
+          // No job: still allow generating a PDF
+          if (k && k.length) {
+            setKitName(k[0].kit_name);
+            setPrice(Number(k[0].selling_price || 0));
+          }
+          // Load leads for selection
+          const { data: lds } = await supabase
+            .from('leads')
+            .select('*')
+            .order('date', { ascending: false });
+          setLeads(lds || []);
+        }
+      } catch (e: any) {
+        setErrorMsg(String(e?.message || e));
       }
     })();
   }, [jobId, supabase]);
