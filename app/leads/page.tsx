@@ -43,6 +43,9 @@ function LeadsPageInner() {
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
+  const totalPages = Math.max(1, Math.ceil(leads.length / pageSize));
+  const start = (page - 1) * pageSize;
+  const pageRows = leads.slice(start, start + pageSize);
   const [branchId, setBranchId] = useState<string | 'all'>('all');
   const [branchNames, setBranchNames] = useState<Record<string, string>>({});
   const [kpis, setKpis] = useState<any | null>(null);
@@ -53,6 +56,10 @@ function LeadsPageInner() {
   const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>(
     'create',
   );
+  // Pagination & density
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [dense, setDense] = useState(false);
   // Filters
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
@@ -220,6 +227,8 @@ function LeadsPageInner() {
       if (data.session) load();
     });
   }, [branchId, filterMode, dueOnly]);
+  // reset to first page on filter change
+  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly]);
 
   const add = async () => {
     setErr(null);
@@ -793,6 +802,17 @@ function LeadsPageInner() {
             </div>
           )}
           <div className="rounded border bg-white overflow-x-auto">
+            <div className="flex items-center justify-between p-2 text-xs text-gray-600">
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={dense} onChange={(e)=>setDense(e.target.checked)} /> Compact
+              </label>
+              <div className="flex items-center gap-2">
+                <span>Rows:</span>
+                <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{ setPage(1); setPageSize(Number(e.target.value)); }}>
+                  {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50 text-left sticky top-0">
@@ -824,7 +844,7 @@ function LeadsPageInner() {
                 </tr>
               </thead>
               <tbody>
-                {leads.map((l) => (
+                {pageRows.map((l) => (
                   <React.Fragment key={l.id}>
                     <tr className="border-b">
                       <td className="p-2">
@@ -1007,7 +1027,13 @@ function LeadsPageInner() {
                       ) : (
                         <>
                           <td className="p-2">{l.name || '—'}</td>
-                          <td className="p-2">{l.phone || '—'}</td>
+                          <td className="p-2">{l.phone || '—'}{l.phone && (
+                            <span className="ml-2 whitespace-nowrap">
+                              <a className="underline text-blue-600" href={`tel:${String(l.phone).replace(/\\D+/g, '')}`} title="Call">📞</a>
+                              <a className="ml-1 underline text-green-600" href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`} target="_blank" title="WhatsApp">🟢</a>
+                            </span>
+                          )}
+                          </td>
                           <td className="p-2">{l.address || '—'}</td>
                           <td className="p-2">{l.source || '—'}</td>
                           <td className="p-2">
