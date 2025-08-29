@@ -11,7 +11,12 @@
     "test": "vitest run",
     "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "db:push": "bash scripts/db-push.sh",
-    "db:reset": "bash scripts/db-reset.sh"
+    "db:reset": "bash scripts/db-reset.sh",
+    "vercel:pull:preview": "vercel pull --yes --environment=preview",
+    "vercel:pull:prod": "vercel pull --yes --environment=production",
+    "vercel:build": "vercel build",
+    "vercel:deploy": "vercel deploy --prebuilt",
+    "vercel:deploy:prod": "vercel deploy --prebuilt --prod"
   },
   "dependencies": {
     "@sparticuz/chromium": "^127.0.0",
