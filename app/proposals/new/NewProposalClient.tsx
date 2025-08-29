@@ -36,6 +36,10 @@ export default function NewProposalClient() {
   const [leads, setLeads] = useState<any[]>([]);
   const [leadId, setLeadId] = useState<string>('');
   const [program, setProgram] = useState<'PM_Surya' | 'Commercial'>('PM_Surya');
+  const [quotationType, setQuotationType] = useState<'Provisional' | 'Final'>(
+    'Provisional',
+  );
+  const [bufferPct, setBufferPct] = useState<number>(5);
 
   // Cover letter, notes, work schedule (optional advanced sections)
   const [includeCover, setIncludeCover] = useState<boolean>(false);
@@ -227,6 +231,18 @@ export default function NewProposalClient() {
         }
       : undefined;
 
+    const computedAddOns = [
+      ...addOns,
+      ...(quotationType === 'Provisional' && (Number(bufferPct) || 0) > 0
+        ? [
+            {
+              label: `Uncertainty buffer (${Number(bufferPct)}%)`,
+              amount: Math.round(((Number(price) || 0) * Number(bufferPct)) / 100),
+            },
+          ]
+        : []),
+    ];
+
     const payload: LongInvoiceData = {
       lang,
       company: {
@@ -248,6 +264,7 @@ export default function NewProposalClient() {
         dateISO: new Date().toISOString(),
         validTillISO: validTill || undefined,
         program: program === 'PM_Surya' ? 'PM Surya' : 'Commercial',
+        quotationType,
         systemCategory: job?.system_type || 'On-grid',
         plantBrand: plantBrand || '—',
         capacityKW: Number(job?.capacity_kw || 0),
@@ -256,7 +273,7 @@ export default function NewProposalClient() {
       money: {
         currency: 'INR',
         projectCost: price,
-        addOns: addOns,
+        addOns: computedAddOns,
         taxRatePct: taxRate,
       },
       pipeline: {},
@@ -311,7 +328,7 @@ export default function NewProposalClient() {
       setSignedUrl(out.url);
       setPdfKey(out.key);
       if (jobId) {
-        const addOnSum = addOns.reduce((s, a) => s + (a.amount || 0), 0);
+        const addOnSum = computedAddOns.reduce((s, a) => s + (a.amount || 0), 0);
         const beforeTax = (Number(price) || 0) + addOnSum;
         const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
         const total = beforeTax + taxAmt;
@@ -327,6 +344,7 @@ export default function NewProposalClient() {
             total,
             pdf_url: out.key,
             lang,
+            quotation_type: quotationType,
             valid_till: validTill || null,
             cover: includeCover
               ? {
@@ -477,7 +495,7 @@ export default function NewProposalClient() {
                         .select('id')
                         .single();
                       // Persist proposal row and attach
-                      const addOnSum = addOns.reduce(
+                      const addOnSum = computedAddOns.reduce(
                         (s, a) => s + (a.amount || 0),
                         0,
                       );
@@ -496,6 +514,7 @@ export default function NewProposalClient() {
                           total,
                           pdf_url: pdfKey!,
                           lang,
+                          quotation_type: quotationType,
                           valid_till: validTill || null,
                           cover: includeCover
                             ? {
@@ -554,6 +573,22 @@ export default function NewProposalClient() {
           >
             <option value="en">English</option>
             <option value="ml">Malayalam</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Quotation Type</label>
+          <select
+            className="mt-1 w-full rounded border px-3 py-2"
+            value={quotationType}
+            onChange={(e) => {
+              const v = e.target.value as 'Provisional' | 'Final';
+              setQuotationType(v);
+              if (v === 'Provisional' && bufferPct === 0) setBufferPct(5);
+              if (v === 'Final') setBufferPct(0);
+            }}
+          >
+            <option value="Provisional">Provisional</option>
+            <option value="Final">Final</option>
           </select>
         </div>
         <div>
@@ -675,6 +710,19 @@ export default function NewProposalClient() {
             onChange={(e) => setPrice(Number(e.target.value))}
           />
         </div>
+        {quotationType === 'Provisional' && (
+          <div>
+            <label className="block text-sm font-medium">Uncertainty buffer %</label>
+            <input
+              className="mt-1 w-full rounded border px-3 py-2"
+              type="number"
+              min={0}
+              max={20}
+              value={bufferPct}
+              onChange={(e) => setBufferPct(Number(e.target.value))}
+            />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium">Tax %</label>
           <input

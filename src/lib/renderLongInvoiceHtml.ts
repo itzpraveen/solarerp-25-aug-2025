@@ -20,6 +20,7 @@ export type LongInvoiceData = {
     dateISO: string;
     validTillISO?: string;
     program: 'PM Surya' | 'Commercial';
+    quotationType?: 'Provisional' | 'Final';
     systemCategory:
       | 'On-grid'
       | 'Hybrid'
@@ -266,10 +267,12 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   .accent { background: #f6f8ff; border-color: #c9d2ff; }
   .header { border: 1px solid #c9d2ff; border-radius: 10px; padding: 12px; background: linear-gradient(180deg, #f6f8ff 0%, #ffffff 100%); }
   footer { position: fixed; bottom: -10mm; left: 0; right: 0; font-size: 11px; color:#666; text-align:center; }
+  .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-24deg); color: rgba(220,0,0,0.12); font-size: 86px; font-weight: 800; z-index: 9999; letter-spacing: 2px; }
 </style>
 </head>
 <body class="body">
 
+${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONAL</div>` : ''}
 <section class="header">
   <div class="row">
     <div>
@@ -296,6 +299,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
         <span class="tag">${data.meta.program}</span>
         <span class="tag">${data.meta.systemCategory}</span>
         ${data.kit?.name ? `<span class="tag">${data.kit.name}</span>` : ''}
+        ${data.meta.quotationType ? `<span class="tag">${data.meta.quotationType}</span>` : ''}
       </div>
     </div>
   </div>
