@@ -69,13 +69,7 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
-    // If client passed a tenantId, it must match the authenticated tenant
-    if (tenantIdFromBody && tenantIdFromBody !== tenantId) {
-      return NextResponse.json(
-        { ok: false, error: 'Forbidden' },
-        { status: 403 },
-      );
-    }
+    // Ignore mismatched tenantId from body; always use authenticated tenant
 
     // Helper: sanitize filename
     const sanitize = (s: string) =>

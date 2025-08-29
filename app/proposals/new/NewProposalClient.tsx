@@ -315,7 +315,8 @@ export default function NewProposalClient() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ tenantId, payload }),
+        // Server derives tenant from authenticated profile; no need to send it
+        body: JSON.stringify({ payload }),
       });
       const out = await res.json();
       if (!res.ok || !out.ok) {
