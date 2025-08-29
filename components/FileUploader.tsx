@@ -12,12 +12,16 @@ export default function FileUploader({
 
   const upload = async () => {
     if (!file) return;
+    const { data: u } = await supabase.auth.getUser();
+    const uid = (u?.user as any)?.id as string | undefined;
     const { data: prof } = await supabase
       .from('profiles')
       .select('tenant_id')
+      .eq('user_id', uid as any)
       .maybeSingle();
-    if (!prof?.tenant_id) return alert('Profile not ready');
-    const key = `${prof.tenant_id}/${crypto.randomUUID()}-${file.name}`;
+    const tenantId = (prof as any)?.tenant_id as string | undefined;
+    if (!tenantId) return alert('Profile not ready');
+    const key = `${tenantId}/${crypto.randomUUID()}-${file.name}`;
     const { error } = await supabase.storage
       .from('documents')
       .upload(key, file);

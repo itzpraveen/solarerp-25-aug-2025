@@ -59,18 +59,21 @@ export default function ItemsPage() {
       return;
     }
     setAdding(true);
-    const { data: prof, error: pErr } = await supabase
+    const { data: u } = await supabase.auth.getUser();
+    const uid = (u?.user as any)?.id as string | undefined;
+    const { data: prof } = await supabase
       .from('profiles')
       .select('tenant_id')
+      .eq('user_id', uid as any)
       .maybeSingle();
-    if (pErr || !prof?.tenant_id) {
+    if (!prof?.tenant_id) {
       setAdding(false);
       toast({ title: 'Profile not ready', variant: 'error' });
       return;
     }
     const { error } = await supabase.from('items').insert({
       item_code: form.item_code,
-      tenant_id: prof!.tenant_id,
+      tenant_id: (prof as any)!.tenant_id,
       name: form.name,
       category: form.category || null,
       unit: form.unit || null,

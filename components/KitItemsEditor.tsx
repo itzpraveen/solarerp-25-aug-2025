@@ -29,9 +29,12 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
     setLoading(true);
     setError(null);
     try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = (u?.user as any)?.id as string | undefined;
       const { data: prof } = await supabase
         .from('profiles')
         .select('tenant_id')
+        .eq('user_id', uid as any)
         .maybeSingle();
       const tenantId = (prof as any)?.tenant_id;
       const [{ data: it }, { data: ks }] = await Promise.all([

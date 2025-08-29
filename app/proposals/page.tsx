@@ -17,9 +17,12 @@ export default function ProposalsListPage() {
     (async () => {
       setLoading(true);
       setErr(null);
+      const { data: u } = await supabase.auth.getUser();
+      const uid = (u?.user as any)?.id as string | undefined;
       const { data: prof } = await supabase
         .from('profiles')
         .select('tenant_id')
+        .eq('user_id', uid as any)
         .maybeSingle();
       if (!prof?.tenant_id) {
         setErr('Profile not ready. Please sign in again.');

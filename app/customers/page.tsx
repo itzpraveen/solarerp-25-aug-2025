@@ -23,6 +23,18 @@ export default function CustomersPage() {
   const { toast } = useToast();
   const [showDeleted, setShowDeleted] = useState(false);
 
+  const getTenantId = async (): Promise<string | null> => {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = (u?.user as any)?.id as string | undefined;
+    if (!uid) return null;
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', uid)
+      .maybeSingle();
+    return ((prof as any)?.tenant_id as string) || null;
+  };
+
   const load = async () => {
     const { data } = await supabase
       .from('customers')
@@ -41,11 +53,8 @@ export default function CustomersPage() {
     if (email && !isEmail(email)) return setErr('Invalid email');
     if (phone && !isPhone(phone)) return setErr('Invalid phone');
     setAdding(true);
-    const { data: prof, error: pErr } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
-    if (pErr || !prof?.tenant_id) {
+    const tenantId = await getTenantId();
+    if (!tenantId) {
       setAdding(false);
       setErr('Profile not ready');
       toast({ title: 'Profile not ready', variant: 'error' });
@@ -56,7 +65,7 @@ export default function CustomersPage() {
       const { data: dup } = await supabase
         .from('customers')
         .select('id')
-        .eq('tenant_id', prof.tenant_id)
+        .eq('tenant_id', tenantId)
         .eq('phone', phone)
         .maybeSingle();
       if (dup) {
@@ -65,7 +74,7 @@ export default function CustomersPage() {
       }
     }
     const { error } = await supabase.from('customers').insert({
-      tenant_id: prof!.tenant_id,
+      tenant_id: tenantId,
       name,
       phone: phone || null,
       email: email || null,

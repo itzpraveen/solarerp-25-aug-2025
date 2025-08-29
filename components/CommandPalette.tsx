@@ -57,9 +57,12 @@ export default function CommandPalette() {
   useEffect(() => {
     if (!open) return;
     (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = (u?.user as any)?.id as string | undefined;
       const { data: prof } = await supabase
         .from('profiles')
         .select('tenant_id')
+        .eq('user_id', uid as any)
         .maybeSingle();
       const tId = (prof as any)?.tenant_id as string | undefined;
       if (tId) {
