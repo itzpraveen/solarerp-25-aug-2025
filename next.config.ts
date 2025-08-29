@@ -4,6 +4,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+
+  eslint: {
+    // We run ESLint explicitly in CI. Skip ESLint during next build to
+    // avoid noisy patch messages.
+    ignoreDuringBuilds: true,
+  },
   // Reduce dev cache flakiness by using in-memory cache for webpack
   webpack: (config, { dev }) => {
     if (dev) {
