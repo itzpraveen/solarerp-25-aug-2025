@@ -81,6 +81,8 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
+    // After the guard above, treat client as non-null for nested helpers
+    const s = sb as any;
 
     const form = await req.formData();
     const file = form.get('file') as File | null;
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
       String(form.get('createBranches') || 'false') === 'true';
 
     // Determine tenant
-    const { data: prof } = await sb
+    const { data: prof } = await s
       .from('profiles')
       .select('tenant_id')
       .maybeSingle();
@@ -143,7 +145,7 @@ export async function POST(req: NextRequest) {
       const key = nm.toLowerCase();
       if (branchesByName.has(key)) return branchesByName.get(key)!;
       // Lookup
-      const { data } = await sb
+      const { data } = await s
         .from('branches')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -154,7 +156,7 @@ export async function POST(req: NextRequest) {
         return data.id as string;
       }
       if (createBranches) {
-        const { data: created } = await sb
+        const { data: created } = await s
           .from('branches')
           .insert({ tenant_id: tenantId, name: nm })
           .select('id')
