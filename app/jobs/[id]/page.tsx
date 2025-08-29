@@ -392,109 +392,15 @@ function ServiceForJob({ jobId }: { jobId: string }) {
 
   const add = async () => {
     if (!summary.trim()) return;
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
-    const tenantId = (prof as any)?.tenant_id as string | undefined;
-    if (!tenantId) {
-      setErr('Profile not ready');
-      return;
-    }
-    await supabase.from('service_tickets').insert({
-      tenant_id: tenantId,
-      customer_id: customerId || null,
-      job_id: jobId,
-      date: new Date().toISOString().slice(0, 10),
-      summary: summary.trim(),
-      status: 'Open',
-      priority: 'Medium',
-    });
-    setSummary('');
-    load();
-  };
-
-  return (
-    <Card title="Service Tickets">
-      {err && (
-        <div className="mb-2 rounded border bg-red-50 p-2 text-xs text-red-700">
-          {err}
-        </div>
-      )}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-        <input
-          className="md:col-span-4 rounded border px-3 py-2"
-          placeholder="Quick add summary…"
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-        />
-        <Button onClick={add}>Add</Button>
-      </div>
-      <ul className="mt-3 space-y-2 text-sm">
-        {loading ? (
-          <li className="text-gray-600">Loading…</li>
-        ) : rows.length === 0 ? (
-          <li className="text-gray-600">No service tickets</li>
-        ) : (
-          rows.map((r) => (
-            <li
-              key={r.id}
-              className="flex items-center justify-between rounded border bg-white p-3"
-            >
-              <span className="truncate">{r.summary || '—'}</span>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-600">{r.status}</span>
-                <a className="text-blue-600" href={`/service/${r.id}`}>
-                  Open
-                </a>
-              </div>
-            </li>
-          ))
-        )}
-      </ul>
-    </Card>
-  );
-}
-
-function Finance({ jobId }: { jobId: string }) {
-  const supabase = supabaseBrowser();
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [showInv, setShowInv] = useState(false);
-  const [invAmt, setInvAmt] = useState<number>(0);
-  const [invType, setInvType] = useState<'Deposit' | 'Progress' | 'Final'>(
-    'Progress',
-  );
-  const [payAmt, setPayAmt] = useState<number>(0);
-  const [payDate, setPayDate] = useState<string>('');
-  const [payMode, setPayMode] = useState<
-    'UPI' | 'NEFT' | 'Cash' | 'Card' | 'Cheque'
-  >('UPI');
-  const [payRef, setPayRef] = useState<string>('');
-  const [err, setErr] = useState<string | null>(null);
-  const [upiId, setUpiId] = useState<string>('');
-  const [companyName, setCompanyName] = useState<string>('');
-  useEffect(() => {
-    (async () => {
-      const { data: inv, error: iErr } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('job_id', jobId);
-      if (iErr) setErr(iErr.message);
-      const { data: pay } = await supabase
-        .from('payments')
-        .select('*, invoices(total)')
-        .in(
-          'invoice_id',
-          (inv || []).map((i) => i.id),
-        );
-      setInvoices(inv || []);
-      setPayments(pay || []);
-      // Fetch settings and tenant for UPI
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .maybeSingle();
+    const { data: u1 } = await supabase.auth.getUser();
+      const uid1 = (u1?.user as any)?.id as string | undefined;
+      const { data: prof } = uid1
+        ? await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', uid1)
+            .maybeSingle()
+        : ({ data: null } as any);
       if (prof?.tenant_id) {
         const [{ data: setg }, { data: ten }] = await Promise.all([
           supabase
@@ -537,10 +443,17 @@ function Finance({ jobId }: { jobId: string }) {
                     .update({ status: newStatus })
                     .eq('id', i.id);
                   // Audit: invoice status update
-                  const [{ data: prof }, { data: user }] = await Promise.all([
-                    supabase.from('profiles').select('tenant_id').maybeSingle(),
-                    supabase.auth.getUser(),
-                  ]);
+                  const [{ data: user }] = await Promise.all([
+        supabase.auth.getUser(),
+      ]);
+      const uid = (user?.user as any)?.id as string | undefined;
+      const { data: prof } = uid
+        ? await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', uid)
+            .maybeSingle()
+        : ({ data: null } as any);
                   if (prof?.tenant_id) {
                     await supabase.from('audit_logs').insert({
                       tenant_id: (prof as any).tenant_id,
@@ -598,10 +511,15 @@ function Finance({ jobId }: { jobId: string }) {
               <button
                 className="rounded bg-blue-600 px-3 py-2 text-white text-sm"
                 onClick={async () => {
-                  const { data: prof } = await supabase
-                    .from('profiles')
-                    .select('tenant_id')
-                    .maybeSingle();
+                  const { data: u2 } = await supabase.auth.getUser();
+      const uid2 = (u2?.user as any)?.id as string | undefined;
+      const { data: prof } = uid2
+        ? await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', uid2)
+            .maybeSingle()
+        : ({ data: null } as any);
                   const tenantId = (prof as any)?.tenant_id as string | undefined;
                   if (!tenantId) {
                     alert('Profile not ready');
@@ -1113,10 +1031,15 @@ function Proposals({ jobId }: { jobId: string }) {
     setRows(data || []);
     // Audit: proposal status update
     try {
-      const [{ data: prof }, { data: user }] = await Promise.all([
-        supabase.from('profiles').select('tenant_id').maybeSingle(),
-        supabase.auth.getUser(),
-      ]);
+      const { data: user } = await supabase.auth.getUser();
+      const uid = (user?.user as any)?.id as string | undefined;
+      const { data: prof } = uid
+        ? await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('user_id', uid)
+            .maybeSingle()
+        : ({ data: null } as any);
       if (prof?.tenant_id) {
         await supabase.from('audit_logs').insert({
           tenant_id: (prof as any).tenant_id,
