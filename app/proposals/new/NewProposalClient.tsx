@@ -333,50 +333,76 @@ export default function NewProposalClient() {
         const beforeTax = (Number(price) || 0) + addOnSum;
         const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
         const total = beforeTax + taxAmt;
-        const { data: created } = await supabase
-          .from('proposals')
-          .insert({
-            tenant_id: tenantId,
-            job_id: jobId,
-            date: new Date().toISOString().slice(0, 10),
-            kit_name: kitName,
-            price_before_tax: beforeTax,
-            tax: taxAmt,
-            total,
-            pdf_url: out.key,
-            lang,
-            quotation_type: quotationType,
-            valid_till: validTill || null,
-            cover: includeCover
+        // Try full insert; if DB is missing optional columns, fallback to minimal insert
+        const fullRow: any = {
+          tenant_id: tenantId,
+          job_id: jobId,
+          date: new Date().toISOString().slice(0, 10),
+          kit_name: kitName,
+          price_before_tax: beforeTax,
+          tax: taxAmt,
+          total,
+          pdf_url: out.key,
+          lang,
+          quotation_type: quotationType,
+          valid_till: validTill || null,
+          cover: includeCover
+            ? {
+                to: coverTo || null,
+                subject: coverSubject || null,
+                reference: coverReference || null,
+                paragraphs: coverParagraphs
+                  .split(/\n\n+|\r\n\r\n+/)
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+                signatory: {
+                  name: signName || null,
+                  title: signTitle || null,
+                  phone: signPhone || null,
+                },
+              }
+            : null,
+          notes: (notes || []).filter((n) => n.trim()).map((n) => n.trim()),
+          work_schedule:
+            workRows.length > 0
               ? {
-                  to: coverTo || null,
-                  subject: coverSubject || null,
-                  reference: coverReference || null,
-                  paragraphs: coverParagraphs
-                    .split(/\n\n+|\r\n\r\n+/)
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                  signatory: {
-                    name: signName || null,
-                    title: signTitle || null,
-                    phone: signPhone || null,
-                  },
+                  rows: workRows.map((r) => ({
+                    scope: r.scope,
+                    details: r.details,
+                    timeline: r.timeline,
+                  })),
                 }
               : null,
-            notes: (notes || []).filter((n) => n.trim()).map((n) => n.trim()),
-            work_schedule:
-              workRows.length > 0
-                ? {
-                    rows: workRows.map((r) => ({
-                      scope: r.scope,
-                      details: r.details,
-                      timeline: r.timeline,
-                    })),
-                  }
-                : null,
-          })
-          .select('id, total, pdf_url')
-          .single();
+        };
+        let created: any = null;
+        {
+          const { data, error } = await supabase
+            .from('proposals')
+            .insert(fullRow)
+            .select('id, total, pdf_url')
+            .single();
+          if (!error) {
+            created = data;
+          } else {
+            const minimal = {
+              tenant_id: tenantId,
+              job_id: jobId,
+              date: new Date().toISOString().slice(0, 10),
+              kit_name: kitName,
+              price_before_tax: beforeTax,
+              tax: taxAmt,
+              total,
+              pdf_url: out.key,
+            } as any;
+            const { data: data2, error: err2 } = await supabase
+              .from('proposals')
+              .insert(minimal)
+              .select('id, total, pdf_url')
+              .single();
+            if (err2) throw err2;
+            created = data2;
+          }
+        }
         // Audit: proposal created
         try {
           const { data: user } = await supabase.auth.getUser();
@@ -510,52 +536,70 @@ export default function NewProposalClient() {
                       const beforeTax = (Number(price) || 0) + addOnSum;
                       const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
                       const total = beforeTax + taxAmt;
-                      await supabase
-                        .from('proposals')
-                        .insert({
-                          tenant_id: tenantId,
-                          job_id: (job as any)!.id,
-                          date: today,
-                          kit_name: kitName,
-                          price_before_tax: beforeTax,
-                          tax: taxAmt,
-                          total,
-                          pdf_url: pdfKey!,
-                          lang,
-                          quotation_type: quotationType,
-                          valid_till: validTill || null,
-                          cover: includeCover
+                      // Insert proposal row; fallback to minimal fields if optional columns are missing on DB
+                      const fullRow2: any = {
+                        tenant_id: tenantId,
+                        job_id: (job as any)!.id,
+                        date: today,
+                        kit_name: kitName,
+                        price_before_tax: beforeTax,
+                        tax: taxAmt,
+                        total,
+                        pdf_url: pdfKey!,
+                        lang,
+                        quotation_type: quotationType,
+                        valid_till: validTill || null,
+                        cover: includeCover
+                          ? {
+                              to: coverTo || null,
+                              subject: coverSubject || null,
+                              reference: coverReference || null,
+                              paragraphs: coverParagraphs
+                                .split(/\n\n+|\r\n\r\n+/)
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                              signatory: {
+                                name: signName || null,
+                                title: signTitle || null,
+                                phone: signPhone || null,
+                              },
+                            }
+                          : null,
+                        notes: (notes || [])
+                          .filter((n) => n.trim())
+                          .map((n) => n.trim()),
+                        work_schedule:
+                          workRows.length > 0
                             ? {
-                                to: coverTo || null,
-                                subject: coverSubject || null,
-                                reference: coverReference || null,
-                                paragraphs: coverParagraphs
-                                  .split(/\n\n+|\r\n\r\n+/)
-                                  .map((s) => s.trim())
-                                  .filter(Boolean),
-                                signatory: {
-                                  name: signName || null,
-                                  title: signTitle || null,
-                                  phone: signPhone || null,
-                                },
+                                rows: workRows.map((r) => ({
+                                  scope: r.scope,
+                                  details: r.details,
+                                  timeline: r.timeline,
+                                })),
                               }
                             : null,
-                          notes: (notes || [])
-                            .filter((n) => n.trim())
-                            .map((n) => n.trim()),
-                          work_schedule:
-                            workRows.length > 0
-                              ? {
-                                  rows: workRows.map((r) => ({
-                                    scope: r.scope,
-                                    details: r.details,
-                                    timeline: r.timeline,
-                                  })),
-                                }
-                              : null,
-                        })
+                      };
+                      const { data: created2, error: createErr } = await supabase
+                        .from('proposals')
+                        .insert(fullRow2)
                         .select('id')
                         .single();
+                      if (createErr) {
+                        await supabase
+                          .from('proposals')
+                          .insert({
+                            tenant_id: tenantId,
+                            job_id: (job as any)!.id,
+                            date: today,
+                            kit_name: kitName,
+                            price_before_tax: beforeTax,
+                            tax: taxAmt,
+                            total,
+                            pdf_url: pdfKey!,
+                          })
+                          .select('id')
+                          .single();
+                      }
                       await supabase
                         .from('leads')
                         .update({ status: 'Quoted' })
