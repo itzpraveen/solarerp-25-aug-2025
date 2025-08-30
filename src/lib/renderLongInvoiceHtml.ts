@@ -295,7 +295,6 @@ ${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONA
       <div class="kicker">${S.quotation}</div>
       <h1>${data.company.name || ''}</h1>
       <div class="muted">${companyAddressHtml}</div>
-      <div class="muted">${data.company.phone || ''} ${data.company.email ? ' | ' + data.company.email : ''}</div>
     </div>
     <div>${data.company.logoUrl ? `<img src="${data.company.logoUrl}" style="max-height:64px;"/>` : ''}</div>
   </div>
