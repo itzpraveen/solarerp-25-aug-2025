@@ -278,6 +278,9 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   .kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: #666; margin-bottom: 4px; }
   .accent { background: #f6f8ff; border-color: #c9d2ff; }
   .header { border: 1px solid #c9d2ff; border-radius: 12px; padding: 14px; background: linear-gradient(180deg, #f6f8ff 0%, #ffffff 100%); }
+  .header-top { align-items: center; }
+  .logo { display:flex; align-items:center; justify-content:flex-end; }
+  .logo img { max-height: 56px; max-width: 45%; height:auto; width:auto; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
   .summary { border:1px dashed #c9d2ff; border-radius:8px; padding:8px; margin-top:6px; background:#fafbff; }
   .summary .row { gap:8px; }
   .summary .label { color:#445; }
@@ -290,13 +293,13 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
 
 ${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONAL</div>` : ''}
 <section class="header">
-  <div class="row">
+  <div class="row header-top">
     <div>
       <div class="kicker">${S.quotation}</div>
       <h1>${data.company.name || ''}</h1>
       <div class="muted">${companyAddressHtml}</div>
     </div>
-    <div>${data.company.logoUrl ? `<img src="${data.company.logoUrl}" style="max-height:64px;"/>` : ''}</div>
+    <div class="logo">${data.company.logoUrl ? `<img src="${data.company.logoUrl}" alt="${(data.company.name || 'Logo').replace(/"/g,'')}">` : ''}</div>
   </div>
   <hr />
   <div class="grid" style="grid-template-columns: 1fr 1fr;">
