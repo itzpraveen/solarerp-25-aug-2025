@@ -6,6 +6,7 @@ import Button from '~/components/ui/Button';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
 import TaskTemplatesManager from '~/components/TaskTemplatesManager';
+import { useRef } from 'react';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const [savingBranch, setSavingBranch] = useState(false);
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [editingBranchName, setEditingBranchName] = useState('');
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -461,6 +463,56 @@ export default function SettingsPage() {
                       setForm({ ...form, company_logo_url: e.target.value })
                     }
                   />
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/svg+xml"
+                      className="hidden"
+                      onChange={async (e) => {
+                        try {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (!tenantId) {
+                            setFlash('Profile not ready — cannot upload logo');
+                            return;
+                          }
+                          const ext =
+                            (f.name.split('.').pop() || '') ||
+                            (f.type === 'image/svg+xml'
+                              ? 'svg'
+                              : f.type === 'image/png'
+                                ? 'png'
+                                : f.type === 'image/jpeg'
+                                  ? 'jpg'
+                                  : 'bin');
+                          const key = `${tenantId}/logo.${ext}`;
+                          const { error } = await supabase.storage
+                            .from('documents')
+                            .upload(key, f, {
+                              upsert: true,
+                              contentType: f.type || undefined,
+                            } as any);
+                          if (error) throw error;
+                          setForm({ ...form, company_logo_url: key });
+                          setFlash('Logo uploaded. Click Save to persist.');
+                        } catch (err: any) {
+                          setFlash(String(err?.message || 'Logo upload failed'));
+                        } finally {
+                          if (logoInputRef.current) logoInputRef.current.value = '';
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={() => logoInputRef.current?.click()}
+                    >
+                      Upload Logo
+                    </Button>
+                    <span className="text-xs text-gray-600">
+                      Stores under documents/{tenantId}/logo.* (private).
+                    </span>
+                  </div>
                 </div>
               </div>
               <div>

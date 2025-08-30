@@ -250,6 +250,18 @@ export default function NewProposalClient() {
         : []),
     ];
 
+    // Resolve logo: if the saved value looks like a storage key (no http/data),
+    // create a short‑lived signed URL for rendering, else use as-is.
+    let resolvedLogo = (companyLogo || '').trim();
+    if (resolvedLogo && !/^https?:\/\//i.test(resolvedLogo) && !/^data:/i.test(resolvedLogo)) {
+      try {
+        const { data: s } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(resolvedLogo, 60 * 60 * 24 * 7);
+        if ((s as any)?.signedUrl) resolvedLogo = (s as any).signedUrl as string;
+      } catch {}
+    }
+
     const payload: LongInvoiceData = {
       lang,
       company: {
@@ -260,7 +272,7 @@ export default function NewProposalClient() {
         phone: companyPhone || '',
         upi: settings?.upi_id || undefined,
         email: companyEmail || '',
-        logoUrl: companyLogo || undefined,
+        logoUrl: resolvedLogo || undefined,
       },
       customer: {
         name: customer?.name || 'Customer',
