@@ -1298,7 +1298,7 @@ export default function NewProposalClient() {
       {signedUrl && (
         <div className="rounded border bg-white p-4">
           <h3 className="font-semibold">PDF</h3>
-          <a className="text-blue-600" target="_blank" href={signedUrl}>
+          <a className="text-blue-600" target="_blank" rel="noreferrer" href={signedUrl}>
             Open PDF
           </a>
           {(customer?.phone ||

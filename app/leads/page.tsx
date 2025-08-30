@@ -1025,7 +1025,7 @@ function LeadsPageInner() {
                           <td className="p-2">{l.phone || '—'}{l.phone && (
                             <span className="ml-2 whitespace-nowrap">
                               <a className="underline text-blue-600" href={`tel:${String(l.phone).replace(/\\D+/g, '')}`} title="Call">📞</a>
-                              <a className="ml-1 underline text-green-600" href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`} target="_blank" title="WhatsApp">🟢</a>
+                              <a className="ml-1 underline text-green-600" href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`} target="_blank" rel="noreferrer" title="WhatsApp">🟢</a>
                             </span>
                           )}
                           </td>
@@ -1222,6 +1222,7 @@ function LeadsPageInner() {
                               <a
                                 href={`https://wa.me/${String(l.phone).replace(/\D+/g, '')}`}
                                 target="_blank"
+                                rel="noreferrer"
                                 className="ml-2 rounded border px-2 py-1 text-sm"
                               >
                                 WhatsApp
