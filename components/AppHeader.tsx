@@ -91,12 +91,34 @@ export default function AppHeader() {
         const { count: c1 } = await lq;
         setDueLeadsCount(c1 || 0);
 
-        const { count: c2 } = await supabase
-          .from('invoices')
-          .select('id', { count: 'exact', head: true })
-          .lt('due_date', today)
-          .neq('status', 'Paid');
-        setOverdueInvCount(c2 || 0);
+        // Overdue invoices: scope by selected branch when not 'all'
+        if (branchValue === 'all') {
+          const { count: c2 } = await supabase
+            .from('invoices')
+            .select('id', { count: 'exact', head: true })
+            .lt('due_date', today)
+            .neq('status', 'Paid');
+          setOverdueInvCount(c2 || 0);
+        } else {
+          // Restrict to invoices of jobs that belong to the selected branch
+          const { data: branchJobs } = await supabase
+            .from('jobs')
+            .select('id')
+            .eq('branch_id', branchValue as string)
+            .limit(1000);
+          const jobIds = ((branchJobs as any[]) || []).map((r) => r.id);
+          if (jobIds.length === 0) {
+            setOverdueInvCount(0);
+          } else {
+            const { count: c2 } = await supabase
+              .from('invoices')
+              .select('id', { count: 'exact', head: true })
+              .in('job_id', jobIds as any)
+              .lt('due_date', today)
+              .neq('status', 'Paid');
+            setOverdueInvCount(c2 || 0);
+          }
+        }
       } catch {}
     })();
   }, [branchValue, authed]);
