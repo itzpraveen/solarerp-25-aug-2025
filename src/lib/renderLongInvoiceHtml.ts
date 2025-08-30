@@ -282,7 +282,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   .summary .row { gap:8px; }
   .summary .label { color:#445; }
   .summary .value { font-weight:600; }
-  footer { position: fixed; bottom: -10mm; left: 0; right: 0; font-size: 11px; color:#666; text-align:center; }
+  footer { position: fixed; bottom: 8mm; left: 0; right: 0; font-size: 11px; color:#666; text-align:center; z-index: 0; }
   .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-24deg); color: rgba(220,0,0,0.10); font-size: 74px; font-weight: 800; z-index: 9999; letter-spacing: 2px; }
 </style>
 </head>
