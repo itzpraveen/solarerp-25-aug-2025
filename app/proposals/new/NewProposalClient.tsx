@@ -117,7 +117,12 @@ export default function NewProposalClient() {
             .eq('id', jobId)
             .single();
           setJob(j);
-          setCustomer((j as any)?.customers?.[0] || null);
+          // Customers relation may come back as object or single-item array depending on config
+          {
+            const rel = (j as any)?.customers;
+            const cust = Array.isArray(rel) ? rel[0] : rel;
+            setCustomer(cust || null);
+          }
           if ((j as any)?.program_type)
             setProgram((j as any).program_type as 'PM_Surya' | 'Commercial');
           if (k && k.length) {

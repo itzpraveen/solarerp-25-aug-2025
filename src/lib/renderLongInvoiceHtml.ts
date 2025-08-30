@@ -223,6 +223,16 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   const tax = subtotal * ((data.money.taxRatePct || 0) / 100);
   const grandTotal = subtotal + tax;
 
+  // Render multi-line addresses cleanly inside HTML
+  const companyAddressHtml = String(data.company.address || '')
+    .trim()
+    .replace(/\n+/g, '<br/>');
+  const customerAddressHtml = String(
+    data.customer.address || data.customer.place || data.meta.site || '',
+  )
+    .trim()
+    .replace(/\n+/g, '<br/>');
+
   const timelineRow = (label: string, dt?: string) =>
     `<tr><td>${label}</td><td>${dt ? new Date(dt).toLocaleDateString('en-IN') : '-'}</td></tr>`;
 
@@ -259,17 +269,21 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   .muted { color: #555; }
   .grid { display: grid; gap: 8px; }
   .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
+  .card { border: 1px solid #e6e8ef; border-radius: 10px; padding: 12px; }
   .table { width: 100%; border-collapse: collapse; }
-  .table th, .table td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
+  .table th, .table td { border: 1px solid #e6e8ef; padding: 8px; vertical-align: top; }
   .right { text-align: right; }
-  .tag { display:inline-block; padding:2px 8px; border:1px solid #888; border-radius: 999px; font-size: 12px; }
+  .tag { display:inline-block; padding:2px 8px; border:1px solid #c8ceda; background:#f7f9ff; border-radius: 999px; font-size: 12px; color:#223; }
   .page-break { page-break-before: always; }
   .kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: #666; margin-bottom: 4px; }
   .accent { background: #f6f8ff; border-color: #c9d2ff; }
-  .header { border: 1px solid #c9d2ff; border-radius: 10px; padding: 12px; background: linear-gradient(180deg, #f6f8ff 0%, #ffffff 100%); }
+  .header { border: 1px solid #c9d2ff; border-radius: 12px; padding: 14px; background: linear-gradient(180deg, #f6f8ff 0%, #ffffff 100%); }
+  .summary { border:1px dashed #c9d2ff; border-radius:8px; padding:8px; margin-top:6px; background:#fafbff; }
+  .summary .row { gap:8px; }
+  .summary .label { color:#445; }
+  .summary .value { font-weight:600; }
   footer { position: fixed; bottom: -10mm; left: 0; right: 0; font-size: 11px; color:#666; text-align:center; }
-  .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-24deg); color: rgba(220,0,0,0.12); font-size: 86px; font-weight: 800; z-index: 9999; letter-spacing: 2px; }
+  .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-24deg); color: rgba(220,0,0,0.10); font-size: 74px; font-weight: 800; z-index: 9999; letter-spacing: 2px; }
 </style>
 </head>
 <body class="body">
@@ -280,7 +294,7 @@ ${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONA
     <div>
       <div class="kicker">${S.quotation}</div>
       <h1>${data.company.name || ''}</h1>
-      <div class="muted">${data.company.address || ''}</div>
+      <div class="muted">${companyAddressHtml}</div>
       <div class="muted">${data.company.phone || ''} ${data.company.email ? ' | ' + data.company.email : ''}</div>
     </div>
     <div>${data.company.logoUrl ? `<img src="${data.company.logoUrl}" style="max-height:64px;"/>` : ''}</div>
@@ -289,9 +303,12 @@ ${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONA
   <div class="grid" style="grid-template-columns: 1fr 1fr;">
     <div class="card accent">
       <strong>${S.client}</strong>: ${data.customer.name}<br/>
-      <strong>${data.customer.address ? S.address : S.place}</strong>: ${
-        data.customer.address || data.customer.place || data.meta.site || ''
-      }<br/>
+      <strong>${S.address}</strong>: ${customerAddressHtml}<br/>
+      ${
+        data.customer.phone || data.customer.email
+          ? `<span class="muted">${[data.customer.phone, data.customer.email].filter(Boolean).join(' | ')}</span><br/>`
+          : ''
+      }
       <strong>${S.plant} / ${S.brand}</strong>: ${data.meta.plantBrand || ''}<br/>
       <strong>${S.capacity}</strong>: ${data.meta.capacityKW} kW
     </div>
@@ -304,6 +321,11 @@ ${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONA
         <span class="tag">${data.meta.systemCategory}</span>
         ${data.kit?.name ? `<span class="tag">${data.kit.name}</span>` : ''}
         ${data.meta.quotationType ? `<span class="tag">${data.meta.quotationType}</span>` : ''}
+      </div>
+      <div class="summary">
+        <div class="row"><div class="label">${S.projectCost}:</div><div class="value">${inr(data.money.projectCost)}</div></div>
+        <div class="row"><div class="label">${S.tax} (${Number(data.money.taxRatePct || 0)}%):</div><div class="value">${inr(tax)}</div></div>
+        <div class="row"><div class="label">${S.grandTotal}:</div><div class="value">${inr(grandTotal)}</div></div>
       </div>
     </div>
   </div>

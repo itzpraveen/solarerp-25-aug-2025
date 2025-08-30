@@ -30,3 +30,5 @@ tsconfig.tsbuildinfo
 tmp/
 *.pdf
 .vercel
+supabase/migrations_backup_*/
+supabase/.temp/
