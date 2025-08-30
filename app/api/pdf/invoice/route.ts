@@ -106,7 +106,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
     }
 
-    const html = renderLongInvoiceHtml(payload);
+    // Prefetch external logo and embed as data URL so images are not blocked
+    async function toDataUrl(url: string, fallbackMime?: string): Promise<string | null> {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 3500);
+        const res = await fetch(url, {
+          cache: 'no-store',
+          // Some CDNs require a UA; keep it minimal
+          headers: { Accept: 'image/*;q=0.9,*/*;q=0.1' },
+          signal: ctrl.signal,
+        } as any);
+        clearTimeout(t);
+        if (!res.ok) return null;
+        const buf = await res.arrayBuffer();
+        const mime =
+          res.headers.get('content-type') ||
+          fallbackMime ||
+          (url.endsWith('.svg') || url.endsWith('.svgz')
+            ? 'image/svg+xml'
+            : url.endsWith('.png')
+              ? 'image/png'
+              : url.endsWith('.jpg') || url.endsWith('.jpeg')
+                ? 'image/jpeg'
+                : 'application/octet-stream');
+        const b64 = Buffer.from(buf).toString('base64');
+        return `data:${mime};base64,${b64}`;
+      } catch {
+        return null;
+      }
+    }
+
+    let preparedPayload: LongInvoiceData = payload as any;
+    try {
+      const logo = (payload as any)?.company?.logoUrl as string | undefined;
+      if (logo && !logo.startsWith('data:')) {
+        const dataUrl = await toDataUrl(logo);
+        if (dataUrl)
+          preparedPayload = {
+            ...(payload as any),
+            company: { ...(payload as any).company, logoUrl: dataUrl },
+          } as any;
+      }
+    } catch {}
+
+    const html = renderLongInvoiceHtml(preparedPayload);
 
     // Prefer serverless chromium on Vercel/AWS; fall back to local Chrome in dev
     const isServerless = !!(process.env.AWS_REGION || process.env.VERCEL);
