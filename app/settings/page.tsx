@@ -37,6 +37,8 @@ export default function SettingsPage() {
     | 'staff'
   >('staff');
   const [inviting, setInviting] = useState(false);
+  const [fixingProfiles, setFixingProfiles] = useState(false);
+  const [fixResult, setFixResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<
@@ -181,6 +183,36 @@ export default function SettingsPage() {
       return;
     }
     toast({ title: 'Saved', variant: 'success' });
+  };
+
+  const fixMissingProfiles = async () => {
+    setFixingProfiles(true);
+    setFixResult(null);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch('/api/ops/backfill-profiles', {
+        method: 'POST',
+        headers: token
+          ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+          : { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'all-missing' }),
+      });
+      const out = await res.json();
+      if (!res.ok || !out?.ok) throw new Error(out?.error || 'Fix failed');
+      setFixResult(`Updated ${out.updated} user profiles`);
+      const { data: members } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('tenant_id', tenantId);
+      setTeam((members as any[]) || []);
+      toast({ title: 'Profiles fixed', description: fixResult || '', variant: 'success' });
+    } catch (e: any) {
+      setFixResult(e?.message || 'Fix failed');
+      toast({ title: 'Fix failed', description: e?.message || '', variant: 'error' });
+    } finally {
+      setFixingProfiles(false);
+    }
   };
 
   const invite = async () => {
@@ -499,6 +531,14 @@ export default function SettingsPage() {
                   <div className="mt-2 text-xs text-gray-600">
                     Invited users will receive a sign-in email (real env). In
                     mock, they appear immediately.
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button onClick={fixMissingProfiles} loading={fixingProfiles} variant="secondary">
+                      Fix missing profiles
+                    </Button>
+                    {fixResult && (
+                      <span className="text-xs text-gray-700">{fixResult}</span>
+                    )}
                   </div>
                 </div>
               )}

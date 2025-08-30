@@ -5,6 +5,7 @@ import Button from '~/components/ui/Button';
 import RequireOwner from '~/components/RequireOwner';
 import Input from '~/components/ui/Input';
 import { isEmail, isPhone, required } from '@/lib/validation';
+import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import Card from '~/components/ui/Card';
 import EmptyState from '~/components/ui/EmptyState';
 import DataTable, { type Column } from '~/components/ui/DataTable';
@@ -24,15 +25,7 @@ export default function CustomersPage() {
   const [showDeleted, setShowDeleted] = useState(false);
 
   const getTenantId = async (): Promise<string | null> => {
-    const { data: u } = await supabase.auth.getUser();
-    const uid = (u?.user as any)?.id as string | undefined;
-    if (!uid) return null;
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', uid)
-      .maybeSingle();
-    return ((prof as any)?.tenant_id as string) || null;
+    return await ensureProfileIfMissing(supabase);
   };
 
   const load = async () => {

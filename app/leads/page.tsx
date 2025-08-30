@@ -10,6 +10,7 @@ import { useToast } from '~/components/ui/ToastProvider';
 import EmptyState from '~/components/ui/EmptyState';
 import { isPhone, required } from '@/lib/validation';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
+import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import BranchSelect from '~/components/BranchSelect';
 import RequireOwner from '~/components/RequireOwner';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
@@ -75,21 +76,15 @@ function LeadsPageInner() {
   const { toast } = useToast();
   // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
   const getTenantId = async (): Promise<string | null> => {
-    const { data: u } = await supabase.auth.getUser();
-    const uid = (u?.user as any)?.id as string | undefined;
-    if (!uid) return null;
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', uid)
-      .maybeSingle();
-    return ((prof as any)?.tenant_id as string) || null;
+    // Ensure a profile exists; if not, try to create when self‑signup is on
+    const ensured = await ensureProfileIfMissing(supabase);
+    return ensured;
   };
 
   useEffect(() => {
     (async () => {
-      const tenantId = await getTenantId();
-      if (!tenantId) return;
+    const tenantId = await getTenantId();
+    if (!tenantId) return;
       const { data: br } = await supabase
         .from('branches')
         .select('id,name')

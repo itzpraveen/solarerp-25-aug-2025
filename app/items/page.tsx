@@ -5,6 +5,7 @@ import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
+import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import RequireOwner from '~/components/RequireOwner';
 import DataTable, { type Column } from '~/components/ui/DataTable';
 import { useToast } from '~/components/ui/ToastProvider';
@@ -59,21 +60,15 @@ export default function ItemsPage() {
       return;
     }
     setAdding(true);
-    const { data: u } = await supabase.auth.getUser();
-    const uid = (u?.user as any)?.id as string | undefined;
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', uid as any)
-      .maybeSingle();
-    if (!prof?.tenant_id) {
+    const tenantId = await ensureProfileIfMissing(supabase);
+    if (!tenantId) {
       setAdding(false);
       toast({ title: 'Profile not ready', variant: 'error' });
       return;
     }
     const { error } = await supabase.from('items').insert({
       item_code: form.item_code,
-      tenant_id: (prof as any)!.tenant_id,
+      tenant_id: tenantId,
       name: form.name,
       category: form.category || null,
       unit: form.unit || null,

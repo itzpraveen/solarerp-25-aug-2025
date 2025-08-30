@@ -608,11 +608,8 @@ function Finance({ jobId }: { jobId: string }) {
               <button
                 className="rounded bg-blue-600 px-3 py-2 text-white text-sm"
                 onClick={async () => {
-                  const { data: prof } = await supabase
-                    .from('profiles')
-                    .select('tenant_id')
-                    .maybeSingle();
-                  const tenantId = (prof as any)?.tenant_id as string | undefined;
+                  const { ensureProfileIfMissing } = await import('@/lib/ensureProfileClient');
+                  const tenantId = await ensureProfileIfMissing(supabase as any);
                   if (!tenantId) {
                     alert('Profile not ready');
                     return;
@@ -730,11 +727,8 @@ function Finance({ jobId }: { jobId: string }) {
                 .limit(1)
                 .maybeSingle();
               if (!inv) return alert('Create an invoice first');
-              const { data: prof } = await supabase
-                .from('profiles')
-                .select('tenant_id')
-                .maybeSingle();
-              const tenantId = (prof as any)?.tenant_id as string | undefined;
+              const { ensureProfileIfMissing } = await import('@/lib/ensureProfileClient');
+              const tenantId = await ensureProfileIfMissing(supabase as any);
               if (!tenantId) {
                 alert('Profile not ready');
                 return;

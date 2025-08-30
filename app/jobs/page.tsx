@@ -16,6 +16,7 @@ import CustomerTypeahead from '~/components/CustomerTypeahead';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import BranchSelect from '~/components/BranchSelect';
+import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 
 type Customer = { id: string; name: string };
 
@@ -134,11 +135,7 @@ export default function JobsPage() {
     }
     setCreating(true);
     try {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .maybeSingle();
-      const tenantId = (prof as any)?.tenant_id as string | undefined;
+      const tenantId = await ensureProfileIfMissing(supabase);
       if (!tenantId) {
         setMsg('Profile not ready');
         setCreating(false);
