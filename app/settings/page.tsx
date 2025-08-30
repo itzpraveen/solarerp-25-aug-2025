@@ -5,6 +5,7 @@ import RequireOwner from '~/components/RequireOwner';
 import Button from '~/components/ui/Button';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
+import TaskTemplatesManager from '~/components/TaskTemplatesManager';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
@@ -861,6 +862,8 @@ export default function SettingsPage() {
               </tbody>
             </table>
           </div>
+          {/* Task Templates manager */}
+          <TaskTemplatesManager tenantId={tenantId} />
         </div>
       )}
     </RequireOwner>

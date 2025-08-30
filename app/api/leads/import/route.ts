@@ -91,6 +91,25 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Missing file' },
         { status: 400 },
       );
+    // Basic safeguards: size/type checks before reading into memory
+    const maxBytes = Number(process.env.LEADS_IMPORT_MAX_BYTES || 2 * 1024 * 1024); // 2MB default
+    if (typeof file.size === 'number' && file.size > maxBytes) {
+      return NextResponse.json(
+        { ok: false, error: `File too large (max ${maxBytes} bytes)` },
+        { status: 413 },
+      );
+    }
+    const ct = (file as any)?.type || '';
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (ct && !allowed.includes(ct)) {
+      return NextResponse.json(
+        { ok: false, error: 'Unsupported content type' },
+        { status: 415 },
+      );
+    }
     const mode = (form.get('mode') as ImportMode) || 'create';
     const defaultBranchId = (form.get('branchId') as string) || '';
     const createBranches =

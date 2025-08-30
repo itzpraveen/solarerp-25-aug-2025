@@ -21,7 +21,7 @@ export default function ServiceTickets() {
     const { data, error } = await supabase
       .from('service_tickets')
       .select('*, customers(name), jobs(id)')
-      .order('"date"', { ascending: false });
+      .order('date', { ascending: false });
     if (error) setErr(error.message);
     setTickets(data || []);
     const { data: cust } = await supabase

@@ -41,9 +41,14 @@ export default function KitsPage() {
     if (!form.kit_name.trim()) return setErr('Kit name is required');
     if (form.capacity_kw <= 0) return setErr('Capacity must be > 0');
     if (form.selling_price < 0) return setErr('Price must be ≥ 0');
+    // Fetch the current user's own profile; without filtering this can
+    // return multiple rows for tenant admins and cause a false error.
+    const { data: u } = await supabase.auth.getUser();
+    const uid = (u?.user as any)?.id as string | undefined;
     const { data: prof, error: pErr } = await supabase
       .from('profiles')
       .select('tenant_id')
+      .eq('user_id', uid as any)
       .maybeSingle();
     if (pErr || !prof?.tenant_id) return setErr('Profile not ready');
     const { error } = await supabase.from('kits').upsert({

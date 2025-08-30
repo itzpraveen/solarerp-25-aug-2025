@@ -371,7 +371,7 @@ function ServiceForJob({ jobId }: { jobId: string }) {
         .from('service_tickets')
         .select('*')
         .eq('job_id', jobId)
-        .order('"date"', { ascending: false });
+        .order('date', { ascending: false });
       setRows(t || []);
       const { data: j } = await supabase
         .from('jobs')
@@ -1068,7 +1068,7 @@ function Proposals({ jobId }: { jobId: string }) {
         .from('proposals')
         .select('*')
         .eq('job_id', jobId)
-        .order('"date"', { ascending: false });
+        .order('date', { ascending: false });
       setRows(data || []);
     })();
   }, [jobId]);
@@ -1119,7 +1119,7 @@ function Proposals({ jobId }: { jobId: string }) {
       .from('proposals')
       .select('*')
       .eq('job_id', jobId)
-      .order('"date"', { ascending: false });
+      .order('date', { ascending: false });
     setRows(data || []);
     // Audit: proposal status update
     try {
@@ -1503,6 +1503,7 @@ function Docs({ jobId }: { jobId: string }) {
 function Tasks({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
   const { confirm } = useConfirm();
+  const { toast } = useToast();
   const [tasks, setTasks] = useState<any[]>([]);
   const [team, setTeam] = useState<any[]>([]);
   const [memberMap, setMemberMap] = useState<Record<string, any>>({});
@@ -1517,6 +1518,7 @@ function Tasks({ jobId }: { jobId: string }) {
   const [assignedTo, setAssignedTo] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [adding, setAdding] = useState(false);
+  const [prefilling, setPrefilling] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   // Filters / sorting
@@ -1678,6 +1680,32 @@ function Tasks({ jobId }: { jobId: string }) {
     await load();
   };
 
+  const prefill = async () => {
+    try {
+      setPrefilling(true);
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch('/api/jobs/prefillTasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ jobId }),
+      });
+      if (!res.ok) {
+        const m = await res.json().catch(() => ({}));
+        throw new Error(m?.error || `HTTP ${res.status}`);
+      }
+      await load();
+      toast({ title: 'Default tasks added', variant: 'success' });
+    } catch (e: any) {
+      toast({ title: 'Prefill failed', description: String(e?.message || e), variant: 'error' });
+    } finally {
+      setPrefilling(false);
+    }
+  };
+
   const statusOrder: Record<string, number> = {
     Open: 0,
     InProgress: 1,
@@ -1792,6 +1820,9 @@ function Tasks({ jobId }: { jobId: string }) {
         title={`Tasks (${filtered.length})`}
         actions={
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={prefill} loading={prefilling}>
+              Prefill defaults
+            </Button>
             <span className="hidden md:inline text-xs text-gray-600">
               Open: {openCount}
               {overdueCount ? ` • Overdue: ${overdueCount}` : ''}

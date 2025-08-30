@@ -2,7 +2,6 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Use a module-level singleton in the browser to avoid multiple GoTrueClient instances
 let browserClient: SupabaseClient | null = null;
-let mockClient: SupabaseClient | null = null;
 
 export const supabaseBrowser = () => {
   if (typeof window === 'undefined') {

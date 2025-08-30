@@ -35,21 +35,46 @@ export async function processDueJobs() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
+  const nowIso = new Date().toISOString();
+  // Process in small batches to avoid timeouts and reduce contention
   const { data: jobs, error } = await supabase
     .from('background_jobs')
-    .select('*')
-    .lte('run_at', new Date().toISOString())
-    .lte('attempts', 5);
+    .select('id, tenant_id, type, payload, run_at, attempts, last_error')
+    .lte('run_at', nowIso)
+    .lte('attempts', 5)
+    .order('run_at', { ascending: true })
+    .limit(50);
   if (error) throw error;
 
   for (const job of (jobs || []) as BackgroundJob[]) {
     try {
+      // Claim the job: atomically bump run_at into near future to prevent double-processing.
+      const lockUntil = new Date(Date.now() + 60_000).toISOString();
+      const { data: claimed, error: claimErr } = await supabase
+        .from('background_jobs')
+        .update({ run_at: lockUntil, attempts: job.attempts + 1 })
+        .eq('id', job.id)
+        .lte('run_at', nowIso)
+        .select('id, attempts')
+        .maybeSingle();
+      if (claimErr) throw claimErr;
+      if (!claimed) {
+        // Another worker claimed it; skip.
+        continue;
+      }
+      const attemptNo = claimed.attempts ?? job.attempts + 1;
+
       switch (job.type) {
         case 'whatsapp_template': {
           const { to, templateName, variables } = job.payload || {};
           // Send directly to WhatsApp Graph API using server credentials
           const token = env.whatsappToken;
           const phoneId = env.whatsappPhoneId;
+          if (!token || !phoneId) {
+            throw new Error(
+              'WhatsApp credentials missing (WHATSAPP_TOKEN/WHATSAPP_PHONE_NUMBER_ID)',
+            );
+          }
           const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
           const res = await fetch(url, {
             method: 'POST',
@@ -94,13 +119,12 @@ export async function processDueJobs() {
       }
       await supabase.from('background_jobs').delete().eq('id', job.id);
     } catch (err: any) {
-      const nextRun = new Date(
-        Date.now() + Math.pow(2, job.attempts) * 60 * 1000,
-      ); // exponential backoff
+      const currentAttempts = (job.attempts ?? 0) + 1; // claimed increased it by 1
+      const backoffMinutes = Math.pow(2, Math.min(currentAttempts, 5));
+      const nextRun = new Date(Date.now() + backoffMinutes * 60 * 1000);
       await supabase
         .from('background_jobs')
         .update({
-          attempts: job.attempts + 1,
           last_error: String(err?.message || err),
           run_at: nextRun.toISOString(),
         })

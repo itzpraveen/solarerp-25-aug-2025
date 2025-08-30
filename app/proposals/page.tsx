@@ -33,7 +33,7 @@ export default function ProposalsListPage() {
         .from('proposals')
         .select('*, jobs(id, customers(name, phone))')
         .eq('tenant_id', prof.tenant_id)
-        .order('"date"', { ascending: false });
+        .order('date', { ascending: false });
       if (!showVoided) q = q.is('voided_at', null);
       const { data, error } = await q;
       if (error) setErr(error.message);

@@ -13,6 +13,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      // Stub Next.js server-only guard so Vitest can import server modules
+      'server-only': path.resolve(__dirname, 'vitest.server-only.ts'),
     },
   },
 });
