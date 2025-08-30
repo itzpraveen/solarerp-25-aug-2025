@@ -103,6 +103,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       quotation: 'Quotation',
       client: 'Client',
       place: 'Place',
+      address: 'Address',
       plant: 'Plant',
       brand: 'Brand',
       capacity: 'Capacity',
@@ -156,6 +157,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
       quotation: 'ക്വോട്ടേഷൻ',
       client: 'ഉപഭോക്താവ്',
       place: 'സ്ഥലം',
+      address: 'വിലാസം',
       plant: 'പ്ലാന്റ്',
       brand: 'ബ്രാൻഡ്',
       capacity: 'ശേഷി',
@@ -287,7 +289,9 @@ ${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONA
   <div class="grid" style="grid-template-columns: 1fr 1fr;">
     <div class="card accent">
       <strong>${S.client}</strong>: ${data.customer.name}<br/>
-      <strong>${S.place}</strong>: ${data.customer.place || ''}<br/>
+      <strong>${data.customer.address ? S.address : S.place}</strong>: ${
+        data.customer.address || data.customer.place || data.meta.site || ''
+      }<br/>
       <strong>${S.plant} / ${S.brand}</strong>: ${data.meta.plantBrand || ''}<br/>
       <strong>${S.capacity}</strong>: ${data.meta.capacityKW} kW
     </div>

@@ -371,6 +371,17 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Company Name</label>
+                  <input
+                    className="mt-1 w-full rounded border px-3 py-2"
+                    value={form.company_name || ''}
+                    onChange={(e) =>
+                      setForm({ ...form, company_name: e.target.value })
+                    }
+                    placeholder="Your company legal/trade name"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium">
                     Company Phone

@@ -25,6 +25,7 @@ export default function NewProposalClient() {
   const [quoteNo, setQuoteNo] = useState<string>('');
   const [validTill, setValidTill] = useState<string>('');
   const [companyAddress, setCompanyAddress] = useState<string>('Kerala');
+  const [companyName, setCompanyName] = useState<string>('');
   const [companyPhone, setCompanyPhone] = useState<string>('');
   const [companyEmail, setCompanyEmail] = useState<string>('');
   const [companyLogo, setCompanyLogo] = useState<string>('');
@@ -96,6 +97,7 @@ export default function NewProposalClient() {
         setSettings(setg);
         setTaxRate(Number(setg?.default_tax_rate || 0));
         setMlNote(setg?.proposal_note_ml || '');
+        setCompanyName((setg as any)?.company_name || '');
         setCompanyPhone(setg?.company_phone || '');
         setCompanyEmail(setg?.company_email || '');
         setCompanyAddress(setg?.company_address || 'Kerala');
@@ -246,7 +248,9 @@ export default function NewProposalClient() {
     const payload: LongInvoiceData = {
       lang,
       company: {
-        name: (job?.tenants?.name as string) || 'My Company',
+        // Prefer explicit company name from settings; fallback to tenant name
+        name:
+          companyName || (job?.tenants?.name as string) || 'My Company',
         address: companyAddress || 'Kerala',
         phone: companyPhone || '',
         upi: settings?.upi_id || undefined,
