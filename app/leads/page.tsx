@@ -1403,6 +1403,25 @@ function LeadsPageInner() {
                                     })
                                     .select('id')
                                     .single();
+                                  // Immediately move to Qualified and create default tasks
+                                  try {
+                                    const { data: session } =
+                                      await supabase.auth.getSession();
+                                    const token = session.session?.access_token;
+                                    if ((job as any)?.id && token) {
+                                      await fetch('/api/jobs/updateStatus', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          Authorization: `Bearer ${token}`,
+                                        },
+                                        body: JSON.stringify({
+                                          jobId: (job as any).id,
+                                          newStatus: 'Qualified',
+                                        }),
+                                      });
+                                    }
+                                  } catch {}
                                   await supabase
                                     .from('leads')
                                     .update({ status: 'Converted' })
