@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 
 export default function FileUploader({
   onUploaded,
@@ -12,15 +13,11 @@ export default function FileUploader({
 
   const upload = async () => {
     if (!file) return;
-    const { data: u } = await supabase.auth.getUser();
-    const uid = (u?.user as any)?.id as string | undefined;
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', uid as any)
-      .maybeSingle();
-    const tenantId = (prof as any)?.tenant_id as string | undefined;
-    if (!tenantId) return alert('Profile not ready');
+    const tenantId = await ensureProfileIfMissing(supabase as any);
+    if (!tenantId)
+      return alert(
+        'Profile not ready — ask an admin to invite you from Settings → Team, then sign out and sign in again.',
+      );
     const key = `${tenantId}/${crypto.randomUUID()}-${file.name}`;
     const { error } = await supabase.storage
       .from('documents')

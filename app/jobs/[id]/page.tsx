@@ -13,6 +13,7 @@ import StageProgress from '~/components/StageProgress';
 import NextActionCard from '~/components/NextActionCard';
 import MilestoneTimeline from '~/components/MilestoneTimeline';
 import RequiredDocs from '~/components/RequiredDocs';
+import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 
 type Job = any;
 
@@ -1362,13 +1363,12 @@ function Docs({ jobId }: { jobId: string }) {
       return;
     }
     setUploading(true);
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
-    const tenantId2 = (prof as any)?.tenant_id as string | undefined;
+    // Ensure profile exists (auto‑provision if allowed)
+    const tenantId2 = await ensureProfileIfMissing(supabase as any);
     if (!tenantId2) {
-      setMsg('Profile not ready');
+      setMsg(
+        'Profile not ready — ask an admin to invite you from Settings → Team, then sign out/in.',
+      );
       setUploading(false);
       return;
     }
