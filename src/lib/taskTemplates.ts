@@ -233,11 +233,12 @@ export async function autoCreateTasksFromTemplates(
     if (!list.length) return;
 
     const program = (job as any)?.program_type || null;
-    const filtered = list.filter(
-      (t) =>
-        (t.program_required == null || t.program_required === program) &&
-        (t.loan_only === false || t.loan_only == null),
-    );
+    const filtered = list.filter((t) => {
+      const programOk =
+        t.program_required == null || t.program_required === program;
+      const loanOk = !t.loan_only || (job as any)?.is_loan === true;
+      return programOk && loanOk;
+    });
     if (!filtered.length) return;
 
     const { data: existing } = await sb
