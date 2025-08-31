@@ -28,6 +28,9 @@ const Schema = z.object({
   RATE_LIMIT_PDF_PER_MIN: z.coerce.number().default(5),
   RATE_LIMIT_WHATSAPP_PER_MIN: z.coerce.number().default(10),
   KSEB_FOLLOWUP_DAYS: z.string().default('7,14'),
+  // Optional: Upstash Redis for production rate limiting
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 });
 
 const parsed = (() => {
@@ -44,6 +47,8 @@ const parsed = (() => {
     RATE_LIMIT_WHATSAPP_PER_MIN:
       process.env.RATE_LIMIT_WHATSAPP_PER_MIN,
     KSEB_FOLLOWUP_DAYS: process.env.KSEB_FOLLOWUP_DAYS,
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
   } as Record<string, unknown>;
 
   const res = Schema.safeParse(input);
@@ -74,6 +79,8 @@ const parsed = (() => {
         input.RATE_LIMIT_WHATSAPP_PER_MIN || 10,
       ),
       KSEB_FOLLOWUP_DAYS: String(input.KSEB_FOLLOWUP_DAYS || '7,14'),
+      UPSTASH_REDIS_REST_URL: (input.UPSTASH_REDIS_REST_URL as string) || undefined,
+      UPSTASH_REDIS_REST_TOKEN: (input.UPSTASH_REDIS_REST_TOKEN as string) || undefined,
     } as z.infer<typeof Schema>;
   }
   return res.data;
@@ -91,4 +98,6 @@ export const env = {
   rateLimitPdfPerMin: parsed.RATE_LIMIT_PDF_PER_MIN,
   rateLimitWhatsAppPerMin: parsed.RATE_LIMIT_WHATSAPP_PER_MIN,
   ksebFollowupDaysCsv: parsed.KSEB_FOLLOWUP_DAYS,
+  upstashUrl: parsed.UPSTASH_REDIS_REST_URL,
+  upstashToken: parsed.UPSTASH_REDIS_REST_TOKEN,
 };
