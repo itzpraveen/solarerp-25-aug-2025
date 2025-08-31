@@ -53,3 +53,12 @@ a:hover {
 .dark *::-webkit-scrollbar-thumb {
   background-color: rgb(71 85 105);
 }
+
+/* Utility: hide scrollbars where horizontal scroll is intentional (mobile tabs) */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}

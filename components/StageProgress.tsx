@@ -40,7 +40,7 @@ export default function StageProgress({
                     {i + 1}
                   </div>
                   {!compact && (
-                    <span className={clsx("text-xs", done ? "text-emerald-700 dark:text-emerald-400" : "text-gray-700 dark:text-gray-300")}>{statusLabel(s as JobStatus)}</span>
+                    <span className={clsx("hidden md:inline text-xs", done ? "text-emerald-700 dark:text-emerald-400" : "text-gray-700 dark:text-gray-300")}>{statusLabel(s as JobStatus)}</span>
                   )}
                 </div>
               </li>
@@ -51,4 +51,3 @@ export default function StageProgress({
     </Card>
   );
 }
-

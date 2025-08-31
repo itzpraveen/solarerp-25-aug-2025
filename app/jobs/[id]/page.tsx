@@ -87,7 +87,7 @@ function JobDetailPageInner() {
       <Breadcrumbs
         items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]}
       />
-      <div className="sticky top-16 z-10 flex flex-wrap gap-2 bg-gray-50 py-2 dark:bg-gray-950">
+      <div className="sticky top-16 z-10 flex gap-2 overflow-x-auto whitespace-nowrap bg-gray-50 py-2 no-scrollbar dark:bg-gray-950">
         {(
           [
             'overview',
@@ -107,6 +107,7 @@ function JobDetailPageInner() {
               const url = `${location.pathname}?tab=${t}`;
               window.history.replaceState(null, '', url);
             }}
+            className="shrink-0"
           >
             {t[0].toUpperCase() + t.slice(1)}
           </Button>

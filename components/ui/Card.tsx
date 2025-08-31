@@ -19,12 +19,12 @@ export default function Card({
       )}
     >
       {(title || actions) && (
-        <div className="flex items-center justify-between border-b px-4 py-2 dark:border-gray-800">
+        <div className="flex items-center justify-between border-b px-3 py-2 md:px-4 dark:border-gray-800">
           <h3 className="text-sm font-semibold">{title}</h3>
           <div className="flex items-center gap-2">{actions}</div>
         </div>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-3 md:p-4">{children}</div>
     </div>
   );
 }
