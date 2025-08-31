@@ -9,6 +9,10 @@ import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 import { useToast } from '~/components/ui/ToastProvider';
 import Badge from '~/components/ui/Badge';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
+import StageProgress from '~/components/StageProgress';
+import NextActionCard from '~/components/NextActionCard';
+import MilestoneTimeline from '~/components/MilestoneTimeline';
+import RequiredDocs from '~/components/RequiredDocs';
 
 type Job = any;
 
@@ -110,7 +114,14 @@ function JobDetailPageInner() {
       </div>
 
       {tab === 'overview' && (
-        <Card title="Overview">
+        <>
+          <StageProgress status={job?.status} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <NextActionCard jobId={params.id} />
+            <RequiredDocs jobId={params.id} status={job?.status} />
+            <MilestoneTimeline job={job || {}} />
+          </div>
+          <Card title="Overview">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="text-sm">
               Customer:{' '}
@@ -336,6 +347,7 @@ function JobDetailPageInner() {
             <ServiceForJob jobId={params.id} />
           </div>
         </Card>
+        </>
       )}
 
       {tab === 'finance' && <Finance jobId={params.id} />}
@@ -1751,7 +1763,7 @@ function Tasks({ jobId }: { jobId: string }) {
   ).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="tasks">
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
