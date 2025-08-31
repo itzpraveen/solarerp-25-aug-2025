@@ -68,9 +68,20 @@ export function limitByIp(
 ) {
   const ip = ipFromHeaders(headers);
   const key = `${prefix}:${ip}`;
-  // Call async path, but allow old sync call sites to keep using pattern.
-  // Consumers may choose to await.
-  return takeTokenAsync(key, limit, windowMs).then((res) => ({ ...res, ip }));
+  const res = takeToken(key, limit, windowMs);
+  return { ...res, ip };
+}
+
+export async function limitByIpAsync(
+  headers: Headers,
+  prefix: string,
+  limit: number,
+  windowMs: number,
+) {
+  const ip = ipFromHeaders(headers);
+  const key = `${prefix}:${ip}`;
+  const res = await takeTokenAsync(key, limit, windowMs);
+  return { ...res, ip };
 }
 
 // Back-compat small wrapper for existing codepaths that called takeToken synchronously.
