@@ -20,9 +20,12 @@ type Job = {
 
 export default function PipelineBoard({
   branchId,
-}: { branchId?: string | null } = {}) {
+  showToolbar = true,
+}: { branchId?: string | null; showToolbar?: boolean } = {}) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [term, setTerm] = useState('');
+  const [taskCounts, setTaskCounts] = useState<Record<string, { open: number; total: number }>>({});
   const supabase = supabaseBrowser();
   const { confirm } = useConfirm();
   const { toast } = useToast();
@@ -56,16 +59,41 @@ export default function PipelineBoard({
       }
       const { data: custs, error: cErr } = await supabase
         .from('customers')
-        .select('id, name')
+        .select('id, name, phone')
         .in('id', customerIds as string[]);
       if (cErr) throw cErr;
       const nameById = new Map<string, string>();
-      for (const c of (custs as any[]) || []) nameById.set(c.id, c.name || '—');
+      const phoneById = new Map<string, string | null>();
+      for (const c of (custs as any[]) || []) {
+        nameById.set(c.id, c.name || '—');
+        phoneById.set(c.id, (c as any)?.phone || null);
+      }
       const withNames = rows.map((r) => ({
         ...r,
-        customers: [{ name: nameById.get(r.customer_id) || '—' }],
+        customers: [{ name: nameById.get(r.customer_id) || '—', phone: phoneById.get(r.customer_id) || null } as any],
       })) as Job[];
       setJobs(withNames);
+
+      // Fetch task counts for these jobs (open vs total)
+      try {
+        const jobIds = withNames.map((r) => r.id);
+        if (jobIds.length) {
+          const { data: tasks } = await supabase
+            .from('tasks')
+            .select('job_id, status')
+            .in('job_id', jobIds as string[]);
+          const counts: Record<string, { open: number; total: number }> = {};
+          for (const t of ((tasks as any[]) || [])) {
+            const k = (t as any).job_id as string;
+            if (!counts[k]) counts[k] = { open: 0, total: 0 };
+            counts[k].total += 1;
+            if ((t as any).status !== 'Done') counts[k].open += 1;
+          }
+          setTaskCounts(counts);
+        } else {
+          setTaskCounts({});
+        }
+      } catch {}
     } catch (_e) {
       // Silent fail to keep UI usable; could add toast if desired
       setJobs([]);
@@ -138,13 +166,42 @@ export default function PipelineBoard({
     }
   };
 
+  const filteredJobs = useMemo(() => {
+    const lc = term.trim().toLowerCase();
+    if (!lc) return jobs;
+    return jobs.filter((j) => {
+      const name = j.customers?.[0]?.name || '';
+      const loc = j.location || '';
+      return (
+        name.toLowerCase().includes(lc) ||
+        loc.toLowerCase().includes(lc)
+      );
+    });
+  }, [jobs, term]);
+
   return (
-    <div className="overflow-x-auto">
-      <div className="grid min-w-[900px] grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
+    <div className="overflow-x-auto no-scrollbar">
+      {showToolbar && (
+        <div className="mb-2 flex items-center gap-2">
+          <input
+            className="w-full rounded border px-2 py-1 text-sm dark:border-gray-800"
+            placeholder="Search by customer or location"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+          />
+          <button
+            className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+            onClick={() => setTerm('')}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+      <div className="grid min-w-[900px] grid-cols-[repeat(5,280px)] gap-4 md:grid-cols-3 md:[grid-auto-columns:unset] md:[grid-template-columns:repeat(3,minmax(0,1fr))] lg:grid-cols-5 snap-x snap-mandatory pb-2">
         {JOB_STATUSES.map((col: JobStatus) => (
           <div
             key={col}
-            className="rounded-lg border bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+            className="snap-start rounded-lg border bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               const jobId = e.dataTransfer.getData('text/plain');
@@ -154,7 +211,7 @@ export default function PipelineBoard({
             <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gray-50/80 px-3 py-2 text-sm font-medium backdrop-blur dark:border-gray-800 dark:bg-gray-800/50">
               <span>{statusLabel(col)}</span>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {jobs.filter((j) => j.status === col).length}
+                {filteredJobs.filter((j) => j.status === col).length}
               </span>
             </div>
             <div className="space-y-2 p-2 min-h-[260px]">
@@ -165,7 +222,7 @@ export default function PipelineBoard({
                   <Skeleton className="h-16" />
                 </div>
               )}
-              {jobs
+              {filteredJobs
                 .filter((j) => j.status === col)
                 .map((j) => (
                   <div
@@ -176,19 +233,39 @@ export default function PipelineBoard({
                       e.dataTransfer.setData('text/plain', j.id);
                     }}
                   >
-                    <div className="text-sm font-semibold">
-                      {j.customers?.[0]?.name || '—'}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {j.system_type} • {j.capacity_kw ?? '—'} kW
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">
+                          {j.customers?.[0]?.name || '—'}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {j.system_type} • {j.capacity_kw ?? '—'} kW
+                        </div>
+                      </div>
+                      {taskCounts[j.id] && (
+                        <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-gray-700 dark:border-gray-800 dark:text-gray-300" title="Open tasks / Total">
+                          {taskCounts[j.id].open}/{taskCounts[j.id].total}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <a
-                        className="inline-block text-xs text-blue-600 dark:text-blue-400"
-                        href={`/jobs/${j.id}`}
-                      >
-                        Open
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a
+                          className="inline-block text-xs text-blue-600 dark:text-blue-400"
+                          href={`/jobs/${j.id}`}
+                        >
+                          Open
+                        </a>
+                        {((j as any).customers?.[0]?.phone as string | null) && (
+                          <a
+                            href={`tel:${(j as any).customers?.[0]?.phone}`}
+                            className="inline-block text-xs text-gray-600 dark:text-gray-300"
+                            title="Call customer"
+                          >
+                            Call
+                          </a>
+                        )}
+                      </div>
                       {/* Accessible status change */}
                       <select
                         aria-label="Change status"
