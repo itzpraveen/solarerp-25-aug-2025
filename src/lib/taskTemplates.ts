@@ -29,6 +29,7 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
         due_days: 2,
         role: 'Ops',
         required: true,
+        gates_stage: 'Quoted',
       },
       // Quoted
       {
