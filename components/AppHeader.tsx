@@ -9,6 +9,7 @@ import BranchSelect from '~/components/BranchSelect';
 const links = [
   { href: '/overview', label: 'Overview' },
   { href: '/jobs', label: 'Jobs' },
+  { href: '/calendar', label: 'Calendar' },
   { href: '/customers', label: 'Customers' },
   { href: '/proposals', label: 'Proposals' },
   // Clarify that this page lists CRM leads (not pipeline status)

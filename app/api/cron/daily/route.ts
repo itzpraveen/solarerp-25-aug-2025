@@ -87,6 +87,55 @@ async function handleCron(req: NextRequest) {
     });
   }
 
+  // 3c) Task due/overdue reminders to assigned technicians
+  // - WhatsApp via template (if phone available)
+  // - Optional email via webhook (if configured)
+  const emailWebhookUrl = env.emailWebhookUrl;
+  const emailWebhookToken = env.emailWebhookToken;
+  async function notifyEmail(toEmail: string, subject: string, text: string) {
+    if (!emailWebhookUrl) return;
+    try {
+      await fetch(emailWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(emailWebhookToken ? { Authorization: `Bearer ${emailWebhookToken}` } : {}),
+        },
+        body: JSON.stringify({ to: toEmail, subject, text }),
+      });
+    } catch {}
+  }
+
+  const { data: dueTasks } = await supabase
+    .from('tasks')
+    .select('id, tenant_id, title, due_date, status, assigned_to')
+    .not('status', 'in', ['Done'])
+    .lte('due_date', today);
+  for (const t of dueTasks || []) {
+    if (!t.assigned_to) continue;
+    // Lookup technician profile
+    const { data: tech } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, phone')
+      .eq('user_id', t.assigned_to as any)
+      .maybeSingle();
+    const isOverdue = (t.due_date || '') < today;
+    if (tech?.phone) {
+      await enqueueJob(t.tenant_id, 'whatsapp_template', {
+        to: tech.phone,
+        templateName: isOverdue ? 'task_overdue' : 'task_due',
+        variables: [tech.display_name || 'Technician', (t.title || 'Task'), (t.due_date || today)],
+      });
+    }
+    // Optional email webhook
+    const email = (tech as any)?.email as string | undefined; // may be null unless you store it
+    if (email && emailWebhookUrl) {
+      const subj = isOverdue ? 'Overdue task reminder' : 'Task due today';
+      const body = `${tech.display_name || 'Technician'},\n${t.title || 'Task'} — due ${t.due_date || today}.`;
+      await notifyEmail(email, subj, body);
+    }
+  }
+
   try {
     await processDueJobs();
     return NextResponse.json({ ok: true });

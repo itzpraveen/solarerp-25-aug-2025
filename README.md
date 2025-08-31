@@ -25,6 +25,10 @@ Multi‑tenant ERP for solar businesses built on Next.js (App Router) + Supabase
 - Tests: Vitest (unit)
 - Lint/Format: ESLint + Prettier
 
+New in this repo:
+- Technician assignment and calendar view at `/calendar` (month grid). Assign tasks to technicians and filter by assignee.
+- Daily task reminders (WhatsApp; optional email webhook) via `/api/cron/daily`.
+
 ## CI/CD
 
 - GitHub Actions
@@ -239,6 +243,8 @@ Templates expected:
 
 - `proposal_ready`: Hi {{1}}, your solar proposal ({{2}} kW) is ready: {{3}}
 - `invoice_due`: Hello {{1}}, your invoice {{2}} for ₹{{3}} is due on {{4}}. Link: {{5}}
+ - `task_due`: Hi {{1}}, task "{{2}}" is due {{3}}.
+ - `task_overdue`: Hi {{1}}, task "{{2}}" is overdue (due {{3}}).
 
 ## Cron + Background Jobs
 
@@ -246,7 +252,12 @@ Templates expected:
 - Marks invoices as Overdue by `due_date < today` and `status != Paid`
 - Enqueues reminders (example payload included)
 - Creates follow-up tasks 7/14 days after `date_kseb_submit` if status is unchanged
+- Sends task due/overdue reminders to assigned technicians (WhatsApp; optional email webhook)
 - Processes simple job queue with retries (exponential backoff)
+
+Optional email notifications
+
+- Set `NOTIFY_EMAIL_WEBHOOK_URL` (and optional `NOTIFY_EMAIL_WEBHOOK_TOKEN`) to post `{ to, subject, text }` to your mailer service when task reminders run.
 
 ## Acceptance Notes
 

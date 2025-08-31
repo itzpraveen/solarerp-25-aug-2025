@@ -31,6 +31,9 @@ const Schema = z.object({
   // Optional: Upstash Redis for production rate limiting
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  // Optional: outbound email webhook for notifications
+  NOTIFY_EMAIL_WEBHOOK_URL: z.string().url().optional(),
+  NOTIFY_EMAIL_WEBHOOK_TOKEN: z.string().optional(),
 });
 
 const parsed = (() => {
@@ -49,6 +52,8 @@ const parsed = (() => {
     KSEB_FOLLOWUP_DAYS: process.env.KSEB_FOLLOWUP_DAYS,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    NOTIFY_EMAIL_WEBHOOK_URL: process.env.NOTIFY_EMAIL_WEBHOOK_URL,
+    NOTIFY_EMAIL_WEBHOOK_TOKEN: process.env.NOTIFY_EMAIL_WEBHOOK_TOKEN,
   } as Record<string, unknown>;
 
   const res = Schema.safeParse(input);
@@ -81,6 +86,10 @@ const parsed = (() => {
       KSEB_FOLLOWUP_DAYS: String(input.KSEB_FOLLOWUP_DAYS || '7,14'),
       UPSTASH_REDIS_REST_URL: (input.UPSTASH_REDIS_REST_URL as string) || undefined,
       UPSTASH_REDIS_REST_TOKEN: (input.UPSTASH_REDIS_REST_TOKEN as string) || undefined,
+      NOTIFY_EMAIL_WEBHOOK_URL:
+        (input.NOTIFY_EMAIL_WEBHOOK_URL as string) || undefined,
+      NOTIFY_EMAIL_WEBHOOK_TOKEN:
+        (input.NOTIFY_EMAIL_WEBHOOK_TOKEN as string) || undefined,
     } as z.infer<typeof Schema>;
   }
   return res.data;
@@ -100,4 +109,6 @@ export const env = {
   ksebFollowupDaysCsv: parsed.KSEB_FOLLOWUP_DAYS,
   upstashUrl: parsed.UPSTASH_REDIS_REST_URL,
   upstashToken: parsed.UPSTASH_REDIS_REST_TOKEN,
+  emailWebhookUrl: parsed.NOTIFY_EMAIL_WEBHOOK_URL,
+  emailWebhookToken: parsed.NOTIFY_EMAIL_WEBHOOK_TOKEN,
 };
