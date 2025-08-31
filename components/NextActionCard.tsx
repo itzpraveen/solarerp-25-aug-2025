@@ -76,13 +76,13 @@ export default function NextActionCard({ jobId }: { jobId: string }) {
               </div>
               <div className="flex items-center gap-2">
                 {t.status !== "InProgress" && t.status !== "Done" && (
-                  <Button size="xs" variant="outline" onClick={() => act(t.id, { status: "InProgress" })}>Start</Button>
+                  <Button size="sm" variant="outline" onClick={() => act(t.id, { status: "InProgress" })}>Start</Button>
                 )}
                 {t.status !== "Done" && (
-                  <Button size="xs" onClick={() => act(t.id, { status: "Done" })}>Done</Button>
+                  <Button size="sm" onClick={() => act(t.id, { status: "Done" })}>Done</Button>
                 )}
                 {me && (!t.assigned_to || t.assigned_to === "") && (
-                  <Button size="xs" variant="outline" onClick={() => act(t.id, { assigned_to: me })}>Assign me</Button>
+                  <Button size="sm" variant="outline" onClick={() => act(t.id, { assigned_to: me })}>Assign me</Button>
                 )}
               </div>
             </li>
@@ -92,4 +92,3 @@ export default function NextActionCard({ jobId }: { jobId: string }) {
     </Card>
   );
 }
-
