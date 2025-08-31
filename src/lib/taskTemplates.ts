@@ -14,7 +14,7 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
       // Qualified
       {
         code: 'temp_quote',
-        label: 'Temporary quotation',
+        label: 'Temporary quotation making',
         milestone: 'Sales',
         at_stage_trigger: 'Qualified',
         due_days: 1,
@@ -33,7 +33,7 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
       // Quoted
       {
         code: 'customer_confirmation',
-        label: 'Customer confirmation',
+        label: 'Project confirmation by customer',
         milestone: 'Sales',
         at_stage_trigger: 'Quoted',
         due_days: 2,
@@ -61,9 +61,30 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
         required: true,
         program_required: 'PM_Surya',
       },
+      // Loan scheme (optional)
+      {
+        code: 'jan_samarth_registration',
+        label: 'Jan Samarth portal registration',
+        milestone: 'Finance',
+        at_stage_trigger: 'Won',
+        due_days: 3,
+        role: 'Sales',
+        required: false,
+        loan_only: true,
+      },
+      {
+        code: 'bank_loan_application',
+        label: 'Bank loan application',
+        milestone: 'Finance',
+        at_stage_trigger: 'Won',
+        due_days: 5,
+        role: 'Sales',
+        required: false,
+        loan_only: true,
+      },
       {
         code: 'kseb_feasibility',
-        label: 'KSEB feasibility',
+        label: 'Feasibility from KSEBL section',
         milestone: 'Regulatory',
         at_stage_trigger: 'Won',
         due_days: 5,
@@ -109,7 +130,7 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
       },
       {
         code: 'install_wiring',
-        label: 'Installation: DC & AC wiring completion',
+        label: 'Installation: DC and AC side wiring completion',
         milestone: 'Execution',
         at_stage_trigger: 'KSEB_Submitted',
         due_days: 3,
@@ -147,18 +168,19 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
         gates_stage: 'Net_Metered',
       },
       {
-        code: 'net_metering_application',
-        label: 'Net metering application',
+        code: 'ksebl_plant_registration',
+        label: 'KSEBL paperwork: plant registration',
         milestone: 'Commissioning',
         at_stage_trigger: 'Installed',
         due_days: 2,
         role: 'Ops',
-        required: false,
+        required: true,
+        gates_stage: 'Net_Metered',
       },
       // Net Metered
       {
         code: 'post_commissioning_handover',
-        label: 'Post commissioning visit & handover',
+        label: 'Post commissioning visit and documents handover',
         milestone: 'Handover',
         at_stage_trigger: 'Net_Metered',
         due_days: 3,
@@ -279,4 +301,3 @@ export async function autoCreateTasksFromTemplates(
     }
   } catch {}
 }
-
