@@ -210,11 +210,21 @@ export default function JobsPage() {
         })
         .select('id')
         .single();
-      // Move fresh job to Qualified and prefill default tasks using templates
+      // Prefill Lead-stage tasks, then move to Qualified (so Lead checklist exists)
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session.session?.access_token;
         if ((job as any)?.id && token) {
+          // Create tasks for current status (Lead)
+          await fetch('/api/jobs/prefillTasks', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ jobId: (job as any).id }),
+          });
+          // Then advance to Qualified
           await fetch('/api/jobs/updateStatus', {
             method: 'POST',
             headers: {

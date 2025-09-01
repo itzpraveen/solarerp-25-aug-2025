@@ -3,14 +3,41 @@
 
 export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
   try {
-    const { data: anyTpl } = await sb
+    // Load existing codes to avoid overwriting tenant customizations
+    const { data: existingTpls } = await sb
       .from('task_templates')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .limit(1);
-    if (anyTpl && anyTpl.length > 0) return;
+      .select('code')
+      .eq('tenant_id', tenantId);
 
     const defaults: any[] = [
+      // Lead – requirement collection for temporary quotation
+      {
+        code: 'lead_req_collection',
+        label: 'Collect requirements for temporary quotation',
+        milestone: 'Sales',
+        at_stage_trigger: 'Lead',
+        due_days: 1,
+        role: 'Sales',
+        required: true,
+      },
+      {
+        code: 'lead_docs_bill',
+        label: 'Collect latest electricity bill (photo/PDF)',
+        milestone: 'Sales',
+        at_stage_trigger: 'Lead',
+        due_days: 1,
+        role: 'Sales',
+        required: true,
+      },
+      {
+        code: 'lead_site_photos',
+        label: 'Collect site/roof photos & shade info',
+        milestone: 'Sales',
+        at_stage_trigger: 'Lead',
+        due_days: 1,
+        role: 'Sales',
+        required: false,
+      },
       // Qualified
       {
         code: 'temp_quote',
@@ -191,16 +218,30 @@ export async function ensureDefaultTaskTemplates(sb: any, tenantId: string) {
       },
     ];
 
-    await sb
-      .from('task_templates')
-      .upsert(
-        defaults.map((d: any) => ({ tenant_id: tenantId, ...d })),
-        { onConflict: 'tenant_id,code' } as any,
-      );
+    const haveCodes = new Set(
+      ((existingTpls as any[]) || []).map((t: any) => String(t.code)),
+    );
+    const toInsert = defaults
+      .filter((d) => !haveCodes.has(String(d.code)))
+      .map((d) => ({ tenant_id: tenantId, ...d }));
+    if (toInsert.length > 0) {
+      await sb.from('task_templates').insert(toInsert);
+    }
     await sb
       .from('task_dependencies')
       .upsert(
         [
+          // Temp quotation depends on Lead requirement collection
+          {
+            tenant_id: tenantId,
+            template_code: 'temp_quote',
+            depends_on: 'lead_req_collection',
+          },
+          {
+            tenant_id: tenantId,
+            template_code: 'temp_quote',
+            depends_on: 'lead_docs_bill',
+          },
           {
             tenant_id: tenantId,
             template_code: 'customer_confirmation',
