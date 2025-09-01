@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Card from "~/components/ui/Card";
+import Link from "next/link";
 import Button from "~/components/ui/Button";
 import { supabaseBrowser } from "@/lib/supabaseClient";
 
@@ -60,7 +61,14 @@ export default function NextActionCard({ jobId }: { jobId: string }) {
   return (
     <Card
       title="Next Actions"
-      actions={<a className="text-xs text-blue-600" href={`#tasks`}>View all</a>}
+      actions={
+        <Link
+          className="text-xs text-blue-600"
+          href={`/jobs/${jobId}?tab=tasks#tasks`}
+        >
+          View all
+        </Link>
+      }
     >
       {next.length === 0 ? (
         <div className="text-sm text-gray-600">No open tasks. You're clear.</div>
