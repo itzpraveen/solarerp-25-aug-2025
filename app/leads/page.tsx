@@ -64,6 +64,7 @@ function LeadsPageInner() {
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
   );
+  const [sortBy, setSortBy] = useState<'score' | 'date' | 'followup'>('score');
   const initialDue =
     (search.get('due') || '').toLowerCase() === 'today' ||
     (search.get('due') || '') === '1';
@@ -176,7 +177,6 @@ function LeadsPageInner() {
     let q = supabase
       .from('leads')
       .select('*', { count: 'exact' })
-      .order('date', { ascending: false })
     if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
     if (filterMode === 'open')
       q = q
@@ -185,6 +185,18 @@ function LeadsPageInner() {
         .neq('status', 'Lost');
     else if (filterMode === 'converted') q = q.eq('status', 'Converted');
     if (dueOnly) q = q.eq('next_follow_up_date', todayStr);
+    // Sorting
+    if (sortBy === 'score') {
+      q = q.order('score', { ascending: false }).order('date', {
+        ascending: false,
+      });
+    } else if (sortBy === 'followup') {
+      q = q
+        .order('next_follow_up_date', { ascending: true, nullsFirst: true })
+        .order('date', { ascending: false });
+    } else {
+      q = q.order('date', { ascending: false });
+    }
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     const { data, count, error } = await q.range(from, to);
@@ -220,10 +232,10 @@ function LeadsPageInner() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) load();
     });
-  }, [branchId, filterMode, dueOnly])
+  }, [branchId, filterMode, dueOnly, sortBy])
   // reset to first page on filter change
-  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly]);
-  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize]);
+  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly, sortBy]);
+  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize, sortBy]);
 
   const add = async () => {
     setErr(null);
@@ -316,6 +328,18 @@ function LeadsPageInner() {
           />
           Due today
         </label>
+        <div className="flex items-center gap-2 text-sm">
+          <span>Sort</span>
+          <Segmented
+            options={[
+              { label: 'Priority', value: 'score' },
+              { label: 'Date', value: 'date' },
+              { label: 'Follow-up', value: 'followup' },
+            ]}
+            value={sortBy}
+            onChange={(v) => setSortBy(v as any)}
+          />
+        </div>
       </div>
       {/* Quick add: single field capture */}
       <Card>
@@ -830,6 +854,7 @@ function LeadsPageInner() {
                   <th className="p-2">Address</th>
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
+                  <th className="p-2">Score</th>
                   <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Last Contacted</th>
                   <th className="p-2">Status</th>
@@ -933,6 +958,7 @@ function LeadsPageInner() {
                               }
                             />
                           </td>
+                          <td className="p-2 text-xs text-gray-600">{l.score ?? 0}</td>
                           <td className="p-2">
                             <Input
                               type="date"
@@ -1033,6 +1059,17 @@ function LeadsPageInner() {
                           <td className="p-2">{l.source || '—'}</td>
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
+                          </td>
+                          <td className="p-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${
+                              (l.score || 0) >= 40
+                                ? 'bg-red-50 border-red-200 text-red-800'
+                                : (l.score || 0) >= 25
+                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                  : 'bg-gray-50 border-gray-200 text-gray-700'
+                            }`}>
+                              {l.score ?? 0}
+                            </span>
                           </td>
                           <td className="p-2">
                             <span
