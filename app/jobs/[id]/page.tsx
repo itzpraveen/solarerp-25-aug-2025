@@ -14,6 +14,7 @@ import NextActionCard from '~/components/NextActionCard';
 import MilestoneTimeline from '~/components/MilestoneTimeline';
 import RequiredDocs from '~/components/RequiredDocs';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
+import QuickContact from 'components/QuickContact';
 
 type Job = any;
 
@@ -34,7 +35,7 @@ function JobDetailPageInner() {
     (async () => {
       const { data } = await supabase
         .from('jobs')
-        .select('*, customers(name, phone, email)')
+        .select('*, customers(name, phone, email, address)')
         .eq('id', params.id)
         .single();
       setJob(data as any);
@@ -118,6 +119,104 @@ function JobDetailPageInner() {
 
       {tab === 'overview' && (
         <>
+          <Card title="Customer">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <div className="text-sm">
+                  <span className="text-gray-700">Name:</span>{' '}
+                  {(Array.isArray(job?.customers)
+                    ? job?.customers?.[0]?.name
+                    : (job as any)?.customers?.name) || '—'}
+                </div>
+                <div className="text-sm">
+                  <span className="text-gray-700">Phone:</span>{' '}
+                  {(Array.isArray(job?.customers)
+                    ? (job?.customers?.[0] as any)?.phone
+                    : (job as any)?.customers?.phone) || '—'}
+                </div>
+                <div className="text-sm">
+                  <span className="text-gray-700">Email:</span>{' '}
+                  {(Array.isArray(job?.customers)
+                    ? (job?.customers?.[0] as any)?.email
+                    : (job as any)?.customers?.email) || '—'}
+                </div>
+                <div className="pt-1">
+                  <QuickContact
+                    phone={
+                      Array.isArray(job?.customers)
+                        ? (job?.customers?.[0] as any)?.phone
+                        : (job as any)?.customers?.phone
+                    }
+                    email={
+                      Array.isArray(job?.customers)
+                        ? (job?.customers?.[0] as any)?.email
+                        : (job as any)?.customers?.email
+                    }
+                    address={job?.location || undefined}
+                    messageTemplate={`Hello ${(Array.isArray(job?.customers) ? job?.customers?.[0]?.name : (job as any)?.customers?.name) || ''}, regarding your solar project.`}
+                  />
+                </div>
+                {job?.customer_id && (
+                  <div>
+                    <a
+                      className="text-xs text-blue-600"
+                      href={`/customers/${job.customer_id}`}
+                    >
+                      View customer profile
+                    </a>
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-gray-500">
+                  Site Address
+                </div>
+                <div className="text-sm">
+                  {job?.location || '—'}
+                </div>
+                {job?.location && (
+                  <div className="mt-1">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-600"
+                    >
+                      Open in Maps
+                    </a>
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-gray-500">
+                  Customer Address
+                </div>
+                <div className="text-sm">
+                  {(Array.isArray(job?.customers)
+                    ? (job?.customers?.[0] as any)?.address
+                    : (job as any)?.customers?.address) || '—'}
+                </div>
+                {(Array.isArray(job?.customers)
+                  ? (job?.customers?.[0] as any)?.address
+                  : (job as any)?.customers?.address) && (
+                  <div className="mt-1">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        (Array.isArray(job?.customers)
+                          ? (job?.customers?.[0] as any)?.address
+                          : (job as any)?.customers?.address) as string,
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-600"
+                    >
+                      Open in Maps
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
           <StageProgress status={job?.status} />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <NextActionCard jobId={params.id} />
@@ -181,7 +280,7 @@ function JobDetailPageInner() {
                   }
                   const { data: refreshed } = await supabase
                     .from('jobs')
-                    .select('*, customers(name, phone, email)')
+                    .select('*, customers(name, phone, email, address)')
                     .eq('id', params.id)
                     .single();
                   setJob(refreshed as any);
@@ -205,7 +304,7 @@ function JobDetailPageInner() {
                           });
                           const { data: again } = await supabase
                             .from('jobs')
-                            .select('*, customers(name, phone, email)')
+                            .select('*, customers(name, phone, email, address)')
                             .eq('id', params.id)
                             .single();
                           setJob(again as any);

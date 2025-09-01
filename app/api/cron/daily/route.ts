@@ -124,14 +124,14 @@ async function handleCron(req: NextRequest) {
       await enqueueJob(t.tenant_id, 'whatsapp_template', {
         to: tech.phone,
         templateName: isOverdue ? 'task_overdue' : 'task_due',
-        variables: [tech.display_name || 'Technician', (t.title || 'Task'), (t.due_date || today)],
+        variables: [tech?.display_name || 'Technician', (t.title || 'Task'), (t.due_date || today)],
       });
     }
     // Optional email webhook
     const email = (tech as any)?.email as string | undefined; // may be null unless you store it
     if (email && emailWebhookUrl) {
       const subj = isOverdue ? 'Overdue task reminder' : 'Task due today';
-      const body = `${tech.display_name || 'Technician'},\n${t.title || 'Task'} — due ${t.due_date || today}.`;
+      const body = `${tech?.display_name || 'Technician'},\n${t.title || 'Task'} — due ${t.due_date || today}.`;
       await notifyEmail(email, subj, body);
     }
   }

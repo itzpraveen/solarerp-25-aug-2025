@@ -3,6 +3,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import type { LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
+import PdfProposalImport, { type ParsedProposalHint } from 'components/PdfProposalImport';
 
 export default function NewProposalClient() {
   const params = useSearchParams();
@@ -41,6 +42,31 @@ export default function NewProposalClient() {
     'Provisional',
   );
   const [bufferPct, setBufferPct] = useState<number>(5);
+  const [lastImport, setLastImport] = useState<ParsedProposalHint | null>(null);
+  // Additional details to include in generated PDF (mirrors renderer options)
+  const [assumptions, setAssumptions] = useState<string[]>([
+    'KSEB/Inspectorate fees under customer scope.',
+  ]);
+  const [warranty, setWarranty] = useState<string[]>([
+    'OEM standard warranty applies.',
+  ]);
+  const [paymentTerms, setPaymentTerms] = useState<string[]>([
+    '70% Advance',
+    '20% on installation',
+    '10% on commissioning',
+  ]);
+  const [priceLines, setPriceLines] = useState<
+    { label: string; amount?: number; note?: string }[]
+  >([]);
+  const [offerValidityDays, setOfferValidityDays] = useState<number>(10);
+  const [bankAccountName, setBankAccountName] = useState<string>('');
+  const [bankAccountNo, setBankAccountNo] = useState<string>('');
+  const [bankIfsc, setBankIfsc] = useState<string>('');
+  const [bankName, setBankName] = useState<string>('');
+  const [bankBranch, setBankBranch] = useState<string>('');
+  const [preparedBy, setPreparedBy] = useState<string>('');
+  const [contactPerson, setContactPerson] = useState<string>('');
+  const [contactNumber, setContactNumber] = useState<string>('');
 
   // Cover letter, notes, work schedule (optional advanced sections)
   const [includeCover, setIncludeCover] = useState<boolean>(false);
@@ -313,16 +339,28 @@ export default function NewProposalClient() {
             },
           }
         : {}),
-      assumptions: ['KSEB/Inspectorate fees under customer scope.'],
-      warranty: ['OEM standard warranty applies.'],
-      priceSchedule: { lines: [], offerValidityDays: 10 },
-      paymentTerms: [
-        '70% Advance',
-        '20% on installation',
-        '10% on commissioning',
-      ],
-      bank: undefined,
-      signatures: undefined,
+      assumptions,
+      warranty,
+      priceSchedule: { lines: priceLines, offerValidityDays },
+      paymentTerms,
+      bank:
+        bankAccountName || bankAccountNo || bankIfsc || bankName || bankBranch
+          ? {
+              accountName: bankAccountName || undefined,
+              accountNo: bankAccountNo || undefined,
+              ifsc: bankIfsc || undefined,
+              bank: bankName || undefined,
+              branch: bankBranch || undefined,
+            }
+          : undefined,
+      signatures:
+        preparedBy || contactPerson || contactNumber
+          ? {
+              preparedBy: preparedBy || undefined,
+              contactPerson: contactPerson || undefined,
+              contactNumber: contactNumber || undefined,
+            }
+          : undefined,
       malayalamNote: lang === 'ml' ? mlNote || undefined : undefined,
     };
 
@@ -460,6 +498,30 @@ export default function NewProposalClient() {
         {errorMsg && (
           <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
             {errorMsg}
+          </div>
+        )}
+        {process.env.NEXT_PUBLIC_ENABLE_PDF_IMPORT === '1' && (
+          <div>
+            <PdfProposalImport
+              onParsed={(p) => {
+                setLastImport(p);
+                if (p.capacityKW !== undefined) {
+                  setJob((j: any) => ({ ...(j || {}), capacity_kw: p.capacityKW }));
+                }
+                if (p.systemType) {
+                  setJob((j: any) => ({ ...(j || {}), system_type: p.systemType }));
+                }
+                if (p.priceBeforeTax !== undefined) setPrice(p.priceBeforeTax);
+                if (p.program) setProgram(p.program);
+                if (p.quoteNo) setQuoteNo(p.quoteNo);
+                if (p.place) setJob((j: any) => ({ ...(j || {}), location: p.place }));
+              }}
+            />
+            {lastImport && (
+              <div className="mt-1 text-xs text-gray-600">
+                Parsed key fields from PDF. Adjust anything before generating.
+              </div>
+            )}
           </div>
         )}
         {!jobId && (
@@ -982,6 +1044,255 @@ export default function NewProposalClient() {
             >
               Add note
             </button>
+          </div>
+        </div>
+
+        {/* Assumptions & Warranty */}
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium">Assumptions</label>
+            <div className="mt-1 space-y-2">
+              {assumptions.map((n, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    value={n}
+                    onChange={(e) =>
+                      setAssumptions(
+                        assumptions.map((x, j) => (i === j ? e.target.value : x)),
+                      )
+                    }
+                  />
+                  <button
+                    className="rounded border px-3 py-2"
+                    type="button"
+                    onClick={() =>
+                      setAssumptions(assumptions.filter((_, j) => j !== i))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                className="rounded border px-3 py-2"
+                type="button"
+                onClick={() => setAssumptions([...assumptions, ''])}
+              >
+                Add line
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Warranty</label>
+            <div className="mt-1 space-y-2">
+              {warranty.map((n, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    value={n}
+                    onChange={(e) =>
+                      setWarranty(
+                        warranty.map((x, j) => (i === j ? e.target.value : x)),
+                      )
+                    }
+                  />
+                  <button
+                    className="rounded border px-3 py-2"
+                    type="button"
+                    onClick={() => setWarranty(warranty.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                className="rounded border px-3 py-2"
+                type="button"
+                onClick={() => setWarranty([...warranty, ''])}
+              >
+                Add line
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Price Schedule */}
+        <div>
+          <label className="block text-sm font-medium">Price Schedule</label>
+          <div className="mt-1 space-y-2">
+            {priceLines.map((l, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                <input
+                  className="rounded border px-3 py-2"
+                  placeholder="Label"
+                  value={l.label}
+                  onChange={(e) =>
+                    setPriceLines(
+                      priceLines.map((x, j) =>
+                        j === i ? { ...x, label: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+                <input
+                  className="rounded border px-3 py-2"
+                  type="number"
+                  placeholder="Amount (optional)"
+                  value={l.amount ?? ''}
+                  onChange={(e) =>
+                    setPriceLines(
+                      priceLines.map((x, j) =>
+                        j === i
+                          ? {
+                              ...x,
+                              amount: e.target.value === '' ? undefined : Number(e.target.value),
+                            }
+                          : x,
+                      ),
+                    )
+                  }
+                />
+                <div className="flex gap-2">
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    placeholder="Note"
+                    value={l.note || ''}
+                    onChange={(e) =>
+                      setPriceLines(
+                        priceLines.map((x, j) =>
+                          j === i ? { ...x, note: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <button
+                    className="rounded border px-3 py-2"
+                    onClick={() => setPriceLines(priceLines.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded border px-3 py-2"
+                onClick={() => setPriceLines([...priceLines, { label: '' }])}
+              >
+                Add line
+              </button>
+              <label className="text-sm">Offer validity (days)</label>
+              <input
+                className="w-24 rounded border px-3 py-2"
+                type="number"
+                value={offerValidityDays}
+                onChange={(e) => setOfferValidityDays(Number(e.target.value))}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Payment terms & Bank */}
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium">Payment Terms</label>
+            <div className="mt-1 space-y-2">
+              {paymentTerms.map((n, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    value={n}
+                    onChange={(e) =>
+                      setPaymentTerms(
+                        paymentTerms.map((x, j) => (i === j ? e.target.value : x)),
+                      )
+                    }
+                  />
+                  <button
+                    className="rounded border px-3 py-2"
+                    type="button"
+                    onClick={() =>
+                      setPaymentTerms(paymentTerms.filter((_, j) => j !== i))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                className="rounded border px-3 py-2"
+                type="button"
+                onClick={() => setPaymentTerms([...paymentTerms, ''])}
+              >
+                Add line
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Bank / UPI</label>
+            <div className="mt-1 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <input
+                className="rounded border px-3 py-2"
+                placeholder="Account Name"
+                value={bankAccountName}
+                onChange={(e) => setBankAccountName(e.target.value)}
+              />
+              <input
+                className="rounded border px-3 py-2"
+                placeholder="Account No"
+                value={bankAccountNo}
+                onChange={(e) => setBankAccountNo(e.target.value)}
+              />
+              <input
+                className="rounded border px-3 py-2"
+                placeholder="IFSC"
+                value={bankIfsc}
+                onChange={(e) => setBankIfsc(e.target.value)}
+              />
+              <input
+                className="rounded border px-3 py-2"
+                placeholder="Bank"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+              />
+              <input
+                className="rounded border px-3 py-2"
+                placeholder="Branch"
+                value={bankBranch}
+                onChange={(e) => setBankBranch(e.target.value)}
+              />
+              {settings?.upi_id && (
+                <div className="col-span-full text-xs text-gray-600">
+                  UPI from Settings: <span className="font-mono">{settings.upi_id}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Signatures */}
+        <div>
+          <label className="block text-sm font-medium">Prepared By / Contact</label>
+          <div className="mt-1 grid grid-cols-1 gap-2 md:grid-cols-3">
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Prepared By"
+              value={preparedBy}
+              onChange={(e) => setPreparedBy(e.target.value)}
+            />
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Contact Person"
+              value={contactPerson}
+              onChange={(e) => setContactPerson(e.target.value)}
+            />
+            <input
+              className="rounded border px-3 py-2"
+              placeholder="Contact Number"
+              value={contactNumber}
+              onChange={(e) => setContactNumber(e.target.value)}
+            />
           </div>
         </div>
 

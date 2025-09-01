@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
+import QuickContact from 'components/QuickContact';
 import Button from '~/components/ui/Button';
 import BranchSelect from '~/components/BranchSelect';
 import { JOB_STATUSES, statusLabel } from '@/lib/status';
@@ -537,13 +538,16 @@ export default function OverviewPage() {
           ) : (
             <ul className="space-y-2 text-sm">
               {leadsDue.map((l) => (
-                <li key={l.id} className="flex items-center justify-between">
+                <li key={l.id} className="flex items-center justify-between gap-3">
                   <span className="truncate">
                     {l.name || '—'} • {l.phone || '—'}
                   </span>
-                  <a className="text-blue-600" href="/leads">
-                    Open
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <QuickContact phone={l.phone} messageTemplate={`Hi ${l.name || ''}, following up on your solar enquiry.`} />
+                    <a className="text-blue-600" href="/leads">
+                      Open
+                    </a>
+                  </div>
                 </li>
               ))}
             </ul>
