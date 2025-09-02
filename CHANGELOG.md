@@ -26,3 +26,15 @@
 - feat(db): customers trigram indexes for fast contains search
   - Adds `pg_trgm` extension and GIN indexes on name/phone/email
   - Improves ILIKE `%term%` queries used by Customers search
+
+## v0.1.4
+
+- perf: paginate Items/Proposals/Service; narrow selects; debounced search
+  - Items: paging + sorting; search across code/name/vendor
+  - Proposals: paging + search + row count controls
+  - Service: paging + summary search
+- perf(overview): fewer round trips
+  - New API `GET /api/overview/kpis` consolidates leads KPIs and proposals WTD/MTD
+  - Overview now uses join filters for invoices/proposals/payments/tasks
+- perf(header): counts use join filters (no jobs prefetch)
+- perf(db): indexes for `leads.next_follow_up_date` (+ composite by branch) and `tasks.due_date`
