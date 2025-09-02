@@ -17,32 +17,54 @@ export type Profile = {
   display_name?: string | null;
 };
 
-export function useProfile() {
+// Simple module-level cache to avoid N identical profile queries in list rows
+let cachedProfile: Profile | null | undefined = undefined; // undefined = not loaded yet; null = loaded but none
+let inflight: Promise<Profile | null> | null = null;
+
+async function loadOnce(): Promise<Profile | null> {
   const supabase = supabaseBrowser();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  try {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = (u?.user as any)?.id as string | undefined;
+    if (!uid) return null;
+    const { data } = await supabase
+      .from('profiles')
+      .select('tenant_id, role, display_name')
+      .eq('user_id', uid)
+      .maybeSingle();
+    return ((data as any) || null) as Profile | null;
+  } catch {
+    return null;
+  }
+}
+
+export function useProfile() {
+  const [profile, setProfile] = useState<Profile | null>(
+    cachedProfile === undefined ? null : cachedProfile,
+  );
+  const [loading, setLoading] = useState(cachedProfile === undefined);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const { data: u } = await supabase.auth.getUser();
-        const uid = (u?.user as any)?.id as string | undefined;
-        if (!uid) {
-          setProfile(null);
-        } else {
-          const { data } = await supabase
-            .from('profiles')
-            .select('tenant_id, role, display_name')
-            .eq('user_id', uid)
-            .maybeSingle();
-          setProfile((data as any) || null);
-        }
-      } catch {
-        setProfile(null);
-      }
+    let alive = true;
+    if (cachedProfile !== undefined) {
       setLoading(false);
-    })();
+      setProfile(cachedProfile);
+      return;
+    }
+    if (!inflight) inflight = loadOnce();
+    inflight
+      .then((p) => {
+        if (!alive) return;
+        cachedProfile = p;
+        setProfile(p);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   return { profile, loading };
