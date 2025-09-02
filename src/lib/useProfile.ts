@@ -20,6 +20,14 @@ export type Profile = {
 // Simple module-level cache to avoid N identical profile queries in list rows
 let cachedProfile: Profile | null | undefined = undefined; // undefined = not loaded yet; null = loaded but none
 let inflight: Promise<Profile | null> | null = null;
+let cachedAt = 0;
+const TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function invalidateProfileCache() {
+  cachedProfile = undefined;
+  inflight = null;
+  cachedAt = 0;
+}
 
 async function loadOnce(): Promise<Profile | null> {
   const supabase = supabaseBrowser();
@@ -46,9 +54,10 @@ export function useProfile() {
 
   useEffect(() => {
     let alive = true;
-    if (cachedProfile !== undefined) {
+    const fresh = cachedProfile !== undefined && Date.now() - cachedAt < TTL_MS;
+    if (fresh) {
       setLoading(false);
-      setProfile(cachedProfile);
+      setProfile((cachedProfile as Profile | null) ?? null);
       return;
     }
     if (!inflight) inflight = loadOnce();
@@ -56,16 +65,40 @@ export function useProfile() {
       .then((p) => {
         if (!alive) return;
         cachedProfile = p;
+        cachedAt = Date.now();
         setProfile(p);
       })
       .finally(() => {
         if (!alive) return;
         setLoading(false);
       });
+    // Setup auth change listener once to invalidate cache
+    try {
+      const supabase = supabaseBrowser();
+      // Avoid accumulating listeners: rely on window singleton flag
+      const flag = '__profile_auth_listener__';
+      // @ts-ignore
+      if (typeof window !== 'undefined' && !(window as any)[flag]) {
+        // @ts-ignore
+        (window as any)[flag] = true;
+        supabase.auth.onAuthStateChange(() => {
+          invalidateProfileCache();
+        });
+      }
+    } catch {}
     return () => {
       alive = false;
     };
   }, []);
 
   return { profile, loading };
+}
+
+// Allow components to force-refresh the profile cache (e.g., after role changes)
+export async function refreshProfile(): Promise<Profile | null> {
+  invalidateProfileCache();
+  const p = await loadOnce();
+  cachedProfile = p;
+  cachedAt = Date.now();
+  return p;
 }
