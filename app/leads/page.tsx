@@ -60,6 +60,10 @@ function LeadsPageInner() {
   const [dense, setDense] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  // Search
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchInputId = 'leads-search-input';
   // Filters
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
@@ -96,6 +100,25 @@ function LeadsPageInner() {
       setBranchNames(map);
       setBranches((br as any[]) || []);
     })();
+  }, []);
+
+  // Debounce search term
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(id);
+  }, [searchTerm]);
+  // Keyboard shortcut: focus with '/'
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName?.toLowerCase() === 'input') return;
+      if (e.key === '/') {
+        e.preventDefault();
+        const el = document.getElementById(searchInputId) as HTMLInputElement | null;
+        el?.focus();
+      }
+    };
+    window.addEventListener('keydown', h as any);
+    return () => window.removeEventListener('keydown', h as any);
   }, []);
 
   // Load KPI aggregates server-side to avoid large client fetches
@@ -185,6 +208,13 @@ function LeadsPageInner() {
         .neq('status', 'Lost');
     else if (filterMode === 'converted') q = q.eq('status', 'Converted');
     if (dueOnly) q = q.eq('next_follow_up_date', todayStr);
+    // Search across common fields
+    if (debouncedSearch) {
+      const esc = debouncedSearch.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      q = q.or(
+        `name.ilike.%${esc}%,phone.ilike.%${esc}%,email.ilike.%${esc}%,address.ilike.%${esc}%,source.ilike.%${esc}%,notes.ilike.%${esc}%`,
+      );
+    }
     // Sorting
     if (sortBy === 'score') {
       q = q.order('score', { ascending: false }).order('date', {
@@ -232,10 +262,10 @@ function LeadsPageInner() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) load();
     });
-  }, [branchId, filterMode, dueOnly, sortBy])
+  }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch])
   // reset to first page on filter change
-  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly, sortBy]);
-  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize, sortBy]);
+  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch]);
+  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize, sortBy, debouncedSearch]);
 
   const add = async () => {
     setErr(null);
@@ -821,11 +851,20 @@ function LeadsPageInner() {
             </div>
           )}
           <div className="rounded border bg-white overflow-x-auto">
-            <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
+            <div className="flex flex-wrap items-center gap-2 p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
               <label className="flex items-center gap-1">
                 <input type="checkbox" checked={dense} onChange={(e)=>setDense(e.target.checked)} /> Compact
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-[220px]">
+                <input
+                  id={searchInputId}
+                  className="w-full rounded border px-2 py-1 text-sm"
+                  placeholder="Search name, phone, address, source, remarks (/)"
+                  value={searchTerm}
+                  onChange={(e)=>setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
                 <span>Rows:</span>
                 <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{ setPage(1); setPageSize(Number(e.target.value)); }}>
                   {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
