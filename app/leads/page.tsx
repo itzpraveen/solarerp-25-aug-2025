@@ -1,5 +1,5 @@
 'use client';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
@@ -15,6 +15,7 @@ import BranchSelect from '~/components/BranchSelect';
 import RequireOwner from '~/components/RequireOwner';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import Segmented from '~/components/ui/Segmented';
+import Modal from '~/components/ui/Modal';
 
 function LeadsPageInner() {
   const supabase = supabaseBrowser();
@@ -79,6 +80,63 @@ function LeadsPageInner() {
   const [addBranchOverride, setAddBranchOverride] =
     useState<string>('use-selected');
   const { toast } = useToast();
+  // Advanced Filters + Saved searches
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'any' | 'New' | 'Converted' | 'Closed' | 'Lost'>('any');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  type SavedSearch = {
+    name: string;
+    branchId: string | 'all';
+    filterMode: 'open' | 'all' | 'converted';
+    dueOnly: boolean;
+    q: string;
+    status: typeof statusFilter;
+    dateFrom?: string;
+    dateTo?: string;
+    source?: string;
+  };
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('leads:saved-searches');
+      if (raw) setSavedSearches(JSON.parse(raw));
+    } catch {}
+  }, []);
+  const saveSearches = (list: SavedSearch[]) => {
+    setSavedSearches(list);
+    try {
+      localStorage.setItem('leads:saved-searches', JSON.stringify(list));
+    } catch {}
+  };
+  // Highlight helper
+  const renderHL = useMemo(() => {
+    return (value: any): React.ReactNode => {
+      const text = (value ?? '').toString();
+      const term = debouncedSearch.trim();
+      if (!term) return text || '—';
+      try {
+        const rx = new RegExp(`(${term.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")})`, 'ig');
+        const parts = text.split(rx);
+        return (
+          <>
+            {parts.map((p: string, i: number) =>
+              rx.test(p) ? (
+                <mark key={i} className="bg-yellow-200 px-0.5 rounded">
+                  {p}
+                </mark>
+              ) : (
+                <span key={i}>{p}</span>
+              ),
+            )}
+          </>
+        );
+      } catch {
+        return text || '—';
+      }
+    };
+  }, [debouncedSearch]);
   // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
   const getTenantId = async (): Promise<string | null> => {
     // Ensure a profile exists; if not, try to create when self‑signup is on
@@ -208,6 +266,14 @@ function LeadsPageInner() {
         .neq('status', 'Lost');
     else if (filterMode === 'converted') q = q.eq('status', 'Converted');
     if (dueOnly) q = q.eq('next_follow_up_date', todayStr);
+    if (statusFilter !== 'any') q = q.eq('status', statusFilter);
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    if (sourceFilter.trim())
+      q = q.ilike(
+        'source',
+        `%${sourceFilter.trim().replace(/%/g, '\\%').replace(/_/g, '\\_')}%`,
+      );
     // Search across common fields
     if (debouncedSearch) {
       const esc = debouncedSearch.replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -262,10 +328,10 @@ function LeadsPageInner() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) load();
     });
-  }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch])
+  }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch, statusFilter, dateFrom, dateTo, sourceFilter])
   // reset to first page on filter change
-  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch]);
-  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize, sortBy, debouncedSearch]);
+  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch, statusFilter, dateFrom, dateTo, sourceFilter]);
+  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize, sortBy, debouncedSearch, statusFilter, dateFrom, dateTo, sourceFilter]);
 
   const add = async () => {
     setErr(null);
@@ -864,6 +930,25 @@ function LeadsPageInner() {
                   onChange={(e)=>setSearchTerm(e.target.value)}
                 />
               </div>
+              <Button variant="outline" size="sm" onClick={()=>setFiltersOpen(true)}>Filters</Button>
+              <select
+                className="rounded border px-2 py-1"
+                onChange={(e)=>{
+                  const v = e.target.value; e.currentTarget.selectedIndex = 0; if (!v) return;
+                  if (v === '__save__') { const name = prompt('Save current search as:'); if (!name) return; const item = { name, branchId, filterMode, dueOnly, q: searchTerm, status: statusFilter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, source: sourceFilter || undefined }; const next = [...savedSearches.filter(s=>s.name!==name), item]; saveSearches(next); return; }
+                  if (v.startsWith('__del__:')) { const name = v.slice('__del__:'.length); if (!window.confirm(`Delete saved search "${name}"?`)) return; saveSearches(savedSearches.filter(s=>s.name!==name)); return; }
+                  const s = savedSearches.find(x=>x.name===v); if (!s) return; setBranchId(s.branchId); setFilterMode(s.filterMode); setDueOnly(s.dueOnly); setSearchTerm(s.q); setStatusFilter(s.status); setDateFrom(s.dateFrom || ''); setDateTo(s.dateTo || ''); setSourceFilter(s.source || '');
+                }}
+              >
+                <option value="">Saved…</option>
+                {savedSearches.map(s=> <option key={s.name} value={s.name}>{s.name}</option>)}
+                <option value="__save__">Save current…</option>
+                {savedSearches.length>0 && (
+                  <optgroup label="Delete">
+                    {savedSearches.map(s=> <option key={`del:${s.name}`} value={`__del__:${s.name}`}>Delete: {s.name}</option>)}
+                  </optgroup>
+                )}
+              </select>
               <div className="flex items-center gap-2 ml-auto">
                 <span>Rows:</span>
                 <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{ setPage(1); setPageSize(Number(e.target.value)); }}>
@@ -871,6 +956,34 @@ function LeadsPageInner() {
                 </select>
               </div>
             </div>
+            <Modal open={filtersOpen} onClose={()=>setFiltersOpen(false)} title="Filters">
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <label className="grid gap-1">
+                  <span className="text-xs text-gray-600">Status</span>
+                  <select className="rounded border px-2 py-1" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value as any)}>
+                    {['any','New','Converted','Closed','Lost'].map(s=> <option key={s} value={s as any}>{s}</option>)}
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs text-gray-600">From</span>
+                    <input type="date" className="rounded border px-2 py-1" value={dateFrom} onChange={(e)=>setDateFrom(e.target.value)} />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-gray-600">To</span>
+                    <input type="date" className="rounded border px-2 py-1" value={dateTo} onChange={(e)=>setDateTo(e.target.value)} />
+                  </label>
+                </div>
+                <label className="grid gap-1">
+                  <span className="text-xs text-gray-600">Source contains</span>
+                  <input className="rounded border px-2 py-1" value={sourceFilter} onChange={(e)=>setSourceFilter(e.target.value)} placeholder="e.g. Facebook, Referral" />
+                </label>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button variant="outline" size="sm" onClick={()=>{ setStatusFilter('any'); setDateFrom(''); setDateTo(''); setSourceFilter(''); }}>Reset</Button>
+                  <Button size="sm" onClick={()=> setFiltersOpen(false)}>Done</Button>
+                </div>
+              </div>
+            </Modal>
             <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
               <thead>
                 <tr className="border-b bg-gray-50 text-left sticky top-8">
@@ -1086,16 +1199,16 @@ function LeadsPageInner() {
                         </>
                       ) : (
                         <>
-                          <td className="p-2">{l.name || '—'}</td>
-                          <td className="p-2">{l.phone || '—'}{l.phone && (
+                          <td className="p-2">{renderHL(l.name || '—')}</td>
+                          <td className="p-2">{renderHL(l.phone || '—')}{l.phone && (
                             <span className="ml-2 whitespace-nowrap">
                               <a className="underline text-blue-600" href={`tel:${String(l.phone).replace(/\\D+/g, '')}`} title="Call">📞</a>
                               <a className="ml-1 underline text-green-600" href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`} target="_blank" rel="noreferrer" title="WhatsApp">🟢</a>
                             </span>
                           )}
                           </td>
-                          <td className="p-2">{l.address || '—'}</td>
-                          <td className="p-2">{l.source || '—'}</td>
+                          <td className="p-2">{renderHL(l.address || '—')}</td>
+                          <td className="p-2">{renderHL(l.source || '—')}</td>
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
                           </td>
@@ -1166,7 +1279,7 @@ function LeadsPageInner() {
                             )}
                           </td>
                           <td className="p-2 truncate max-w-[240px]">
-                            <span title={l.notes || ''}>{l.notes || '—'}</span>
+                            <span title={l.notes || ''}>{renderHL(l.notes || '—')}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             {(l as any)._jobOnly ? (
