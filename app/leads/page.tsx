@@ -451,14 +451,24 @@ function LeadsPageInner() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-          <Input
-            type="number"
-            min={0}
-            step={0.1}
-            placeholder="Capacity kW"
-            value={capacity}
-            onChange={(e) => setCapacity(Number(e.target.value))}
-          />
+          <div className="relative">
+            <Input
+              id="quickadd-capacity"
+              type="number"
+              min={0}
+              step={0.1}
+              inputMode="decimal"
+              aria-label="Capacity in kilowatts"
+              title="Capacity in kilowatts (kW)"
+              placeholder="Capacity (kW)"
+              className="pr-10"
+              value={capacity}
+              onChange={(e) => setCapacity(Number(e.target.value))}
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[11px] text-gray-500">
+              kW
+            </span>
+          </div>
           <Button
             onClick={async () => {
               // Parse single-field entry if phone omitted
