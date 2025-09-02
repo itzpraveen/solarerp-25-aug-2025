@@ -11,13 +11,6 @@ function startOfWeekMondayISO(date = new Date()) {
   return sow.toISOString().slice(0, 10);
 }
 
-async function count(sb: any, table: string, apply?: (q: any) => any) {
-  let q = sb.from(table).select('id', { count: 'exact', head: true });
-  if (apply) q = apply(q);
-  const { count } = await q;
-  return count || 0;
-}
-
 export async function GET(req: NextRequest) {
   try {
     const sb = supabaseFromAuthHeader(req.headers.get('authorization'));
@@ -33,109 +26,83 @@ export async function GET(req: NextRequest) {
       return d.toISOString().slice(0, 10);
     })();
 
+    // Single RPC that aggregates all KPIs
+    const { data: rows, error } = await sb.rpc('overview_kpis_agg', {
+      _today: today,
+      _sow: startOfWeek,
+      _month: monthStart,
+    });
+    if (error) throw error;
+    const list: any[] = (rows as any[]) || [];
+
     if (branchId) {
-      // Leads KPIs (branch)
-      const [total, open, dueToday, overdue, newWeek, converted, leadsNewMonth, leadsConvertedMonth] = await Promise.all([
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId)),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).neq('status', 'Converted').neq('status', 'Closed').neq('status', 'Lost')),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).eq('next_follow_up_date', today).neq('status', 'Closed').neq('status', 'Converted').neq('status', 'Lost')),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).lte('next_follow_up_date', today).neq('status', 'Closed').neq('status', 'Converted').neq('status', 'Lost')),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).gte('date', startOfWeek)),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).eq('status', 'Converted')),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).gte('date', monthStart)),
-        count(sb, 'leads', (q) => q.eq('branch_id', branchId).eq('status', 'Converted').gte('date', monthStart)),
-      ]);
-      // Proposals (branch)
-      const [proposalsWeek, proposalsMonth] = await Promise.all([
-        count(sb, 'proposals', (q: any) =>
-          q.select('id, jobs!inner(branch_id)', { count: 'exact', head: true }).eq('jobs.branch_id', branchId).gte('date', startOfWeek),
-        ),
-        count(sb, 'proposals', (q: any) =>
-          q.select('id, jobs!inner(branch_id)', { count: 'exact', head: true }).eq('jobs.branch_id', branchId).gte('date', monthStart),
-        ),
-      ]);
-      return NextResponse.json({
+      const r = list.find((x) => x.branch_id === branchId && x.is_total === false);
+      const out = {
         ok: true,
-        scope: 'branch',
+        scope: 'branch' as const,
         branchId,
         today,
         startOfWeek,
-        total,
-        open,
-        dueToday,
-        overdue,
-        newWeek,
-        converted,
-        leadsNewMonth,
-        leadsConvertedMonth,
-        proposalsWeek,
-        proposalsMonth,
-      });
+        total: r?.total || 0,
+        open: r?.open || 0,
+        dueToday: r?.due_today || 0,
+        overdue: r?.overdue || 0,
+        newWeek: r?.new_week || 0,
+        converted: r?.converted_total || 0,
+        leadsNewMonth: r?.leads_new_month || 0,
+        leadsConvertedMonth: r?.leads_converted_month || 0,
+        proposalsWeek: r?.proposals_week || 0,
+        proposalsMonth: r?.proposals_month || 0,
+      };
+      const res = NextResponse.json(out);
+      res.headers.set('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
+      return res;
     }
 
-    // Aggregate across all branches (RLS applies tenant scope)
-    const [leadsNewMonth, leadsConvertedMonth, proposalsWeek, proposalsMonth] = await Promise.all([
-      count(sb, 'leads', (q) => q.gte('date', monthStart)),
-      count(sb, 'leads', (q) => q.eq('status', 'Converted').gte('date', monthStart)),
-      count(sb, 'proposals', (q: any) => q.gte('date', startOfWeek)),
-      count(sb, 'proposals', (q: any) => q.gte('date', monthStart)),
-    ]);
+    const totalRow = list.find((x) => x.is_total === true) || {};
+    const unassignedRow = list.find((x) => x.is_total === false && x.branch_id == null) || {};
+    const branchRows = list.filter((x) => x.is_total === false && x.branch_id != null);
+    const { data: branches } = await sb.from('branches').select('id, name');
+    const nameById = new Map<string, string>();
+    for (const b of (branches as any[]) || []) nameById.set(b.id, b.name || '—');
 
-    // Per-branch leads summary: reuse existing leads/kpis logic by pulling branches list then counting
-    const { data: branches } = await sb.from('branches').select('id, name').order('name');
-    const perTasks = ((branches as any[]) || []).map(async (b) => {
-      const [total, open, dueToday, overdue, newWeek, converted] = await Promise.all([
-        count(sb, 'leads', (q) => q.eq('branch_id', b.id)),
-        count(sb, 'leads', (q) => q.eq('branch_id', b.id).neq('status', 'Converted').neq('status', 'Closed').neq('status', 'Lost')),
-        count(sb, 'leads', (q) => q.eq('branch_id', b.id).eq('next_follow_up_date', today).neq('status', 'Closed').neq('status', 'Converted').neq('status', 'Lost')),
-        count(sb, 'leads', (q) => q.eq('branch_id', b.id).lte('next_follow_up_date', today).neq('status', 'Closed').neq('status', 'Converted').neq('status', 'Lost')),
-        count(sb, 'leads', (q) => q.eq('branch_id', b.id).gte('date', startOfWeek)),
-        count(sb, 'leads', (q) => q.eq('branch_id', b.id).eq('status', 'Converted')),
-      ]);
-      return { branchId: b.id as string, name: b.name as string, total, open, dueToday, overdue, newWeek, converted };
-    });
+    const perBranch = branchRows.map((r) => ({
+      branchId: r.branch_id as string,
+      name: nameById.get(r.branch_id) || '—',
+      total: Number(r.total || 0),
+      open: Number(r.open || 0),
+      dueToday: Number(r.due_today || 0),
+      overdue: Number(r.overdue || 0),
+      newWeek: Number(r.new_week || 0),
+      converted: Number(r.converted_total || 0),
+    }));
 
-    const [
-      totalNull,
-      openNull,
-      dueTodayNull,
-      overdueNull,
-      newWeekNull,
-      convertedNull,
-    ] = await Promise.all([
-      count(sb, 'leads', (q) => q.is('branch_id', null)),
-      count(sb, 'leads', (q) => q.is('branch_id', null).neq('status', 'Converted').neq('status', 'Closed').neq('status', 'Lost')),
-      count(sb, 'leads', (q) => q.is('branch_id', null).eq('next_follow_up_date', today).neq('status', 'Closed').neq('status', 'Converted').neq('status', 'Lost')),
-      count(sb, 'leads', (q) => q.is('branch_id', null).lte('next_follow_up_date', today).neq('status', 'Closed').neq('status', 'Converted').neq('status', 'Lost')),
-      count(sb, 'leads', (q) => q.is('branch_id', null).gte('date', startOfWeek)),
-      count(sb, 'leads', (q) => q.is('branch_id', null).eq('status', 'Converted')),
-    ]);
-
-    const perBranch = await Promise.all(perTasks);
-    return NextResponse.json({
+    const body = {
       ok: true,
-      scope: 'all',
+      scope: 'all' as const,
       today,
       startOfWeek,
       perBranch,
       unassigned: {
         name: 'Unassigned',
-        total: totalNull,
-        open: openNull,
-        dueToday: dueTodayNull,
-        overdue: overdueNull,
-        newWeek: newWeekNull,
-        converted: convertedNull,
+        total: Number(unassignedRow.total || 0),
+        open: Number(unassignedRow.open || 0),
+        dueToday: Number(unassignedRow.due_today || 0),
+        overdue: Number(unassignedRow.overdue || 0),
+        newWeek: Number(unassignedRow.new_week || 0),
+        converted: Number(unassignedRow.converted_total || 0),
       },
-      leadsNewMonth,
-      leadsConvertedMonth,
-      proposalsWeek,
-      proposalsMonth,
-    });
+      leadsNewMonth: Number(totalRow.leads_new_month || 0),
+      leadsConvertedMonth: Number(totalRow.leads_converted_month || 0),
+      proposalsWeek: Number(totalRow.proposals_week || 0),
+      proposalsMonth: Number(totalRow.proposals_month || 0),
+    };
+    const res = NextResponse.json(body);
+    res.headers.set('Cache-Control', 's-maxage=15, stale-while-revalidate=60');
+    return res;
   } catch (e: any) {
     const id = Math.random().toString(36).slice(2, 10);
     console.error('api/overview/kpis', { id, error: e });
     return NextResponse.json({ ok: false, error: 'Internal error', id }, { status: 500 });
   }
 }
-
