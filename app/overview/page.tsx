@@ -129,8 +129,8 @@ export default function OverviewPage() {
         if (token) {
           const url =
             branchId === 'all'
-              ? '/api/leads/kpis'
-              : `/api/leads/kpis?branchId=${encodeURIComponent(branchId as string)}`;
+              ? '/api/overview/kpis'
+              : `/api/overview/kpis?branchId=${encodeURIComponent(branchId as string)}`;
           const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -143,60 +143,13 @@ export default function OverviewPage() {
                 dueToday: out.dueToday || 0,
                 overdue: out.overdue || 0,
               });
-              // Sales KPIs (branch): use out.newWeek/converted; MTD via direct query
-              let leadsNewMonth = 0;
-              let leadsConvertedMonth = 0;
-              // Leads MTD (branch)
-              const { count: leadsMonth } = await supabase
-                .from('leads')
-                .select('id', { count: 'exact', head: true })
-                .eq('branch_id', branchId as string)
-                .gte('date', monthStart);
-              leadsNewMonth = leadsMonth || 0;
-              const { count: leadsConvMonth } = await supabase
-                .from('leads')
-                .select('id', { count: 'exact', head: true })
-                .eq('branch_id', branchId as string)
-                .eq('status', 'Converted')
-                .gte('date', monthStart);
-              leadsConvertedMonth = leadsConvMonth || 0;
-
-              // Proposals WTD/MTD (branch)
-              let proposalsWeek = 0;
-              let proposalsMonth = 0;
-              if (branchId === 'all') {
-                const { count: pW } = await supabase
-                  .from('proposals')
-                  .select('id', { count: 'exact', head: true })
-                  .gte('date', out.startOfWeek);
-                proposalsWeek = pW || 0;
-                const { count: pM } = await supabase
-                  .from('proposals')
-                  .select('id', { count: 'exact', head: true })
-                  .gte('date', monthStart);
-                proposalsMonth = pM || 0;
-              } else {
-                // restrict by branch using join; avoids prefetching job ids
-                const { count: pW } = await supabase
-                  .from('proposals')
-                  .select('id, jobs!inner(branch_id)', { count: 'exact', head: true })
-                  .eq('jobs.branch_id', branchId as string)
-                  .gte('date', out.startOfWeek);
-                proposalsWeek = pW || 0;
-                const { count: pM } = await supabase
-                  .from('proposals')
-                  .select('id, jobs!inner(branch_id)', { count: 'exact', head: true })
-                  .eq('jobs.branch_id', branchId as string)
-                  .gte('date', monthStart);
-                proposalsMonth = pM || 0;
-              }
               setSalesKpis({
                 leadsNewWeek: out.newWeek || 0,
-                leadsNewMonth,
+                leadsNewMonth: out.leadsNewMonth || 0,
                 leadsConvertedWeek: out.converted || 0,
-                leadsConvertedMonth,
-                proposalsWeek,
-                proposalsMonth,
+                leadsConvertedMonth: out.leadsConvertedMonth || 0,
+                proposalsWeek: out.proposalsWeek || 0,
+                proposalsMonth: out.proposalsMonth || 0,
               });
             } else {
               const per = Array.isArray(out.perBranch) ? out.perBranch : [];
@@ -213,40 +166,17 @@ export default function OverviewPage() {
                 per.reduce((a: number, b: any) => a + (b.overdue || 0), 0) +
                 (out.unassigned?.overdue || 0);
               setLeadSummary({ total, open, dueToday, overdue });
-
-              // Sales KPIs (all branches): aggregate newWeek/converted; MTD computed client-side
-              const leadsNewWeek =
-                per.reduce((a: number, b: any) => a + (b.newWeek || 0), 0) +
-                (out.unassigned?.newWeek || 0);
-              const leadsConvertedWeek =
-                per.reduce((a: number, b: any) => a + (b.converted || 0), 0) +
-                (out.unassigned?.converted || 0);
-              // MTD
-              const { count: leadsMonth } = await supabase
-                .from('leads')
-                .select('id', { count: 'exact', head: true })
-                .gte('date', monthStart);
-              const { count: leadsConvMonth } = await supabase
-                .from('leads')
-                .select('id', { count: 'exact', head: true })
-                .eq('status', 'Converted')
-                .gte('date', monthStart);
-              // Proposals WTD/MTD (all)
-              const { count: pW } = await supabase
-                .from('proposals')
-                .select('id', { count: 'exact', head: true })
-                .gte('date', out.startOfWeek);
-              const { count: pM } = await supabase
-                .from('proposals')
-                .select('id', { count: 'exact', head: true })
-                .gte('date', monthStart);
               setSalesKpis({
-                leadsNewWeek,
-                leadsNewMonth: leadsMonth || 0,
-                leadsConvertedWeek,
-                leadsConvertedMonth: leadsConvMonth || 0,
-                proposalsWeek: pW || 0,
-                proposalsMonth: pM || 0,
+                leadsNewWeek:
+                  per.reduce((a: number, b: any) => a + (b.newWeek || 0), 0) +
+                  (out.unassigned?.newWeek || 0),
+                leadsNewMonth: out.leadsNewMonth || 0,
+                leadsConvertedWeek:
+                  per.reduce((a: number, b: any) => a + (b.converted || 0), 0) +
+                  (out.unassigned?.converted || 0),
+                leadsConvertedMonth: out.leadsConvertedMonth || 0,
+                proposalsWeek: out.proposalsWeek || 0,
+                proposalsMonth: out.proposalsMonth || 0,
               });
             }
           } else {
