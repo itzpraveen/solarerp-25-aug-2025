@@ -1016,8 +1016,8 @@ function LeadsPageInner() {
                   <th className="p-2">Address</th>
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
+                  <th className="p-2">Score</th>
                   <th className="p-2">Actions</th>
-                  
                   <th className="p-2">Score</th>
                   <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Last Contacted</th>
@@ -1223,6 +1223,18 @@ function LeadsPageInner() {
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
                           </td>
+                          {/* Score right after Capacity */}
+                          <td className="p-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${
+                              (l.score || 0) >= 40
+                                ? 'bg-red-50 border-red-200 text-red-800'
+                                : (l.score || 0) >= 25
+                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                  : 'bg-gray-50 border-gray-200 text-gray-700'
+                            }`}>
+                              {l.score ?? 0}
+                            </span>
+                          </td>
                           {/* Quick actions near capacity */}
                           <td className="p-2 whitespace-nowrap">
                             {(l as any)._jobOnly ? (
@@ -1347,17 +1359,7 @@ function LeadsPageInner() {
                               </>
                             )}
                           </td>
-                          <td className="p-2">
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${
-                              (l.score || 0) >= 40
-                                ? 'bg-red-50 border-red-200 text-red-800'
-                                : (l.score || 0) >= 25
-                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
-                                  : 'bg-gray-50 border-gray-200 text-gray-700'
-                            }`}>
-                              {l.score ?? 0}
-                            </span>
-                          </td>
+                          
                           <td className="p-2">
                             <span
                               className={
