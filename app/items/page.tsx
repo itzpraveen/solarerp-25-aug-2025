@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
@@ -13,6 +13,7 @@ import { useToast } from '~/components/ui/ToastProvider';
 export default function ItemsPage() {
   const supabase = supabaseBrowser();
   const [items, setItems] = useState<any[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
   const [form, setForm] = useState<any>({
     item_code: '',
     name: '',
@@ -27,21 +28,59 @@ export default function ItemsPage() {
 
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [adding, setAdding] = useState(false);
   const { toast } = useToast();
+  // Pagination & sorting
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((totalCount || 0) / pageSize)),
+    [totalCount, pageSize],
+  );
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'code-asc' | 'code-desc'>('name-asc');
 
   const load = async () => {
     setErr(null);
-    let q = supabase.from('items').select('*').order('name');
+    setLoadingList(true);
+    let q = supabase
+      .from('items')
+      .select(
+        'item_code,name,category,unit,gst_rate,mrp,preferred_vendor,archived',
+        { count: 'exact' },
+      );
     if (!showArchived) q = q.eq('archived', false as any);
-    const { data, error } = await q;
+    const term = (debouncedSearch || '').trim();
+    if (term) {
+      const esc = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      q = q.or(
+        `item_code.ilike.%${esc}%,name.ilike.%${esc}%,category.ilike.%${esc}%,preferred_vendor.ilike.%${esc}%`,
+      );
+    }
+    if (sortBy === 'name-asc') q = q.order('name', { ascending: true });
+    else if (sortBy === 'name-desc') q = q.order('name', { ascending: false });
+    else if (sortBy === 'code-asc') q = q.order('item_code', { ascending: true });
+    else if (sortBy === 'code-desc')
+      q = q.order('item_code', { ascending: false });
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const { data, count, error } = await q.range(from, to);
     if (error) setErr(error.message);
-    setItems(data || []);
+    setItems((data as any[]) || []);
+    setTotalCount(count || 0);
+    setLoadingList(false);
   };
   useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+  useEffect(() => {
     load();
-  }, [showArchived]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArchived, debouncedSearch, sortBy, page, pageSize]);
+  useEffect(() => setPage(1), [debouncedSearch, sortBy, showArchived]);
 
   function validateItemPayload(p: any) {
     if (!p.item_code || !p.name) return 'Code and name are required';
@@ -113,10 +152,20 @@ export default function ItemsPage() {
           </label>
           <input
             className="rounded border px-3 py-2 text-sm"
-            placeholder="Search…"
+            placeholder="Search code, name, vendor…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <select
+            className="rounded border px-2 py-2 text-sm"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+          >
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+            <option value="code-asc">Code A–Z</option>
+            <option value="code-desc">Code Z–A</option>
+          </select>
         </div>
       </div>
       {err && (
@@ -185,21 +234,43 @@ export default function ItemsPage() {
           </div>
         </Card>
       </RequireOwner>
-      {items.length === 0 ? (
+      {loadingList ? (
+        <Card>
+          <div className="p-3 text-sm text-gray-600">Loading…</div>
+        </Card>
+      ) : items.length === 0 ? (
         <EmptyState
           title="No items yet"
           description="Add standard parts and accessories for quick quoting and BOQs."
         />
       ) : (
-        <DataTable
-          rows={items.filter(
-            (it) =>
-              !search ||
-              `${it.item_code} ${it.name} ${it.category}`
-                .toLowerCase()
-                .includes(search.toLowerCase()),
-          )}
-          columns={
+        <>
+          <div className="rounded border bg-white overflow-x-auto">
+            <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
+              <div className="flex items-center gap-2">
+                <span>Rows:</span>
+                <select
+                  className="rounded border px-2 py-1"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-xs text-gray-600">
+                Page {page} of {totalPages} • {totalCount} items
+              </div>
+            </div>
+            <DataTable
+              rows={items}
+              columns={
             [
               { key: 'item_code', header: 'Code' },
               {
@@ -392,7 +463,48 @@ export default function ItemsPage() {
               },
             ] as Column<any>[]
           }
-        />
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">
+            <div>
+              Page {page} of {totalPages} • {totalCount} items
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(1)}
+              >
+                « First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                ‹ Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next ›
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage(totalPages)}
+              >
+                Last »
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

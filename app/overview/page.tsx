@@ -84,71 +84,44 @@ export default function OverviewPage() {
         const { data: l } = await lq;
         setLeadsDue(l || []);
 
-        // Overdue invoices (due_date < today and status != Paid), branch-scoped
+        // Overdue invoices (due_date < today and status != Paid), branch-scoped using join filter
         let invQ = supabase
           .from('invoices')
-          .select('id, due_date, status, job_id, total')
+          .select('id, due_date, status, job_id, total, jobs!inner(branch_id)')
           .lt('due_date', today)
           .neq('status', 'Paid')
           .order('due_date', { ascending: true })
           .limit(10);
-        if (branchId !== 'all') {
-          if (jobIds.length > 0) invQ = invQ.in('job_id', jobIds as any);
-          else invQ = invQ.in('job_id', ['__none__']); // no results
-        }
+        if (branchId !== 'all') invQ = invQ.eq('jobs.branch_id', branchId as string);
         const { data: inv } = await invQ;
         setOverdueInvoices(inv || []);
 
-        // Recent proposals
+        // Recent proposals (filter by branch via join)
         let ppQ = supabase
           .from('proposals')
-          .select('id, date, total, pdf_url, job_id')
+          .select('id, date, total, pdf_url, job_id, jobs!inner(branch_id)')
           .order('date', { ascending: false })
           .limit(5);
-        if (branchId !== 'all') {
-          if (jobIds.length > 0) ppQ = ppQ.in('job_id', jobIds as any);
-          else ppQ = ppQ.in('job_id', ['__none__']);
-        }
+        if (branchId !== 'all') ppQ = ppQ.eq('jobs.branch_id', branchId as string);
         const { data: pp } = await ppQ;
         setRecentProposals(pp || []);
 
-        // Recent payments
+        // Recent payments (filter by branch via join to invoices and jobs)
         let payQ = supabase
           .from('payments')
-          .select('id, date, amount, invoice_id')
+          .select('id, date, amount, invoice_id, invoices!inner(job_id), invoices(jobs!inner(branch_id))')
           .order('date', { ascending: false })
           .limit(5);
-        if (branchId !== 'all') {
-          // Need to restrict to payments of invoices belonging to branch jobs
-          // 1) get invoices for branch jobs
-          let invIds: string[] = [];
-          if (jobIds.length > 0) {
-            const { data: invForJobs } = await supabase
-              .from('invoices')
-              .select('id')
-              .in('job_id', jobIds as any)
-              .order('date', { ascending: false })
-              .limit(200);
-            invIds = ((invForJobs as any[]) || []).map((r) => r.id);
-          }
-          if (invIds.length > 0) payQ = payQ.in('invoice_id', invIds as any);
-          else payQ = payQ.in('invoice_id', ['__none__']);
-        }
+        if (branchId !== 'all')
+          payQ = payQ.eq('invoices.jobs.branch_id', branchId as string);
         const { data: pay } = await payQ;
         setRecentPayments(pay || []);
-        // Map payment.invoice_id -> job_id for deep linking
-        const invIdsForMap = ((pay as any[]) || []).map((p) => p.invoice_id);
-        if (invIdsForMap.length > 0) {
-          const { data: invRows } = await supabase
-            .from('invoices')
-            .select('id, job_id')
-            .in('id', invIdsForMap as any);
-          const map: Record<string, string> = {};
-          for (const r of (invRows as any[]) || []) map[r.id] = r.job_id;
-          setPaymentInvoiceJobMap(map);
-        } else {
-          setPaymentInvoiceJobMap({});
+        const map: Record<string, string> = {};
+        for (const p of (pay as any[]) || []) {
+          const inv: any = (p as any).invoices || {};
+          if (inv?.job_id) map[p.invoice_id] = inv.job_id;
         }
+        setPaymentInvoiceJobMap(map);
 
         // Leads KPIs (Total/Open)
         const { data: session } = await supabase.auth.getSession();
@@ -203,33 +176,19 @@ export default function OverviewPage() {
                   .gte('date', monthStart);
                 proposalsMonth = pM || 0;
               } else {
-                // restrict by branch jobs
-                let jobIdsForBranch: string[] = [];
-                const { data: branchJobs } = await supabase
-                  .from('jobs')
-                  .select('id')
-                  .eq('branch_id', branchId as string)
-                  .limit(500);
-                jobIdsForBranch = ((branchJobs as any[]) || []).map(
-                  (r) => r.id,
-                );
-                if (jobIdsForBranch.length > 0) {
-                  const { count: pW } = await supabase
-                    .from('proposals')
-                    .select('id', { count: 'exact', head: true })
-                    .in('job_id', jobIdsForBranch as any)
-                    .gte('date', out.startOfWeek);
-                  proposalsWeek = pW || 0;
-                  const { count: pM } = await supabase
-                    .from('proposals')
-                    .select('id', { count: 'exact', head: true })
-                    .in('job_id', jobIdsForBranch as any)
-                    .gte('date', monthStart);
-                  proposalsMonth = pM || 0;
-                } else {
-                  proposalsWeek = 0;
-                  proposalsMonth = 0;
-                }
+                // restrict by branch using join; avoids prefetching job ids
+                const { count: pW } = await supabase
+                  .from('proposals')
+                  .select('id, jobs!inner(branch_id)', { count: 'exact', head: true })
+                  .eq('jobs.branch_id', branchId as string)
+                  .gte('date', out.startOfWeek);
+                proposalsWeek = pW || 0;
+                const { count: pM } = await supabase
+                  .from('proposals')
+                  .select('id, jobs!inner(branch_id)', { count: 'exact', head: true })
+                  .eq('jobs.branch_id', branchId as string)
+                  .gte('date', monthStart);
+                proposalsMonth = pM || 0;
               }
               setSalesKpis({
                 leadsNewWeek: out.newWeek || 0,
@@ -299,7 +258,7 @@ export default function OverviewPage() {
           setSalesKpis(null);
         }
 
-        // Tasks: due today and overdue (status != Done), branch-scoped via job ids
+        // Tasks: due today and overdue (status != Done), branch-scoped via join
         let tTodayQ = supabase
           .from('tasks')
           .select('id, title, status, due_date, job_id')
@@ -314,18 +273,31 @@ export default function OverviewPage() {
           .neq('status', 'Done')
           .order('due_date', { ascending: true })
           .limit(8);
-        if (branchId !== 'all') {
-          if (jobIds.length > 0) {
-            tTodayQ = tTodayQ.in('job_id', jobIds as any);
-            tOverQ = tOverQ.in('job_id', jobIds as any);
-          } else {
-            tTodayQ = tTodayQ.in('job_id', ['__none__']);
-            tOverQ = tOverQ.in('job_id', ['__none__']);
-          }
-        }
+        const tTodayPromise: any =
+          branchId === 'all'
+            ? tTodayQ
+            : supabase
+                .from('tasks')
+                .select('id, title, status, due_date, job_id, jobs!inner(branch_id)')
+                .eq('due_date', today)
+                .neq('status', 'Done')
+                .order('due_date', { ascending: true })
+                .eq('jobs.branch_id', branchId as string)
+                .limit(8);
+        const tOverPromise: any =
+          branchId === 'all'
+            ? tOverQ
+            : supabase
+                .from('tasks')
+                .select('id, title, status, due_date, job_id, jobs!inner(branch_id)')
+                .lt('due_date', today)
+                .neq('status', 'Done')
+                .order('due_date', { ascending: true })
+                .eq('jobs.branch_id', branchId as string)
+                .limit(8);
         const [{ data: ttd }, { data: tov }] = await Promise.all([
-          tTodayQ,
-          tOverQ,
+          tTodayPromise,
+          tOverPromise,
         ]);
         setTasksToday((ttd as any[]) || []);
         setTasksOverdue((tov as any[]) || []);
@@ -334,13 +306,10 @@ export default function OverviewPage() {
         // 1) fetch open invoices (not Paid/Cancelled)
         let arInvQ = supabase
           .from('invoices')
-          .select('id, total, due_date, status, job_id')
+          .select('id, total, due_date, status, job_id, jobs!inner(branch_id)')
           .neq('status', 'Paid')
           .neq('status', 'Cancelled');
-        if (branchId !== 'all') {
-          if (jobIds.length > 0) arInvQ = arInvQ.in('job_id', jobIds as any);
-          else arInvQ = arInvQ.in('job_id', ['__none__']);
-        }
+        if (branchId !== 'all') arInvQ = arInvQ.eq('jobs.branch_id', branchId as string);
         const { data: arInv } = await arInvQ;
         const invoiceRows = ((arInv as any[]) || []).filter(
           (r) => Number(r.total || 0) > 0,

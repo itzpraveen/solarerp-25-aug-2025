@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Button from '~/components/ui/Button';
@@ -12,7 +12,21 @@ export default function ProposalsListPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [showVoided, setShowVoided] = useState(false);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((totalCount || 0) / pageSize)),
+    [totalCount, pageSize],
+  );
 
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -31,16 +45,29 @@ export default function ProposalsListPage() {
       }
       let q = supabase
         .from('proposals')
-        .select('*, jobs(id, customers(name, phone))')
+        .select(
+          'id,date,total,pdf_url,voided_at,job_id,jobs(id, customers(name))',
+          { count: 'exact' },
+        )
         .eq('tenant_id', prof.tenant_id)
         .order('date', { ascending: false });
       if (!showVoided) q = q.is('voided_at', null);
-      const { data, error } = await q;
+      const term = (debouncedSearch || '').trim();
+      if (term) {
+        const esc = term.replace(/%/g, '\\%').replace(/_/g, '\\_');
+        q = q.or(`kit_name.ilike.%${esc}%,date.ilike.%${esc}%`);
+      }
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const { data, count, error } = await q.range(from, to);
       if (error) setErr(error.message);
-      setRows(data || []);
+      setRows((data as any[]) || []);
+      setTotalCount(count || 0);
       setLoading(false);
     })();
-  }, [showVoided]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showVoided, page, pageSize, debouncedSearch]);
+  useEffect(() => setPage(1), [debouncedSearch, showVoided]);
 
   const openPdf = async (key?: string | null) => {
     if (!key) return;
@@ -60,6 +87,12 @@ export default function ProposalsListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Proposals</h1>
         <div className="flex items-center gap-2">
+          <input
+            className="rounded border px-3 py-2 text-sm"
+            placeholder="Search by date or kit name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <label className="flex items-center gap-1 text-sm text-gray-700">
             <input
               type="checkbox"
@@ -87,7 +120,17 @@ export default function ProposalsListPage() {
         ) : rows.length === 0 ? (
           <div className="text-sm text-gray-600">No proposals yet.</div>
         ) : (
-          <ul className="space-y-2">
+          <>
+            <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
+              <div>Page {page} of {totalPages} • {totalCount} proposals</div>
+              <div className="flex items-center gap-2">
+                <span>Rows:</span>
+                <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{ setPage(1); setPageSize(Number(e.target.value)); }}>
+                  {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+            <ul className="space-y-2">
             {rows.map((r) => (
               <li
                 key={r.id}
@@ -140,7 +183,6 @@ export default function ProposalsListPage() {
                             .update({ voided_at: null })
                             .eq('id', r.id);
                         }
-                        // trigger reload
                         setShowVoided((v) => v);
                       }}
                     >
@@ -150,7 +192,17 @@ export default function ProposalsListPage() {
                 </div>
               </li>
             ))}
-          </ul>
+            </ul>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">
+              <div>Page {page} of {totalPages} • {totalCount} proposals</div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={page<=1} onClick={()=>setPage(1)}>« First</Button>
+                <Button variant="outline" size="sm" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>‹ Prev</Button>
+                <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))}>Next ›</Button>
+                <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={()=>setPage(totalPages)}>Last »</Button>
+              </div>
+            </div>
+          </>
         )}
       </Card>
     </div>

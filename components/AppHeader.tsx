@@ -80,46 +80,30 @@ export default function AppHeader() {
       if (!authed) return;
       try {
         const today = new Date().toISOString().slice(0, 10);
-        let lq = supabase
-          .from('leads')
-          .select('id', { count: 'exact', head: true })
-          .eq('next_follow_up_date', today)
-          .neq('status', 'Closed')
-          .neq('status', 'Converted')
-          .neq('status', 'Lost');
-        if (branchValue !== 'all')
-          lq = lq.eq('branch_id', branchValue as string);
-        const { count: c1 } = await lq;
-        setDueLeadsCount(c1 || 0);
-
-        // Overdue invoices: scope by selected branch when not 'all'
-        if (branchValue === 'all') {
-          const { count: c2 } = await supabase
-            .from('invoices')
+        const leadsQ = (() => {
+          let q = supabase
+            .from('leads')
             .select('id', { count: 'exact', head: true })
+            .eq('next_follow_up_date', today)
+            .neq('status', 'Closed')
+            .neq('status', 'Converted')
+            .neq('status', 'Lost');
+          if (branchValue !== 'all') q = q.eq('branch_id', branchValue as string);
+          return q;
+        })();
+        const invoicesQ = (() => {
+          // Use an inner join to filter invoices by job branch when selected
+          let q = supabase
+            .from('invoices')
+            .select('id, jobs!inner(branch_id)', { count: 'exact', head: true })
             .lt('due_date', today)
             .neq('status', 'Paid');
-          setOverdueInvCount(c2 || 0);
-        } else {
-          // Restrict to invoices of jobs that belong to the selected branch
-          const { data: branchJobs } = await supabase
-            .from('jobs')
-            .select('id')
-            .eq('branch_id', branchValue as string)
-            .limit(1000);
-          const jobIds = ((branchJobs as any[]) || []).map((r) => r.id);
-          if (jobIds.length === 0) {
-            setOverdueInvCount(0);
-          } else {
-            const { count: c2 } = await supabase
-              .from('invoices')
-              .select('id', { count: 'exact', head: true })
-              .in('job_id', jobIds as any)
-              .lt('due_date', today)
-              .neq('status', 'Paid');
-            setOverdueInvCount(c2 || 0);
-          }
-        }
+          if (branchValue !== 'all') q = q.eq('jobs.branch_id', branchValue as string);
+          return q;
+        })();
+        const [{ count: c1 }, { count: c2 }] = await Promise.all([leadsQ, invoicesQ]);
+        setDueLeadsCount(c1 || 0);
+        setOverdueInvCount(c2 || 0);
       } catch {}
     })();
   }, [branchValue, authed]);
