@@ -1016,13 +1016,14 @@ function LeadsPageInner() {
                   <th className="p-2">Address</th>
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
+                  <th className="p-2">Actions</th>
                   <th className="p-2">Score</th>
                   <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Last Contacted</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Branch</th>
                   <th className="p-2">Remarks</th>
-                  <th className="p-2">Actions</th>
+                  <th className="p-2">More</th>
                 </tr>
               </thead>
               <tbody>
