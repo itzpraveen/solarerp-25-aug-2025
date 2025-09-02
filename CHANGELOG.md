@@ -17,3 +17,12 @@
   - Settings → Team: adds "Fix missing profiles" using backfill API
   - Reduces "Profile not ready" occurrences for new or invited users
 
+## v0.1.3
+
+- feat(customers): server-side pagination, debounced search, sorting
+  - Adds pager, page-size selector and sort options (recent, name A–Z/Z–A)
+  - Loads only required columns; auth-gated loading to avoid noisy 401s
+  - Export CSV now reflects the current page/filters
+- feat(db): customers trigram indexes for fast contains search
+  - Adds `pg_trgm` extension and GIN indexes on name/phone/email
+  - Improves ILIKE `%term%` queries used by Customers search
