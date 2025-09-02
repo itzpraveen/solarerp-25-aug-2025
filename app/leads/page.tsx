@@ -931,6 +931,35 @@ function LeadsPageInner() {
               <label className="flex items-center gap-1">
                 <input type="checkbox" checked={dense} onChange={(e)=>setDense(e.target.checked)} /> Compact
               </label>
+              {/* Primary list filters moved near the table for convenience */}
+              <Segmented
+                options={[
+                  { label: 'Open', value: 'open' },
+                  { label: 'All', value: 'all' },
+                  { label: 'Converted', value: 'converted' },
+                ]}
+                value={filterMode}
+                onChange={(v) => setFilterMode(v as any)}
+              />
+              <label className="ml-1 flex items-center gap-1">
+                <input type="checkbox" checked={dueOnly} onChange={(e)=>setDueOnly(e.target.checked)} />
+                <span>Due today</span>
+              </label>
+              <div className="hidden md:block min-w-[180px]">
+                <BranchSelect value={branchId} onChange={setBranchId} />
+              </div>
+              <div className="flex items-center gap-1">
+                <span>Sort</span>
+                <Segmented
+                  options={[
+                    { label: 'Priority', value: 'score' },
+                    { label: 'Date', value: 'date' },
+                    { label: 'Follow-up', value: 'followup' },
+                  ]}
+                  value={sortBy}
+                  onChange={(v) => setSortBy(v as any)}
+                />
+              </div>
               <div className="flex-1 min-w-[220px]">
                 <input
                   id={searchInputId}
