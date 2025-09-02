@@ -1259,6 +1259,94 @@ function LeadsPageInner() {
                               </Button>
                             )}
                           </td>
+                          {/* More actions next to Actions for quick access */}
+                          <td className="p-2 whitespace-nowrap">
+                            {(l as any)._jobOnly ? (
+                              <span className="text-xs text-gray-500">—</span>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditing(l.id);
+                                    setEditForm(l);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <RequireOwner>
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    className="ml-2"
+                                    onClick={async () => {
+                                      const ok = await confirm({
+                                        title: 'Delete lead',
+                                        description:
+                                          'Are you sure you want to permanently delete this lead?',
+                                        confirmText: 'Delete',
+                                      });
+                                      if (!ok) return;
+                                      await supabase
+                                        .from('leads')
+                                        .delete()
+                                        .eq('id', l.id);
+                                      load();
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                </RequireOwner>
+                                {l.phone && (
+                                  <a
+                                    href={`https://wa.me/${String(l.phone).replace(/\D+/g, '')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="ml-2 rounded border px-2 py-1 text-sm"
+                                  >
+                                    WhatsApp
+                                  </a>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={async () => {
+                                    const d = prompt(
+                                      'Set next follow-up (YYYY-MM-DD):',
+                                      l.next_follow_up_date || todayStr,
+                                    );
+                                    if (!d) return;
+                                    await supabase
+                                      .from('leads')
+                                      .update({ next_follow_up_date: d })
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  Set Next
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-2"
+                                  onClick={async () => {
+                                    await supabase
+                                      .from('leads')
+                                      .update({
+                                        last_contacted_at: todayStr,
+                                        status: 'Contacted',
+                                      })
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  Mark contacted
+                                </Button>
+                              </>
+                            )}
+                          </td>
                           <td className="p-2">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${
                               (l.score || 0) >= 40
