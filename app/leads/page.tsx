@@ -1223,6 +1223,42 @@ function LeadsPageInner() {
                           <td className="p-2">
                             {l.interested_capacity_kw ?? '—'}
                           </td>
+                          {/* Quick actions near capacity */}
+                          <td className="p-2 whitespace-nowrap">
+                            {(l as any)._jobOnly ? (
+                              <a
+                                href={`/jobs/${(l as any)._jobId}`}
+                                className="text-blue-600 text-sm"
+                                title="Open job"
+                              >
+                                Open
+                              </a>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  confirm({
+                                    title: 'Convert lead',
+                                    description: 'Convert this lead to a Job?',
+                                    confirmText: 'Convert',
+                                  }).then((ok) => {
+                                    if (!ok) return;
+                                    setConvertingId(l.id);
+                                    setConvertForm({
+                                      address: (l as any)?.address || '',
+                                      program_type: 'PM_Surya',
+                                      system_type: 'On-grid',
+                                      capacity_kw: l.interested_capacity_kw || 1,
+                                      location: '',
+                                      roof_type: '',
+                                    });
+                                  });
+                                }}
+                              >
+                                Convert
+                              </Button>
+                            )}
+                          </td>
                           <td className="p-2">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${
                               (l.score || 0) >= 40
@@ -1388,35 +1424,7 @@ function LeadsPageInner() {
                                 </Button>
                               </RequireOwner>
                             )}
-                            {!(l as any)._jobOnly && (
-                              <Button
-                                size="sm"
-                                className="ml-2"
-                                onClick={() => {
-                                  // confirmation dialog
-                                  confirm({
-                                    title: 'Convert lead',
-                                    description: 'Convert this lead to a Job?',
-                                    confirmText: 'Convert',
-                                  }).then((ok) => {
-                                    if (!ok) return;
-                                    setConvertingId(l.id);
-                                    setConvertForm({
-                                      // Prefill from lead.address so users don't have to retype
-                                      address: (l as any)?.address || '',
-                                      program_type: 'PM_Surya',
-                                      system_type: 'On-grid',
-                                      capacity_kw:
-                                        l.interested_capacity_kw || 1,
-                                      location: '',
-                                      roof_type: '',
-                                    });
-                                  });
-                                }}
-                              >
-                                Convert
-                              </Button>
-                            )}
+                            {/* Convert moved to Quick actions column for easier access */}
                             {/* Removed 'Followed up' button to reduce clutter */}
                             {l.phone && (
                               <a
