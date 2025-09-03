@@ -405,38 +405,7 @@ function LeadsPageInner() {
           <BranchSelect value={branchId} onChange={setBranchId} />
         </div>
       </div>
-      {/* Simple filters: default to Open, optional Due today */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Segmented
-          options={[
-            { label: 'Open', value: 'open' },
-            { label: 'All', value: 'all' },
-            { label: 'Converted', value: 'converted' },
-          ]}
-          value={filterMode}
-          onChange={(v) => setFilterMode(v as any)}
-        />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={dueOnly}
-            onChange={(e) => setDueOnly(e.target.checked)}
-          />
-          Due today
-        </label>
-        <div className="flex items-center gap-2 text-sm">
-          <span>Sort</span>
-          <Segmented
-            options={[
-              { label: 'Priority', value: 'score' },
-              { label: 'Date', value: 'date' },
-              { label: 'Follow-up', value: 'followup' },
-            ]}
-            value={sortBy}
-            onChange={(v) => setSortBy(v as any)}
-          />
-        </div>
-      </div>
+      {/* Filters consolidated in the sticky toolbar below to avoid duplication. */}
       {/* Quick add: single field capture */}
       <Card>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
@@ -723,13 +692,17 @@ function LeadsPageInner() {
           </div>
         </div>
       </Card>
-      {/* Import from Excel */}
+      {/* Import from Excel (collapsed by default for a cleaner page) */}
       <Card>
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">
-              Import leads from Excel (.xlsx)
+        <details>
+          <summary className="cursor-pointer select-none list-none">
+            <div className="flex items-center justify-between py-1">
+              <div className="text-sm font-medium">Import leads from Excel (.xlsx)</div>
+              <span className="text-xs text-gray-600">Click to expand</span>
             </div>
+          </summary>
+        <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
             <div className="text-xs text-gray-600">
               Columns supported: Name, Phone, Email, Source, Capacity (kW),
               Date, Next Follow-up, Branch
@@ -851,6 +824,7 @@ function LeadsPageInner() {
             )}
           </div>
         )}
+        </details>
       </Card>
       {loadingList ? (
         <div className="space-y-2">
@@ -945,9 +919,7 @@ function LeadsPageInner() {
                 <input type="checkbox" checked={dueOnly} onChange={(e)=>setDueOnly(e.target.checked)} />
                 <span>Due today</span>
               </label>
-              <div className="hidden md:block min-w-[180px]">
-                <BranchSelect value={branchId} onChange={setBranchId} />
-              </div>
+              {/* Branch filter lives in the page header now; avoid duplicate control here. */}
               <div className="flex items-center gap-1">
                 <span>Sort</span>
                 <Segmented
