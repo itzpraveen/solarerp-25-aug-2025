@@ -22,7 +22,27 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!supabase) return;
-    // Helper: after auth, try ensureProfile; if forbidden, allow bootstrap fallback
+    // Fallback: explicitly set session from URL hash if magic-link tokens present
+    try {
+      const hash = typeof window !== 'undefined' ? window.location.hash : '';
+      if (hash && /access_token=/.test(hash)) {
+        const params = new URLSearchParams(hash.replace(/^#/, ''));
+        const at = params.get('access_token');
+        const rt = params.get('refresh_token');
+        if (at && rt) {
+          supabase.auth
+            .setSession({ access_token: at, refresh_token: rt })
+            .finally(() => {
+              try {
+                const url = new URL(window.location.href);
+                url.hash = '';
+                window.history.replaceState({}, '', url.toString());
+              } catch {}
+            });
+        }
+      }
+    } catch {}
+// Helper: after auth, try ensureProfile; if forbidden, allow bootstrap fallback
     const afterAuth = async (token?: string | null) => {
       try {
         if (token) {
