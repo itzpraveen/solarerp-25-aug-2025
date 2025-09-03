@@ -55,6 +55,7 @@ function LeadsPageInner() {
   const [dedupeMode, setDedupeMode] = useState<'create' | 'skip' | 'update'>(
     'create',
   );
+  const [addExpanded, setAddExpanded] = useState(false);
   // Pagination & density
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -519,7 +520,8 @@ function LeadsPageInner() {
         </div>
       )}
       <Card>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+        {/* Compact row: Name, Phone, Add, More */}
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
           <Input
             placeholder="Name"
             value={name}
@@ -531,85 +533,94 @@ function LeadsPageInner() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-          <Input
-            placeholder="Address"
-            value={addressInput}
-            onChange={(e) => setAddressInput(e.target.value)}
-          />
-          <select
-            className="rounded border px-3 py-2"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          >
-            <option value="">Source…</option>
-            <option>Phone</option>
-            <option>Walk-in</option>
-            <option>Referral</option>
-            <option>Website</option>
-            <option>WhatsApp</option>
-            <option>Facebook</option>
-            <option>Other</option>
-          </select>
-          <Input
-            type="number"
-            min={0}
-            step={0.1}
-            placeholder="Capacity kW"
-            value={capacity}
-            onChange={(e) => setCapacity(Number(e.target.value))}
-          />
-          <Input
-            type="date"
-            placeholder="Next follow-up"
-            value={nextFollowUp}
-            onChange={(e) => setNextFollowUp(e.target.value)}
-          />
-          <select
-            className="rounded border px-3 py-2"
-            value={addBranchOverride}
-            onChange={(e) => setAddBranchOverride(e.target.value)}
-            title="Assign branch"
-          >
-            <option value="use-selected">
-              Branch:{' '}
-              {branchId === 'all'
-                ? 'Use filter or Unassigned'
-                : branchNames[branchId as string] || 'Selected'}
-            </option>
-            <option value="none">Unassigned</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name || '—'}
-              </option>
-            ))}
-          </select>
-          <Input
-            placeholder="Remarks"
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-          />
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button onClick={add} loading={adding}>
               Add Lead
             </Button>
-            <a
-              className="rounded border px-3 py-2 text-sm"
-              href={
-                'data:text/csv;charset=utf-8,' + encodeURIComponent(csvLeads)
-              }
-              download="leads.csv"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600"
+              onClick={() => setAddExpanded((v) => !v)}
+              aria-expanded={addExpanded}
+              aria-controls="add-advanced"
             >
-              Export CSV
-            </a>
-            <a
-              className="rounded border px-3 py-2 text-sm"
-              href="/api/leads/template"
-            >
-              Template (.xlsx)
-            </a>
+              {addExpanded ? 'Less' : 'More fields'}
+            </Button>
           </div>
         </div>
+        {/* Advanced fields */}
+        {addExpanded && (
+          <div id="add-advanced" className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-6">
+            <Input
+              placeholder="Address"
+              value={addressInput}
+              onChange={(e) => setAddressInput(e.target.value)}
+            />
+            <select
+              className="rounded border px-3 py-2"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            >
+              <option value="">Source…</option>
+              <option>Phone</option>
+              <option>Walk-in</option>
+              <option>Referral</option>
+              <option>Website</option>
+              <option>WhatsApp</option>
+              <option>Facebook</option>
+              <option>Other</option>
+            </select>
+            <Input
+              type="number"
+              min={0}
+              step={0.1}
+              placeholder="Capacity kW"
+              value={capacity}
+              onChange={(e) => setCapacity(Number(e.target.value))}
+            />
+            <Input
+              type="date"
+              placeholder="Next follow-up"
+              value={nextFollowUp}
+              onChange={(e) => setNextFollowUp(e.target.value)}
+            />
+            <select
+              className="rounded border px-3 py-2"
+              value={addBranchOverride}
+              onChange={(e) => setAddBranchOverride(e.target.value)}
+              title="Assign branch"
+            >
+              <option value="use-selected">Branch: {branchId === 'all' ? 'Use filter or Unassigned' : branchNames[branchId as string] || 'Selected'}</option>
+              <option value="none">Unassigned</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name || '—'}
+                </option>
+              ))}
+            </select>
+            <Input
+              placeholder="Remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+            />
+          </div>
+        )}
+        {/* Secondary actions */}
+        <div className="mt-2 flex items-center justify-end gap-3 text-xs text-gray-600">
+          <a
+            className="hover:underline"
+            href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csvLeads)}
+            download="leads.csv"
+          >
+            Export CSV
+          </a>
+          <a className="hover:underline" href="/api/leads/template">
+            Template (.xlsx)
+          </a>
+        </div>
       </Card>
+      {/* Import from Excel      </Card>
       {/* Import from Excel (collapsed by default for a cleaner page) */}
       <Card>
         <details>
