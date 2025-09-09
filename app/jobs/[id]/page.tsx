@@ -425,36 +425,52 @@ function JobDetailPageInner() {
             </label>
           </div>
           <div className="mt-4">
-              <Button
-                onClick={async () => {
-                  await supabase
-                    .from('jobs')
-                    .update({
-                      location: edit.location || null,
-                      kseb_application_no: edit.kseb_application_no || null,
-                      subsidy_portal_ref: edit.subsidy_portal_ref || null,
-                      notes: edit.notes || null,
-                      date_site_survey: edit.date_site_survey || null,
-                      date_kseb_submit: edit.date_kseb_submit || null,
-                      date_install: edit.date_install || null,
-                      date_meter: edit.date_meter || null,
-                      date_handover: edit.date_handover || null,
-                      is_loan: !!edit.is_loan,
-                    })
-                    .eq('id', params.id);
-                  // reload
-                  const { data } = await supabase
-                    .from('jobs')
-                    .select('*, customers(name, phone, email)')
-                    .eq('id', params.id)
-                    .single();
-                  setJob(data as any);
-                  toast({ title: 'Saved', variant: 'success' });
-                }}
-              >
-                Save Changes
-              </Button>
-            </div>
+            <Button
+              onClick={async () => {
+                // Persist and return the updated row in one round-trip
+                const payload = {
+                  location: edit.location || null,
+                  kseb_application_no: edit.kseb_application_no || null,
+                  subsidy_portal_ref: edit.subsidy_portal_ref || null,
+                  notes: (edit.notes || '').trim() ? edit.notes : null,
+                  date_site_survey: edit.date_site_survey || null,
+                  date_kseb_submit: edit.date_kseb_submit || null,
+                  date_install: edit.date_install || null,
+                  date_meter: edit.date_meter || null,
+                  date_handover: edit.date_handover || null,
+                  is_loan: !!edit.is_loan,
+                };
+                const { data, error } = await supabase
+                  .from('jobs')
+                  .update(payload)
+                  .eq('id', params.id)
+                  .select('*, customers(name, phone, email, address)')
+                  .single();
+                if (error) {
+                  console.error('Failed to save job', error);
+                  toast({ title: 'Save failed', description: error.message, variant: 'error' });
+                  return;
+                }
+                // Update both job and edit state from server to ensure consistency
+                setJob(data as any);
+                setEdit({
+                  location: (data as any)?.location || '',
+                  kseb_application_no: (data as any)?.kseb_application_no || '',
+                  subsidy_portal_ref: (data as any)?.subsidy_portal_ref || '',
+                  notes: (data as any)?.notes || '',
+                  date_site_survey: (data as any)?.date_site_survey || '',
+                  date_kseb_submit: (data as any)?.date_kseb_submit || '',
+                  date_install: (data as any)?.date_install || '',
+                  date_meter: (data as any)?.date_meter || '',
+                  date_handover: (data as any)?.date_handover || '',
+                  is_loan: Boolean((data as any)?.is_loan) || false,
+                });
+                toast({ title: 'Saved', variant: 'success' });
+              }}
+            >
+              Save Changes
+            </Button>
+          </div>
           <div className="mt-6">
             <ServiceForJob jobId={params.id} />
           </div>
