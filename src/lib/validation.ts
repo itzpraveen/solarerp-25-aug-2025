@@ -3,12 +3,36 @@ export function isEmail(v: string) {
 }
 
 export function isPhone(v: string) {
-  // Normalize: allow digits and optional leading +
-  const s = v.replace(/[^\d+]/g, '').trim();
-  // E.164 style: +<country><number>, total 10-15 digits, country can't start with 0
+  // Normalize: keep digits and an optional leading +; convert 00 prefix to +
+  let s = v.replace(/[^\d+]/g, '').trim();
+  if (s.startsWith('00')) s = '+' + s.slice(2);
+
+  // E.164 with +: +<country><number>, 10–15 total digits
   if (/^\+[1-9]\d{9,14}$/.test(s)) return true;
-  // India-specific allowances: 10-digit starting 6-9, or 91 + 10 digits
-  if (/^(91)?[6-9]\d{9}$/.test(s)) return true;
+
+  // For inputs without +, allow common country-code-prefixed formats
+  const digits = s.replace(/\D+/g, '');
+
+  // India: 10‑digit starting 6–9, or prefixed with 91
+  if (/^(91)?[6-9]\d{9}$/.test(digits)) return true;
+
+  // GCC countries without + (country code + local number)
+  // UAE 971 + 9, KSA 966 + 9, Qatar 974 + 8, Bahrain 973 + 8, Oman 968 + 8, Kuwait 965 + 8
+  const gccPatterns: [string, number, number][] = [
+    ['971', 9, 9], // UAE
+    ['966', 9, 9], // Saudi Arabia
+    ['974', 8, 8], // Qatar
+    ['973', 8, 8], // Bahrain
+    ['968', 8, 8], // Oman
+    ['965', 8, 8], // Kuwait
+  ];
+  for (const [cc, min, max] of gccPatterns) {
+    if (digits.startsWith(cc)) {
+      const len = digits.length - cc.length;
+      if (len >= min && len <= max) return true;
+    }
+  }
+
   return false;
 }
 
