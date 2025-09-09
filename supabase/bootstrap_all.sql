@@ -555,7 +555,6 @@ alter table public.settings add column if not exists company_phone text;
 alter table public.settings add column if not exists company_email text;
 alter table public.settings add column if not exists company_address text;
 alter table public.settings add column if not exists company_logo_url text;
-alter table public.settings add column if not exists company_name text;
 
 
 -- <<< 0003_settings_company.sql <<<
@@ -1383,5 +1382,364 @@ for each row execute function public.enforce_at_least_one_owner();
 
 
 -- <<< 0022_enforce_last_owner_guard.sql <<<
+
+
+-- >>> 0023_task_templates.sql >>>
+-- Task templates and dependencies for stage-driven workflows
+create table if not exists public.task_templates (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  code text not null,
+  label text not null,
+  milestone text not null,
+  at_stage_trigger text not null,
+  due_days int default 2,
+  role text not null,
+  loan_only boolean default false,
+  program_required text,
+  required boolean default true,
+  docs_required jsonb default '[]',
+  checklist text default '',
+  gates_stage text default null,
+  unique(tenant_id, code)
+);
+
+create table if not exists public.task_dependencies (
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  template_code text not null,
+  depends_on text not null,
+  primary key (tenant_id, template_code, depends_on)
+);
+
+-- Tie tasks table to templates for idempotency
+alter table public.tasks add column if not exists template_code text;
+
+-- RLS for templates and dependencies (tenant scoped)
+alter table public.task_templates enable row level security;
+alter table public.task_dependencies enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_templates' and policyname='tenant_can_select_task_templates'
+  ) then
+    execute 'create policy tenant_can_select_task_templates on public.task_templates for select using (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_templates' and policyname='tenant_can_insert_task_templates'
+  ) then
+    execute 'create policy tenant_can_insert_task_templates on public.task_templates for insert with check (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_templates' and policyname='tenant_can_update_task_templates'
+  ) then
+    execute 'create policy tenant_can_update_task_templates on public.task_templates for update using (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_templates' and policyname='tenant_can_delete_task_templates'
+  ) then
+    execute 'create policy tenant_can_delete_task_templates on public.task_templates for delete using (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_dependencies' and policyname='tenant_can_select_task_dependencies'
+  ) then
+    execute 'create policy tenant_can_select_task_dependencies on public.task_dependencies for select using (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_dependencies' and policyname='tenant_can_insert_task_dependencies'
+  ) then
+    execute 'create policy tenant_can_insert_task_dependencies on public.task_dependencies for insert with check (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_dependencies' and policyname='tenant_can_update_task_dependencies'
+  ) then
+    execute 'create policy tenant_can_update_task_dependencies on public.task_dependencies for update using (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname='public' and tablename='task_dependencies' and policyname='tenant_can_delete_task_dependencies'
+  ) then
+    execute 'create policy tenant_can_delete_task_dependencies on public.task_dependencies for delete using (tenant_id = (select tenant_id from public.profiles where user_id = auth.uid()))';
+  end if;
+end $$;
+
+-- <<< 0023_task_templates.sql <<<
+
+
+-- >>> 0024_customers_search_trgm.sql >>>
+-- Improve customers search performance using trigram indexes.
+-- Safe to run multiple times due to IF NOT EXISTS guards.
+
+-- Enable pg_trgm extension if not already present
+create extension if not exists pg_trgm;
+
+-- Trigram GIN indexes for ILIKE contains search on name/phone/email
+create index if not exists idx_customers_name_trgm on public.customers using gin (name gin_trgm_ops);
+create index if not exists idx_customers_phone_trgm on public.customers using gin (phone gin_trgm_ops);
+create index if not exists idx_customers_email_trgm on public.customers using gin (email gin_trgm_ops);
+
+
+-- <<< 0024_customers_search_trgm.sql <<<
+
+
+-- >>> 0024_job_loan_flag.sql >>>
+-- Add loan scheme flag to jobs for conditional task templates
+alter table public.jobs add column if not exists is_loan boolean default false;
+
+
+-- <<< 0024_job_loan_flag.sql <<<
+
+
+-- >>> 0024_proposals_quotation_type.sql >>>
+-- Add quotation_type to proposals to distinguish Provisional vs Final
+alter table public.proposals
+  add column if not exists quotation_type text default 'Final';
+
+
+-- <<< 0024_proposals_quotation_type.sql <<<
+
+
+-- >>> 0025_lead_scoring.sql >>>
+-- Lead scoring: columns, function, trigger, and backfill
+
+-- 1) Columns
+alter table public.leads
+  add column if not exists score int default 0,
+  add column if not exists score_breakdown jsonb default '{}'::jsonb;
+
+create index if not exists idx_leads_score on public.leads(score);
+
+-- 2) Scoring function and trigger
+create or replace function public.leads_recompute_score()
+returns trigger
+language plpgsql
+as $$
+declare
+  s int := 0;
+  due int := 0;
+  contact int := 0;
+  capacity int := 0;
+  source_w int := 0;
+  status_w int := 0;
+  today date := current_date;
+  days_since_contact int := null;
+begin
+  -- Due date contribution
+  if new.next_follow_up_date is not null then
+    if new.next_follow_up_date < today then
+      due := 25; -- overdue
+    elsif new.next_follow_up_date = today then
+      due := 15; -- due today
+    end if;
+  end if;
+
+  -- Last contact recency (older -> higher priority)
+  if new.last_contacted_at is null then
+    contact := 12; -- never contacted
+  else
+    days_since_contact := greatest(0, (today - new.last_contacted_at));
+    if days_since_contact >= 30 then
+      contact := 12;
+    elsif days_since_contact >= 14 then
+      contact := 10;
+    elsif days_since_contact >= 7 then
+      contact := 8;
+    elsif days_since_contact >= 3 then
+      contact := 6;
+    else
+      contact := 3;
+    end if;
+  end if;
+
+  -- Capacity buckets
+  if new.interested_capacity_kw is not null then
+    if new.interested_capacity_kw >= 10 then
+      capacity := 15;
+    elsif new.interested_capacity_kw >= 5 then
+      capacity := 10;
+    elsif new.interested_capacity_kw >= 3 then
+      capacity := 6;
+    elsif new.interested_capacity_kw >= 1 then
+      capacity := 4;
+    else
+      capacity := 2;
+    end if;
+  end if;
+
+  -- Source weighting (tweakable)
+  if coalesce(new.source, '') ilike 'referral%' then
+    source_w := 15;
+  elsif coalesce(new.source, '') ilike 'inbound%' or coalesce(new.source, '') ilike 'website%' then
+    source_w := 10;
+  elsif coalesce(new.source, '') ilike 'google%' or coalesce(new.source, '') ilike 'walk%in%' then
+    source_w := 8;
+  elsif coalesce(new.source, '') ilike 'facebook%' or coalesce(new.source, '') ilike 'ad%' or coalesce(new.source, '') ilike 'campaign%' then
+    source_w := 6;
+  elsif coalesce(new.source, '') ilike 'cold%call%' then
+    source_w := 3;
+  else
+    source_w := 5; -- default
+  end if;
+
+  -- Status influence (de-emphasize closed states)
+  if coalesce(new.status, '') ilike 'Converted' then
+    status_w := -50;
+  elsif coalesce(new.status, '') ilike 'Lost' then
+    status_w := -40;
+  else
+    status_w := 0;
+  end if;
+
+  s := greatest(0, due + contact + capacity + source_w + status_w);
+  new.score := s;
+  new.score_breakdown := jsonb_build_object(
+    'due', due,
+    'contact', contact,
+    'capacity', capacity,
+    'source', source_w,
+    'status', status_w
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_leads_recompute_score on public.leads;
+create trigger trg_leads_recompute_score
+before insert or update on public.leads
+for each row execute function public.leads_recompute_score();
+
+-- 3) Backfill existing rows (runs with migration privileges)
+update public.leads set score = score; -- fires trigger
+
+
+-- <<< 0025_lead_scoring.sql <<<
+
+
+-- >>> 0025_perf_indexes_more.sql >>>
+-- Additional indexes for frequent filters/sorts
+-- Leads follow-up and branch filters
+create index if not exists idx_leads_next_follow_up on public.leads(next_follow_up_date);
+create index if not exists idx_leads_branch_next_follow_up on public.leads(branch_id, next_follow_up_date);
+
+-- Tasks due date for dashboard widgets
+create index if not exists idx_tasks_due_date on public.tasks(due_date);
+
+
+-- <<< 0025_perf_indexes_more.sql <<<
+
+
+-- >>> 0025_settings_company_name.sql >>>
+-- Add company_name to settings for display on PDFs and UPI, optional
+alter table public.settings add column if not exists company_name text;
+
+
+-- <<< 0025_settings_company_name.sql <<<
+
+
+-- >>> 0026_overview_kpis_rpc.sql >>>
+-- Aggregate Overview KPIs in a single DB round trip.
+-- Uses GROUP BY ROLLUP + conditional aggregation to compute per-branch, unassigned, and total rows.
+-- RLS applies normally; do not use SECURITY DEFINER.
+
+create or replace function public.overview_kpis_agg(
+  _today date,
+  _sow date,
+  _month date
+)
+returns table (
+  branch_id uuid,
+  is_total boolean,
+  total bigint,
+  open bigint,
+  due_today bigint,
+  overdue bigint,
+  new_week bigint,
+  converted_total bigint,
+  leads_new_month bigint,
+  leads_converted_month bigint,
+  proposals_week bigint,
+  proposals_month bigint
+)
+language sql
+stable
+as $$
+  with leads_agg as (
+    select
+      l.branch_id,
+      grouping(l.branch_id) = 1 as is_total,
+      count(*) as total,
+      count(*) filter (where l.status not in ('Closed','Converted','Lost')) as open,
+      count(*) filter (where l.next_follow_up_date = _today and l.status not in ('Closed','Converted','Lost')) as due_today,
+      count(*) filter (where l.next_follow_up_date <= _today and l.status not in ('Closed','Converted','Lost')) as overdue,
+      count(*) filter (where l.date >= _sow) as new_week,
+      count(*) filter (where l.status = 'Converted') as converted_total,
+      count(*) filter (where l.date >= _month) as leads_new_month,
+      count(*) filter (where l.status = 'Converted' and l.date >= _month) as leads_converted_month
+    from public.leads l
+    group by rollup(l.branch_id)
+  ),
+  prop_agg as (
+    select
+      j.branch_id,
+      grouping(j.branch_id) = 1 as is_total,
+      count(*) filter (where p.date >= _sow) as proposals_week,
+      count(*) filter (where p.date >= _month) as proposals_month
+    from public.proposals p
+    join public.jobs j on j.id = p.job_id
+    group by rollup(j.branch_id)
+  )
+  select
+    coalesce(l.branch_id, p.branch_id) as branch_id,
+    coalesce(l.is_total, p.is_total) as is_total,
+    l.total,
+    l.open,
+    l.due_today,
+    l.overdue,
+    l.new_week,
+    l.converted_total,
+    l.leads_new_month,
+    l.leads_converted_month,
+    p.proposals_week,
+    p.proposals_month
+  from leads_agg l
+  full outer join prop_agg p
+    on (l.branch_id is not distinct from p.branch_id and l.is_total is not distinct from p.is_total)
+  order by is_total asc nulls last, branch_id nulls last;
+$$;
+
+
+-- <<< 0026_overview_kpis_rpc.sql <<<
+
+
+-- >>> 0026_settings_company_name_backfill.sql >>>
+-- Backfill company_name in settings from tenants.name when missing
+-- Safe to run multiple times; only fills NULL/blank values
+
+-- Ensure column exists (idempotent guard)
+alter table public.settings add column if not exists company_name text;
+
+-- Populate when empty
+update public.settings s
+set company_name = t.name
+from public.tenants t
+where s.tenant_id = t.id
+  and (s.company_name is null or btrim(s.company_name) = '');
+
+
+-- <<< 0026_settings_company_name_backfill.sql <<<
+
+
+-- >>> 0027_leads_search_trgm.sql >>>
+-- Improve leads search performance using pg_trgm GIN indexes
+create extension if not exists pg_trgm;
+create index if not exists idx_leads_name_trgm on public.leads using gin (name gin_trgm_ops);
+create index if not exists idx_leads_phone_trgm on public.leads using gin (phone gin_trgm_ops);
+create index if not exists idx_leads_email_trgm on public.leads using gin (email gin_trgm_ops);
+create index if not exists idx_leads_address_trgm on public.leads using gin (address gin_trgm_ops);
+create index if not exists idx_leads_source_trgm on public.leads using gin (source gin_trgm_ops);
+create index if not exists idx_leads_notes_trgm on public.leads using gin (notes gin_trgm_ops);
+
+
+-- <<< 0027_leads_search_trgm.sql <<<
 
 COMMIT;
