@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+
+export const runtime = 'nodejs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,20 +30,25 @@ function normalizePhone(v: any): string {
   return s;
 }
 
+function excelSerialToDate(serial: number): Date | null {
+  if (!Number.isFinite(serial)) return null;
+  const ms = Math.round((serial - 25569) * 86400 * 1000);
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function toISODate(
   s: string | number | Date | null | undefined,
 ): string | null {
   if (!s) return null;
   try {
+    if (s instanceof Date) {
+      if (!isNaN(s.getTime())) return s.toISOString().slice(0, 10);
+      return null;
+    }
     if (typeof s === 'number') {
-      // Excel date numeric value
-      const jsDate = XLSX.SSF.parse_date_code(s as any);
-      if (jsDate) {
-        const d = new Date(
-          Date.UTC(jsDate.y, (jsDate.m || 1) - 1, jsDate.d || 1),
-        );
-        return d.toISOString().slice(0, 10);
-      }
+      const d = excelSerialToDate(s);
+      if (d) return d.toISOString().slice(0, 10);
     }
     const t = String(s).trim();
     if (!t) return null;
@@ -129,25 +136,35 @@ export async function POST(req: NextRequest) {
 
     // Read workbook
     const buffer = Buffer.from(await file.arrayBuffer());
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rowsRaw = XLSX.utils.sheet_to_json<any>(ws, {
-      defval: '',
-      raw: true,
-    });
-    if (!rowsRaw.length)
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const ws = wb.worksheets[0];
+    if (!ws)
       return NextResponse.json(
         { ok: false, error: 'No rows found' },
         { status: 400 },
       );
 
-    // Normalize headers
-    const headers = Object.keys(rowsRaw[0] || {}).map(normalizeHeader);
-    const normRows = rowsRaw.map((r: any) => {
+    let headers: string[] = [];
+    const normRows: any[] = [];
+    ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      const values = Array.isArray(row.values) ? row.values.slice(1) : [];
+      if (rowNumber === 1) {
+        headers = values.map((v) => normalizeHeader(String(v || '')));
+        return;
+      }
+      if (!headers.length) return;
       const o: any = {};
-      Object.keys(r || {}).forEach((k, i) => (o[headers[i]] = r[k]));
-      return o;
+      for (let i = 0; i < headers.length; i++) {
+        o[headers[i]] = values[i] ?? '';
+      }
+      normRows.push(o);
     });
+    if (!normRows.length)
+      return NextResponse.json(
+        { ok: false, error: 'No rows found' },
+        { status: 400 },
+      );
 
     // Cache branches by name → id
     const branchesByName = new Map<string, string>();

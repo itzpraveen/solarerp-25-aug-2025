@@ -190,7 +190,7 @@ export default function NewProposalClient() {
       }));
       setKitBoq(rows);
     })();
-  }, [kitName]);
+  }, [kitName, supabase]);
 
   useEffect(() => {
     // Default quote number using settings template

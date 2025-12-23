@@ -77,10 +77,9 @@ export function useProfile() {
       const supabase = supabaseBrowser();
       // Avoid accumulating listeners: rely on window singleton flag
       const flag = '__profile_auth_listener__';
-      // @ts-ignore
-      if (typeof window !== 'undefined' && !(window as any)[flag]) {
-        // @ts-ignore
-        (window as any)[flag] = true;
+      const win = window as Window & Record<string, boolean>;
+      if (typeof window !== 'undefined' && !win[flag]) {
+        win[flag] = true;
         supabase.auth.onAuthStateChange(() => {
           invalidateProfileCache();
         });

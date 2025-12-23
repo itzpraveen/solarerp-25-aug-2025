@@ -146,7 +146,7 @@ export default function SettingsPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [supabase]);
 
   const [saving, setSaving] = useState(false);
   const save = async () => {

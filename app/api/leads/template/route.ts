@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+
+export const runtime = 'nodejs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,24 +9,22 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   // Build a simple template with headers matching the importer
   const headers = [
-    [
-      'Name',
-      'Contact Number',
-      'Email',
-      'Address',
-      'Source',
-      'KW',
-      'Date',
-      'Next Follow-up',
-      'Branch',
-      'Remarks',
-    ],
+    'Name',
+    'Contact Number',
+    'Email',
+    'Address',
+    'Source',
+    'KW',
+    'Date',
+    'Next Follow-up',
+    'Branch',
+    'Remarks',
   ];
-  const ws = XLSX.utils.aoa_to_sheet(headers);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Leads');
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-  return new NextResponse(buf, {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Leads');
+  ws.addRow(headers);
+  const buf = await wb.xlsx.writeBuffer();
+  return new NextResponse(Buffer.from(buf as ArrayBuffer), {
     status: 200,
     headers: {
       'Content-Type':

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
@@ -23,7 +23,7 @@ export default function KitsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [openItemsForKit, setOpenItemsForKit] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setErr(null);
     const { data, error } = await supabase
       .from('kits')
@@ -31,10 +31,10 @@ export default function KitsPage() {
       .order('capacity_kw');
     if (error) setErr(error.message);
     setKits(data || []);
-  };
+  }, [supabase]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const add = async () => {
     setErr(null);

@@ -109,6 +109,20 @@ export async function processDueJobs() {
         }
         case 'create_followup_task': {
           const { tenant_id, job_id, title, due_date } = job.payload || {};
+          if (!tenant_id || !job_id || !title) break;
+          let check = supabase
+            .from('tasks')
+            .select('id')
+            .eq('job_id', job_id)
+            .eq('title', title)
+            .limit(1);
+          if (due_date) {
+            check = check.eq('due_date', due_date);
+          } else {
+            check = check.is('due_date', null);
+          }
+          const { data: existing } = await check;
+          if (existing && existing.length > 0) break;
           await supabase
             .from('tasks')
             .insert({ tenant_id, job_id, title, due_date });

@@ -46,7 +46,7 @@ export default function CustomerDetail() {
         .eq('customer_id', params.id);
       setJobs(j || []);
     })();
-  }, [params.id]);
+  }, [params.id, supabase]);
 
   const createJob = async () => {
     const { data: prof } = await supabase

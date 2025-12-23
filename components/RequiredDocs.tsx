@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Card from "~/components/ui/Card";
 import clsx from "clsx";
 import { supabaseBrowser } from "@/lib/supabaseClient";
@@ -24,14 +24,16 @@ const REQUIRED_BY_STAGE: Record<JobStatus | string, string[]> = {
 export default function RequiredDocs({ jobId, status }: { jobId: string; status: JobStatus | string | null | undefined }) {
   const supabase = supabaseBrowser();
   const [docs, setDocs] = useState<DocRow[]>([]);
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await supabase
       .from("documents")
       .select("id, doc_type")
       .eq("job_id", jobId);
     setDocs((data as any) || []);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [jobId]);
+  }, [jobId, supabase]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const req = REQUIRED_BY_STAGE[String(status || "Lead")] || [];
   const have = useMemo(() => new Set(docs.map((d) => String(d.doc_type || ""))), [docs]);
@@ -83,4 +85,3 @@ function labelFor(code: string) {
       return code;
   }
 }
-

@@ -67,7 +67,7 @@ export default function ServiceTicketDetail() {
         setErr(String(e?.message || e));
       }
     })();
-  }, [params.id]);
+  }, [params.id, supabase]);
 
   const afterSave = async () => {
     const { data: t } = await supabase

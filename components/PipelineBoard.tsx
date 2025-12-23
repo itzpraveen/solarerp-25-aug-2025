@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 import Spinner from '~/components/ui/Spinner';
@@ -30,7 +30,7 @@ export default function PipelineBoard({
   const { confirm } = useConfirm();
   const { toast } = useToast();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -100,11 +100,11 @@ export default function PipelineBoard({
     } finally {
       setLoading(false);
     }
-  };
+  }, [branchId, supabase]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   // Realtime refresh on jobs changes
   useEffect(() => {
@@ -124,8 +124,7 @@ export default function PipelineBoard({
         supabase.removeChannel(channel);
       } catch {}
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load, supabase]);
 
   const onDrop = async (jobId: string, newStatus: JobStatus) => {
     const ok = await confirm({

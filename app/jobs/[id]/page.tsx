@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
@@ -52,7 +52,7 @@ function JobDetailPageInner() {
         is_loan: Boolean((data as any)?.is_loan) || false,
       });
     })();
-  }, [params.id]);
+  }, [params.id, supabase]);
 
   useEffect(() => {
     const t = search.get('tab');
@@ -69,7 +69,6 @@ function JobDetailPageInner() {
     ) {
       setTab(t as any);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   return (
@@ -503,7 +502,7 @@ function ServiceForJob({ jobId }: { jobId: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string>('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setErr(null);
     setLoading(true);
     try {
@@ -524,11 +523,11 @@ function ServiceForJob({ jobId }: { jobId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId, supabase]);
 
   useEffect(() => {
     load();
-  }, [jobId]);
+  }, [load]);
 
   const add = async () => {
     if (!summary.trim()) return;
@@ -657,7 +656,7 @@ function Finance({ jobId }: { jobId: string }) {
         if ((ten as any)?.name) setCompanyName((ten as any).name as string);
       }
     })();
-  }, [jobId]);
+  }, [jobId, supabase]);
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {err && (
@@ -960,7 +959,7 @@ function Activity({ jobId }: { jobId: string }) {
         setLoading(false);
       }
     })();
-  }, [jobId]);
+  }, [jobId, supabase]);
 
   const who = (id?: string | null) =>
     id ? users[id!]?.display_name || id.slice(0, 8) : 'System';
@@ -1205,7 +1204,7 @@ function Proposals({ jobId }: { jobId: string }) {
         .order('date', { ascending: false });
       setRows(data || []);
     })();
-  }, [jobId]);
+  }, [jobId, supabase]);
 
   useEffect(() => {
     (async () => {
@@ -1217,7 +1216,7 @@ function Proposals({ jobId }: { jobId: string }) {
       setCustomer((job as any)?.customers?.[0] || null);
       setCapacity(Number(job?.capacity_kw || 0));
     })();
-  }, [jobId]);
+  }, [jobId, supabase]);
 
   const openPdf = async (key?: string | null) => {
     if (!key) return;
@@ -1461,7 +1460,7 @@ function Docs({ jobId }: { jobId: string }) {
         .eq('job_id', jobId);
       setDocs(data || []);
     })();
-  }, [jobId]);
+  }, [jobId, supabase]);
 
   const upload = async () => {
     setMsg(null);
@@ -1712,7 +1711,7 @@ function Tasks({ jobId }: { jobId: string }) {
         setErr(String(e?.message || e));
       }
     })();
-  }, [jobId]);
+  }, [jobId, supabase]);
 
   const audit = async (action: string, metadata: Record<string, any>) => {
     try {

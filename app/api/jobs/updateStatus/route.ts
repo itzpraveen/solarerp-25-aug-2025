@@ -43,11 +43,8 @@ export async function POST(req: NextRequest) {
         { status: 404 },
       );
 
-    const { error: upErr } = await sb
-      .from('jobs')
-      .update({ status: newStatus })
-      .eq('id', jobId);
-    if (upErr) throw upErr;
+    // Ensure default templates exist for new tenants before gates/tasks
+    await ensureDefaultTaskTemplates(sb, (job as any).tenant_id);
 
     // Enforce stage gates: required tasks whose completion allows this stage
     const { data: gates } = await sb
@@ -57,17 +54,26 @@ export async function POST(req: NextRequest) {
       .eq('gates_stage', newStatus);
     if (gates && gates.length > 0) {
       for (const g of gates as any[]) {
-        const { data: t } = await sb
-          .from('tasks')
-          .select('status')
-          .eq('job_id', jobId)
-          .or(`template_code.eq.${g.code},title.eq.${(g.label || '').replace(',', '\,')}`)
-          .maybeSingle();
+        const label = String(g.label || '');
+        const safeLabel = label ? label.replace(/,/g, '\\,') : '';
+        let q = sb.from('tasks').select('status').eq('job_id', jobId);
+        if (safeLabel) {
+          q = q.or(`template_code.eq.${g.code},title.eq.${safeLabel}`);
+        } else {
+          q = q.eq('template_code', g.code);
+        }
+        const { data: t } = await q.maybeSingle();
         if (!t || (t as any).status !== 'Done') {
           return NextResponse.json({ ok: false, error: `Complete '${g.code || g.label}' before moving to ${newStatus}` }, { status: 400 });
         }
       }
     }
+
+    const { error: upErr } = await sb
+      .from('jobs')
+      .update({ status: newStatus })
+      .eq('id', jobId);
+    if (upErr) throw upErr;
 
     // Create tasks defined for this stage (idempotent)
     await autoCreateTasksFromTemplates(sb, job, newStatus);
@@ -80,7 +86,8 @@ export async function POST(req: NextRequest) {
         .single();
       const depositPercent = Number((settings as any)?.deposit_percent || 0);
       const total = Number(job.total_amount || job.quoted_price || 0);
-      const deposit = Math.round((total * depositPercent) / 100);
+      const depositRaw = (total * depositPercent) / 100;
+      const deposit = Math.round(depositRaw * 100) / 100;
       if (deposit > 0) {
         // Avoid duplicate deposit invoices for this job
         const { data: existing } = await sb
@@ -103,9 +110,10 @@ export async function POST(req: NextRequest) {
             due_date: dueDate.toISOString().slice(0, 10),
             status: 'Draft',
           });
+          const balance = Math.round((total - deposit) * 100) / 100;
           await sb
             .from('jobs')
-            .update({ deposit_amount: deposit, balance_due: total - deposit })
+            .update({ deposit_amount: deposit, balance_due: balance })
             .eq('id', job.id);
         }
       }
@@ -143,9 +151,6 @@ export async function POST(req: NextRequest) {
       ],
     };
     
-    // Ensure default templates exist for new tenants
-    await ensureDefaultTaskTemplates(sb, (job as any).tenant_id);
-
     const tmpl = templates[newStatus];
     if (tmpl && tmpl.length) {
 

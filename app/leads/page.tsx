@@ -1,5 +1,5 @@
 'use client';
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
@@ -139,16 +139,16 @@ function LeadsPageInner() {
     };
   }, [debouncedSearch]);
   // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
-  const getTenantId = async (): Promise<string | null> => {
+  const getTenantId = useCallback(async (): Promise<string | null> => {
     // Ensure a profile exists; if not, try to create when self‑signup is on
     const ensured = await ensureProfileIfMissing(supabase);
     return ensured;
-  };
+  }, [supabase]);
 
   useEffect(() => {
     (async () => {
-    const tenantId = await getTenantId();
-    if (!tenantId) return;
+      const tenantId = await getTenantId();
+      if (!tenantId) return;
       const { data: br } = await supabase
         .from('branches')
         .select('id,name')
@@ -159,7 +159,7 @@ function LeadsPageInner() {
       setBranchNames(map);
       setBranches((br as any[]) || []);
     })();
-  }, []);
+  }, [getTenantId, supabase]);
 
   // Debounce search term
   useEffect(() => {
@@ -222,7 +222,7 @@ function LeadsPageInner() {
         setKpiLoading(false);
       }
     })();
-  }, [branchId]);
+  }, [branchId, supabase]);
 
   // Realtime updates for leads
   useEffect(() => {
@@ -241,8 +241,7 @@ function LeadsPageInner() {
         supabase.removeChannel(channel);
       } catch {}
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load, supabase]);
 
   // Listen for global header branch changes
   useEffect(() => {
@@ -254,7 +253,7 @@ function LeadsPageInner() {
     return () => window.removeEventListener('branch-change', h as any);
   }, []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoadingList(true);
     let q = supabase
       .from('leads')
@@ -322,17 +321,46 @@ function LeadsPageInner() {
 
     setLeads(rows);
     setLoadingList(false);
-  };
+  }, [
+    supabase,
+    branchId,
+    filterMode,
+    dueOnly,
+    sortBy,
+    debouncedSearch,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    sourceFilter,
+    page,
+    pageSize,
+    todayStr,
+  ]);
 
   useEffect(() => {
     // Avoid querying before auth session is ready to prevent noisy 401 errors
+    let active = true;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) load();
+      if (active && data.session) load();
     });
-  }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch, statusFilter, dateFrom, dateTo, sourceFilter])
-  // reset to first page on filter change
-  useEffect(()=>{ setPage(1); }, [branchId, filterMode, dueOnly, sortBy, debouncedSearch, statusFilter, dateFrom, dateTo, sourceFilter]);
-  useEffect(()=>{ supabase.auth.getSession().then(({data})=>{ if (data.session) load();}); }, [page, pageSize, sortBy, debouncedSearch, statusFilter, dateFrom, dateTo, sourceFilter]);
+    return () => {
+      active = false;
+    };
+  }, [load, supabase]);
+  // Reset to first page on filter change
+  useEffect(() => {
+    setPage(1);
+  }, [
+    branchId,
+    filterMode,
+    dueOnly,
+    sortBy,
+    debouncedSearch,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    sourceFilter,
+  ]);
 
   const add = async () => {
     setErr(null);

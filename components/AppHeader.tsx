@@ -72,7 +72,7 @@ export default function AppHeader() {
         }
       }
     });
-  }, []);
+  }, [supabase]);
 
   // Lightweight notifications: leads due today + overdue invoices
   useEffect(() => {
@@ -106,7 +106,7 @@ export default function AppHeader() {
         setOverdueInvCount(c2 || 0);
       } catch {}
     })();
-  }, [branchValue, authed]);
+  }, [branchValue, authed, supabase]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

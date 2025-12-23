@@ -61,7 +61,7 @@ export default function BranchSelect({
         } catch {}
       }
     })();
-  }, [persist, includeAll]);
+  }, [persist, includeAll, onChange, supabase]);
 
   // Persist whenever value changes
   useEffect(() => {

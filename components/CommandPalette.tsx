@@ -51,7 +51,7 @@ export default function CommandPalette() {
     if (!open) return;
     const t = setTimeout(() => inputRef.current?.focus(), 10);
     return () => clearTimeout(t);
-  }, [open]);
+  }, [open, supabase]);
 
   // Initialize context (tenant + branch) when palette opens
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function CommandPalette() {
         } catch {}
       }
     })();
-  }, [open]);
+  }, [open, supabase]);
 
   // Fetch results from Supabase when q changes
   useEffect(() => {
@@ -210,7 +210,7 @@ export default function CommandPalette() {
     return () => {
       active = false;
     };
-  }, [q, supabase]);
+  }, [q, supabase, branchId]);
 
   const onOpenRoute = useCallback(
     (r: Result) => {

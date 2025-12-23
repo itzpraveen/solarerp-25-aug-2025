@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Best-effort audit
     await logAudit(sb as any, {
       tenantId,
-      userId: (me as any)?.user_id,
+      userId: uid,
       action: 'team.invite',
       entity: 'profiles',
       entityId: userId,

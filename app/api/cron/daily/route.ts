@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { env } from '@/lib/env';
 import { enqueueJob, processDueJobs } from '@/lib/queue';
 import { secureEqual } from '@/lib/secureCompare';
+import { getBaseUrl } from '@/lib/baseUrl';
 
 function isAuthorized(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') || '';
@@ -29,21 +30,64 @@ async function handleCron(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // 1) Mark overdue invoices
+  // 1) Mark overdue invoices (only Sent -> Overdue)
   const today = dayjs().format('YYYY-MM-DD');
-  await supabase
+  const { data: newlyOverdue } = await supabase
     .from('invoices')
     .update({ status: 'Overdue' })
     .lt('due_date', today)
-    .neq('status', 'Paid');
+    .eq('status', 'Sent')
+    .select('id');
 
-  // 2) Enqueue reminders (simplified sample payloads)
-  const { data: tenants } = await supabase.from('tenants').select('id');
-  for (const t of tenants || []) {
-    await enqueueJob(t.id, 'whatsapp_template', {
-      to: '91xxxxxxxxxx',
+  // 2) Enqueue reminders for invoices due today and newly overdue
+  const invoiceSelect =
+    'id, tenant_id, job_id, invoice_type, total, due_date, pdf_url, jobs(id, customers(name, phone))';
+  const { data: dueToday } = await supabase
+    .from('invoices')
+    .select(invoiceSelect)
+    .eq('due_date', today)
+    .eq('status', 'Sent');
+  const overdueIds = (newlyOverdue || []).map((r: any) => r.id).filter(Boolean);
+  const { data: overdueRows } = overdueIds.length
+    ? await supabase.from('invoices').select(invoiceSelect).in('id', overdueIds as any)
+    : { data: [] };
+
+  async function resolveInvoiceLink(inv: any): Promise<string> {
+    const key = String(inv?.pdf_url || '');
+    if (key) {
+      if (/^https?:\/\//i.test(key)) return key;
+      try {
+        const { data: signed } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(key, 60 * 60 * 24 * 7);
+        if (signed?.signedUrl) return signed.signedUrl;
+      } catch {}
+    }
+    const base = getBaseUrl();
+    return inv?.job_id ? `${base}/jobs/${inv.job_id}?tab=finance` : base;
+  }
+
+  const reminders = [...(dueToday || []), ...(overdueRows || [])];
+  for (const inv of reminders) {
+    const customer = (inv as any)?.jobs?.customers || {};
+    const phone = String(customer?.phone || '').trim();
+    if (!phone) continue;
+    const name = String(customer?.name || 'Customer');
+    const totalNum = Number(inv.total || 0);
+    const amountText = Number.isFinite(totalNum)
+      ? totalNum.toFixed(2)
+      : String(inv.total || '0');
+    const shortId = String(inv.id || '').slice(0, 8);
+    const label = inv.invoice_type
+      ? `${inv.invoice_type}${shortId ? ` ${shortId}` : ''}`
+      : shortId
+        ? `INV-${shortId}`
+        : 'Invoice';
+    const link = await resolveInvoiceLink(inv);
+    await enqueueJob(inv.tenant_id, 'whatsapp_template', {
+      to: phone,
       templateName: 'invoice_due',
-      variables: ['Customer', 'INV001', '1000', today, 'https://example.com'],
+      variables: [name, label, amountText, inv.due_date || today, link],
     });
   }
 
@@ -76,7 +120,9 @@ async function handleCron(req: NextRequest) {
   const { data: leads } = await supabase
     .from('leads')
     .select('tenant_id, id, name, phone, next_follow_up_date, status')
-    .not('status', 'in', ['Converted', 'Closed'])
+    .neq('status', 'Converted')
+    .neq('status', 'Closed')
+    .neq('status', 'Lost')
     .lte('next_follow_up_date', today);
   for (const l of leads || []) {
     if (!l.phone) continue;
@@ -105,11 +151,26 @@ async function handleCron(req: NextRequest) {
       });
     } catch {}
   }
+  const emailCache = new Map<string, string | null>();
+  async function getUserEmail(userId: string): Promise<string | null> {
+    if (!emailWebhookUrl) return null;
+    if (emailCache.has(userId)) return emailCache.get(userId) || null;
+    try {
+      const { data, error } = await supabase.auth.admin.getUserById(userId);
+      if (error) throw error;
+      const email = data?.user?.email || null;
+      emailCache.set(userId, email);
+      return email;
+    } catch {
+      emailCache.set(userId, null);
+      return null;
+    }
+  }
 
   const { data: dueTasks } = await supabase
     .from('tasks')
     .select('id, tenant_id, title, due_date, status, assigned_to')
-    .not('status', 'in', ['Done'])
+    .neq('status', 'Done')
     .lte('due_date', today);
   for (const t of dueTasks || []) {
     if (!t.assigned_to) continue;
@@ -128,7 +189,7 @@ async function handleCron(req: NextRequest) {
       });
     }
     // Optional email webhook
-    const email = (tech as any)?.email as string | undefined; // may be null unless you store it
+    const email = await getUserEmail(String(t.assigned_to));
     if (email && emailWebhookUrl) {
       const subj = isOverdue ? 'Overdue task reminder' : 'Task due today';
       const body = `${tech?.display_name || 'Technician'},\n${t.title || 'Task'} — due ${t.due_date || today}.`;

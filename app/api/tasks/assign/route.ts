@@ -53,8 +53,24 @@ export async function POST(req: NextRequest) {
       );
 
     if (!canManage) {
-      // Allow technician self-assign when unassigned or reassign to self
-      if (!callerId || (userId && userId !== callerId))
+      // Allow technician self-assign or self-unassign only
+      const currentAssignee = (t as any)?.assigned_to as string | null;
+      if (!callerId)
+        return NextResponse.json(
+          { ok: false, error: 'Forbidden' },
+          { status: 403 },
+        );
+      if (userId && userId !== callerId)
+        return NextResponse.json(
+          { ok: false, error: 'Forbidden' },
+          { status: 403 },
+        );
+      if (userId === callerId && currentAssignee && currentAssignee !== callerId)
+        return NextResponse.json(
+          { ok: false, error: 'Forbidden' },
+          { status: 403 },
+        );
+      if (!userId && currentAssignee && currentAssignee !== callerId)
         return NextResponse.json(
           { ok: false, error: 'Forbidden' },
           { status: 403 },
@@ -96,4 +112,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

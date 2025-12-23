@@ -31,7 +31,7 @@ export default function CustomerTypeahead({
 
   useEffect(() => {
     setTerm(selected?.name || '');
-  }, [selected?.id]);
+  }, [selected?.id, selected?.name]);
 
   // Close on outside click
   useEffect(() => {

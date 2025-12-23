@@ -55,7 +55,7 @@ export default function JobsPage() {
         .order('name');
       setCustomers((data as any[]) || []);
     })();
-  }, []);
+  }, [supabase]);
 
   // Persist quick create visibility preference
   useEffect(() => {
@@ -116,8 +116,7 @@ export default function JobsPage() {
   useEffect(() => {
     // Ensure system type is valid for selected program
     if (!allowedSystems.includes(systemType)) setSystemType(allowedSystems[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [program]);
+  }, [allowedSystems, systemType]);
 
   const createJob = async () => {
     setMsg(null);

@@ -22,7 +22,7 @@ function parseINR(input: string): number | undefined {
 
 async function extractTextFromPdf(file: File): Promise<string> {
   const pdfjs = await import("pdfjs-dist");
-  // @ts-ignore – worker shipped by pdfjs-dist
+  // @ts-expect-error -- worker shipped by pdfjs-dist
   const workerSrc = await import("pdfjs-dist/build/pdf.worker.min.mjs");
   (pdfjs as any).GlobalWorkerOptions.workerSrc = (workerSrc as any).default || workerSrc;
 
@@ -30,9 +30,7 @@ async function extractTextFromPdf(file: File): Promise<string> {
   const doc = await (pdfjs as any).getDocument({ data: uint8 }).promise;
   const lines: string[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
-    // eslint-disable-next-line no-await-in-loop
     const page = await doc.getPage(p);
-    // eslint-disable-next-line no-await-in-loop
     const textContent = await page.getTextContent();
     const pageText = textContent.items.map((i: any) => i.str).join("\n");
     lines.push(pageText);
