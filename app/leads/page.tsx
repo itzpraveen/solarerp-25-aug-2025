@@ -224,35 +224,6 @@ function LeadsPageInner() {
     })();
   }, [branchId, supabase]);
 
-  // Realtime updates for leads
-  useEffect(() => {
-    const channel = supabase
-      .channel('leads-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'leads' },
-        () => {
-          load();
-        },
-      )
-      .subscribe();
-    return () => {
-      try {
-        supabase.removeChannel(channel);
-      } catch {}
-    };
-  }, [load, supabase]);
-
-  // Listen for global header branch changes
-  useEffect(() => {
-    const h = (e: any) => {
-      const v = e?.detail?.value as string | 'all' | undefined;
-      if (v !== undefined) setBranchId(v);
-    };
-    window.addEventListener('branch-change', h as any);
-    return () => window.removeEventListener('branch-change', h as any);
-  }, []);
-
   const load = useCallback(async () => {
     setLoadingList(true);
     let q = supabase
@@ -336,6 +307,35 @@ function LeadsPageInner() {
     pageSize,
     todayStr,
   ]);
+
+  // Realtime updates for leads
+  useEffect(() => {
+    const channel = supabase
+      .channel('leads-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          load();
+        },
+      )
+      .subscribe();
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
+    };
+  }, [load, supabase]);
+
+  // Listen for global header branch changes
+  useEffect(() => {
+    const h = (e: any) => {
+      const v = e?.detail?.value as string | 'all' | undefined;
+      if (v !== undefined) setBranchId(v);
+    };
+    window.addEventListener('branch-change', h as any);
+    return () => window.removeEventListener('branch-change', h as any);
+  }, []);
 
   useEffect(() => {
     // Avoid querying before auth session is ready to prevent noisy 401 errors

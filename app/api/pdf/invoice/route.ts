@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import { z } from 'zod';
 import { getBaseUrl } from '@/lib/baseUrl';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 // Accept tenantId in payload for backward compatibility, but the server
 // derives the effective tenant id from the authenticated profile to avoid
@@ -316,21 +317,51 @@ export async function POST(req: NextRequest) {
         preferred === 'al2023.tar.br' ? 'al2.tar.br' : 'al2023.tar.br',
       ];
       let inflatedAny = false;
+      const lambdafsCandidates = [
+        path.join(
+          process.cwd(),
+          'node_modules',
+          '@sparticuz',
+          'chromium',
+          'build',
+          'esm',
+          'lambdafs.js',
+        ),
+        path.join(
+          process.cwd(),
+          'node_modules',
+          '@sparticuz',
+          'chromium',
+          'build',
+          'cjs',
+          'lambdafs.cjs',
+        ),
+      ];
+      let LambdaFS: any = null;
+      for (const candidate of lambdafsCandidates) {
+        if (!fs.existsSync(candidate)) continue;
+        try {
+          const mod: any = await import(pathToFileURL(candidate).href);
+          LambdaFS = (mod && (mod.default || mod)) as any;
+          break;
+        } catch (e) {
+          if (process.env.LOG_PDF_DEBUG === '1')
+            console.warn('api/pdf/invoice lambdafs-load-failed', {
+              candidate,
+              e,
+            });
+        }
+      }
       for (const base of binBases) {
         for (const tarName of tarCandidates) {
           const p = path.join(base, tarName);
-          if (fs.existsSync(p)) {
-            try {
-              const mod: any = await import(
-                '@sparticuz/chromium/build/lambdafs.js'
-              ).catch(() => import('@sparticuz/chromium/build/lambdafs'));
-              const LambdaFS = (mod && (mod.default || mod)) as any;
-              await LambdaFS.inflate(p);
-              inflatedAny = true;
-            } catch (e) {
-              if (process.env.LOG_PDF_DEBUG === '1')
-                console.warn('api/pdf/invoice inflate-lib-failed', { p, e });
-            }
+          if (!fs.existsSync(p) || !LambdaFS?.inflate) continue;
+          try {
+            await LambdaFS.inflate(p);
+            inflatedAny = true;
+          } catch (e) {
+            if (process.env.LOG_PDF_DEBUG === '1')
+              console.warn('api/pdf/invoice inflate-lib-failed', { p, e });
           }
         }
       }

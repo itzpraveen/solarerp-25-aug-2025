@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 
 export const runtime = 'nodejs';
-
-export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

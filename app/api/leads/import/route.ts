@@ -3,8 +3,6 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import ExcelJS from 'exceljs';
 
 export const runtime = 'nodejs';
-
-export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -135,9 +133,11 @@ export async function POST(req: NextRequest) {
       );
 
     // Read workbook
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(
+      await file.arrayBuffer(),
+    ) as unknown as Buffer;
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buffer);
+    await wb.xlsx.load(buffer as any);
     const ws = wb.worksheets[0];
     if (!ws)
       return NextResponse.json(
