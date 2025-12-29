@@ -1,11 +1,13 @@
--- Mirror of drizzle/0025_lead_scoring.sql
+-- Lead scoring: columns, function, trigger, and backfill
 
+-- 1) Columns
 alter table public.leads
   add column if not exists score int default 0,
   add column if not exists score_breakdown jsonb default '{}'::jsonb;
 
 create index if not exists idx_leads_score on public.leads(score);
 
+-- 2) Scoring function and trigger
 create or replace function public.leads_recompute_score()
 returns trigger
 language plpgsql
@@ -20,16 +22,18 @@ declare
   today date := current_date;
   days_since_contact int := null;
 begin
+  -- Due date contribution
   if new.next_follow_up_date is not null then
     if new.next_follow_up_date < today then
-      due := 25;
+      due := 25; -- overdue
     elsif new.next_follow_up_date = today then
-      due := 15;
+      due := 15; -- due today
     end if;
   end if;
 
+  -- Last contact recency (older -> higher priority)
   if new.last_contacted_at is null then
-    contact := 12;
+    contact := 12; -- never contacted
   else
     days_since_contact := greatest(0, (today - new.last_contacted_at));
     if days_since_contact >= 30 then
@@ -45,6 +49,7 @@ begin
     end if;
   end if;
 
+  -- Capacity buckets
   if new.interested_capacity_kw is not null then
     if new.interested_capacity_kw >= 10 then
       capacity := 15;
@@ -59,6 +64,7 @@ begin
     end if;
   end if;
 
+  -- Source weighting (tweakable)
   if coalesce(new.source, '') ilike 'referral%' then
     source_w := 15;
   elsif coalesce(new.source, '') ilike 'inbound%' or coalesce(new.source, '') ilike 'website%' then
@@ -70,9 +76,10 @@ begin
   elsif coalesce(new.source, '') ilike 'cold%call%' then
     source_w := 3;
   else
-    source_w := 5;
+    source_w := 5; -- default
   end if;
 
+  -- Status influence (de-emphasize closed states)
   if coalesce(new.status, '') ilike 'Converted' then
     status_w := -50;
   elsif coalesce(new.status, '') ilike 'Lost' then
@@ -99,5 +106,6 @@ create trigger trg_leads_recompute_score
 before insert or update on public.leads
 for each row execute function public.leads_recompute_score();
 
-update public.leads set score = score;
+-- 3) Backfill existing rows (runs with migration privileges)
+update public.leads set score = score; -- fires trigger
 

@@ -19,7 +19,7 @@ as $$
   select exists (
     select 1 from public.profiles
     where user_id = auth.uid()
-      and role in ('owner','admin')
+      and role::text in ('owner','admin')
   )
 $$;
 
@@ -54,4 +54,3 @@ begin
     public.app_is_admin() and tenant_id = public.app_current_tenant_id()
   )';
 end $$;
-
