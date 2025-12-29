@@ -2,9 +2,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Menu, X, Sun, Moon, Search, Plus, Bell } from 'lucide-react';
 import BranchSelect from '~/components/BranchSelect';
+import { useProfile } from '@/lib/useProfile';
 
 const links = [
   { href: '/overview', label: 'Overview' },
@@ -23,12 +24,10 @@ const links = [
 export default function AppHeader() {
   const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
   // Keep nav simple and predictable: always show links in header
   const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [branchValue, setBranchValue] = useState<string | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -37,42 +36,42 @@ export default function AppHeader() {
   const [dueLeadsCount, setDueLeadsCount] = useState(0);
   const [overdueInvCount, setOverdueInvCount] = useState(0);
   const [authed, setAuthed] = useState(false);
+  const { profile } = useProfile();
+  const role = profile?.role ?? null;
+  const tenantId = profile?.tenant_id ?? null;
+  const branchInitForTenant = useRef<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      setEmail(data.user?.email ?? null);
-      const uid = data.user?.id;
-      setAuthed(!!uid);
-      if (uid) {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', uid)
-          .single();
-        setRole((prof as any)?.role ?? null);
-      } else {
-        setRole(null);
-      }
-      // Initialize tenant and saved branch
-      if (uid) {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', uid)
-          .maybeSingle();
-        const tId = (prof as any)?.tenant_id as string | undefined;
-        if (tId) {
-          setTenantId(tId);
-          try {
-            const saved = localStorage.getItem(`pref:branch:${tId}`) as
-              | string
-              | null;
-            if (saved) setBranchValue(saved as any);
-          } catch {}
-        }
-      }
+    let alive = true;
+    const applySession = (session: { user?: { id?: string; email?: string } } | null) => {
+      if (!alive) return;
+      const user = session?.user;
+      setEmail(user?.email ?? null);
+      setAuthed(!!user?.id);
+    };
+    supabase.auth
+      .getSession()
+      .then(({ data }) => applySession(data.session as any));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session as any);
     });
+    return () => {
+      alive = false;
+      sub?.subscription?.unsubscribe();
+    };
   }, [supabase]);
+
+  // Initialize saved branch once we know the tenant
+  useEffect(() => {
+    if (!tenantId || branchInitForTenant.current === tenantId) return;
+    branchInitForTenant.current = tenantId;
+    try {
+      const saved = localStorage.getItem(`pref:branch:${tenantId}`) as
+        | string
+        | null;
+      if (saved) setBranchValue(saved as any);
+    } catch {}
+  }, [tenantId]);
 
   // Lightweight notifications: leads due today + overdue invoices
   useEffect(() => {
@@ -334,6 +333,7 @@ export default function AppHeader() {
                         }}
                         includeAll
                         allLabel="All"
+                        persist={false}
                       />
                     </div>
                   )}

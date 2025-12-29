@@ -1,9 +1,44 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Select from '~/components/ui/Select';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { useProfile } from '@/lib/useProfile';
 
 type Branch = { id: string; name: string };
+
+type BranchCacheEntry = { rows: Branch[]; at: number };
+const branchCache = new Map<string, BranchCacheEntry>();
+const branchInflight = new Map<string, Promise<Branch[]>>();
+const BRANCH_TTL_MS = 5 * 60 * 1000;
+
+async function loadBranches(
+  supabase: ReturnType<typeof supabaseBrowser>,
+  tenantId: string,
+) {
+  const cached = branchCache.get(tenantId);
+  if (cached && Date.now() - cached.at < BRANCH_TTL_MS) return cached.rows;
+  const inflight = branchInflight.get(tenantId);
+  if (inflight) return inflight;
+  const run = (async () => {
+    const { data } = await supabase
+      .from('branches')
+      .select('id,name')
+      .eq('tenant_id', tenantId)
+      .order('name', { ascending: true });
+    const rows = ((data as any[]) || []).map((b) => ({
+      id: b.id,
+      name: b.name,
+    }));
+    branchCache.set(tenantId, { rows, at: Date.now() });
+    return rows;
+  })();
+  branchInflight.set(tenantId, run);
+  try {
+    return await run;
+  } finally {
+    branchInflight.delete(tenantId);
+  }
+}
 
 export default function BranchSelect({
   value,
@@ -21,36 +56,23 @@ export default function BranchSelect({
   persist?: boolean;
 }) {
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const supabase = supabaseBrowser();
+  const { profile } = useProfile();
+  const tenantId = profile?.tenant_id || null;
+  const appliedForTenant = useRef<string | null>(null);
 
   useEffect(() => {
+    let alive = true;
+    if (!tenantId) return;
     (async () => {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
-      const uid = session.session.user.id;
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', uid)
-        .maybeSingle();
-      const tId = (prof as any)?.tenant_id as string | undefined;
-      if (!tId) return;
-      setTenantId(tId);
-      const { data } = await supabase
-        .from('branches')
-        .select('id,name')
-        .eq('tenant_id', tId)
-        .order('name', { ascending: true });
-      const rows = ((data as any[]) || []).map((b) => ({
-        id: b.id,
-        name: b.name,
-      }));
+      const rows = await loadBranches(supabase, tenantId);
+      if (!alive) return;
       setBranches(rows);
-      // Apply persisted selection on first load
-      if (persist) {
+      // Apply persisted selection once per tenant
+      if (persist && appliedForTenant.current !== tenantId) {
+        appliedForTenant.current = tenantId;
         try {
-          const key = `pref:branch:${tId}`;
+          const key = `pref:branch:${tenantId}`;
           const saved = localStorage.getItem(key) as string | null;
           if (
             saved &&
@@ -61,7 +83,10 @@ export default function BranchSelect({
         } catch {}
       }
     })();
-  }, [persist, includeAll, onChange, supabase]);
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, persist, includeAll, onChange, supabase]);
 
   // Persist whenever value changes
   useEffect(() => {

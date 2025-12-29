@@ -32,8 +32,8 @@ function invalidateProfileCache() {
 async function loadOnce(): Promise<Profile | null> {
   const supabase = supabaseBrowser();
   try {
-    const { data: u } = await supabase.auth.getUser();
-    const uid = (u?.user as any)?.id as string | undefined;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData.session?.user?.id as string | undefined;
     if (!uid) return null;
     const { data } = await supabase
       .from('profiles')

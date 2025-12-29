@@ -48,29 +48,16 @@ export default function OverviewPage() {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   useEffect(() => {
+    let alive = true;
     (async () => {
       setLoading(true);
       try {
-        const formatDate = (d: Date) => d.toISOString().slice(0, 10);
-        const monthStart = (() => {
-          const d = new Date();
-          d.setDate(1);
-          return formatDate(d);
-        })();
-
         // Jobs for pipeline counts (filter by branch when set)
         let jq = supabase
           .from('jobs')
-          .select('id, status, branch_id')
+          .select('status')
           .order('created_at', { ascending: false });
         if (branchId !== 'all') jq = jq.eq('branch_id', branchId as string);
-        const { data: j } = await jq;
-        setJobs(j || []);
-
-        // Build job id list for branch scoping of finance and tasks widgets
-        const jobIds: string[] = (Array.isArray(j) ? j : [])
-          .map((row: any) => row.id)
-          .filter(Boolean);
 
         // Leads follow-ups due today (open only)
         let lq = supabase
@@ -81,8 +68,6 @@ export default function OverviewPage() {
           .neq('status', 'Converted')
           .neq('status', 'Lost');
         if (branchId !== 'all') lq = lq.eq('branch_id', branchId as string);
-        const { data: l } = await lq;
-        setLeadsDue(l || []);
 
         // Overdue invoices (due_date < today and status != Paid), branch-scoped using join filter
         let invQ = supabase
@@ -93,8 +78,6 @@ export default function OverviewPage() {
           .order('due_date', { ascending: true })
           .limit(10);
         if (branchId !== 'all') invQ = invQ.eq('jobs.branch_id', branchId as string);
-        const { data: inv } = await invQ;
-        setOverdueInvoices(inv || []);
 
         // Recent proposals (filter by branch via join)
         let ppQ = supabase
@@ -103,8 +86,6 @@ export default function OverviewPage() {
           .order('date', { ascending: false })
           .limit(5);
         if (branchId !== 'all') ppQ = ppQ.eq('jobs.branch_id', branchId as string);
-        const { data: pp } = await ppQ;
-        setRecentProposals(pp || []);
 
         // Recent payments (filter by branch via join to invoices and jobs)
         let payQ = supabase
@@ -114,98 +95,17 @@ export default function OverviewPage() {
           .limit(5);
         if (branchId !== 'all')
           payQ = payQ.eq('invoices.jobs.branch_id', branchId as string);
-        const { data: pay } = await payQ;
-        setRecentPayments(pay || []);
-        const map: Record<string, string> = {};
-        for (const p of (pay as any[]) || []) {
-          const inv: any = (p as any).invoices || {};
-          if (inv?.job_id) map[p.invoice_id] = inv.job_id;
-        }
-        setPaymentInvoiceJobMap(map);
-
-        // Leads KPIs (Total/Open)
-        const { data: session } = await supabase.auth.getSession();
-        const token = session.session?.access_token;
-        if (token) {
-          const url =
-            branchId === 'all'
-              ? '/api/overview/kpis'
-              : `/api/overview/kpis?branchId=${encodeURIComponent(branchId as string)}`;
-          const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const out = await res.json();
-          if (res.ok && out?.ok) {
-            if (out.scope === 'branch') {
-              setLeadSummary({
-                total: out.total || 0,
-                open: out.open || 0,
-                dueToday: out.dueToday || 0,
-                overdue: out.overdue || 0,
-              });
-              setSalesKpis({
-                leadsNewWeek: out.newWeek || 0,
-                leadsNewMonth: out.leadsNewMonth || 0,
-                leadsConvertedWeek: out.converted || 0,
-                leadsConvertedMonth: out.leadsConvertedMonth || 0,
-                proposalsWeek: out.proposalsWeek || 0,
-                proposalsMonth: out.proposalsMonth || 0,
-              });
-            } else {
-              const per = Array.isArray(out.perBranch) ? out.perBranch : [];
-              const total =
-                per.reduce((a: number, b: any) => a + (b.total || 0), 0) +
-                (out.unassigned?.total || 0);
-              const open =
-                per.reduce((a: number, b: any) => a + (b.open || 0), 0) +
-                (out.unassigned?.open || 0);
-              const dueToday =
-                per.reduce((a: number, b: any) => a + (b.dueToday || 0), 0) +
-                (out.unassigned?.dueToday || 0);
-              const overdue =
-                per.reduce((a: number, b: any) => a + (b.overdue || 0), 0) +
-                (out.unassigned?.overdue || 0);
-              setLeadSummary({ total, open, dueToday, overdue });
-              setSalesKpis({
-                leadsNewWeek:
-                  per.reduce((a: number, b: any) => a + (b.newWeek || 0), 0) +
-                  (out.unassigned?.newWeek || 0),
-                leadsNewMonth: out.leadsNewMonth || 0,
-                leadsConvertedWeek:
-                  per.reduce((a: number, b: any) => a + (b.converted || 0), 0) +
-                  (out.unassigned?.converted || 0),
-                leadsConvertedMonth: out.leadsConvertedMonth || 0,
-                proposalsWeek: out.proposalsWeek || 0,
-                proposalsMonth: out.proposalsMonth || 0,
-              });
-            }
-          } else {
-            setLeadSummary(null);
-            setSalesKpis(null);
-          }
-        } else {
-          setLeadSummary(null);
-          setSalesKpis(null);
-        }
 
         // Tasks: due today and overdue (status != Done), branch-scoped via join
-        let tTodayQ = supabase
-          .from('tasks')
-          .select('id, title, status, due_date, job_id')
-          .eq('due_date', today)
-          .neq('status', 'Done')
-          .order('due_date', { ascending: true })
-          .limit(8);
-        let tOverQ = supabase
-          .from('tasks')
-          .select('id, title, status, due_date, job_id')
-          .lt('due_date', today)
-          .neq('status', 'Done')
-          .order('due_date', { ascending: true })
-          .limit(8);
         const tTodayPromise: any =
           branchId === 'all'
-            ? tTodayQ
+            ? supabase
+                .from('tasks')
+                .select('id, title, status, due_date, job_id')
+                .eq('due_date', today)
+                .neq('status', 'Done')
+                .order('due_date', { ascending: true })
+                .limit(8)
             : supabase
                 .from('tasks')
                 .select('id, title, status, due_date, job_id, jobs!inner(branch_id)')
@@ -216,7 +116,13 @@ export default function OverviewPage() {
                 .limit(8);
         const tOverPromise: any =
           branchId === 'all'
-            ? tOverQ
+            ? supabase
+                .from('tasks')
+                .select('id, title, status, due_date, job_id')
+                .lt('due_date', today)
+                .neq('status', 'Done')
+                .order('due_date', { ascending: true })
+                .limit(8)
             : supabase
                 .from('tasks')
                 .select('id, title, status, due_date, job_id, jobs!inner(branch_id)')
@@ -225,94 +131,144 @@ export default function OverviewPage() {
                 .order('due_date', { ascending: true })
                 .eq('jobs.branch_id', branchId as string)
                 .limit(8);
-        const [{ data: ttd }, { data: tov }] = await Promise.all([
-          tTodayPromise,
-          tOverPromise,
-        ]);
-        setTasksToday((ttd as any[]) || []);
-        setTasksOverdue((tov as any[]) || []);
+        const tasksPromise = Promise.all([tTodayPromise, tOverPromise]);
 
-        // AR Summary: compute outstanding per invoice (sum(invoice.total - payments)) and bucket by aging
-        // 1) fetch open invoices (not Paid/Cancelled)
-        let arInvQ = supabase
-          .from('invoices')
-          .select('id, total, due_date, status, job_id, jobs!inner(branch_id)')
-          .neq('status', 'Paid')
-          .neq('status', 'Cancelled');
-        if (branchId !== 'all') arInvQ = arInvQ.eq('jobs.branch_id', branchId as string);
-        const { data: arInv } = await arInvQ;
-        const invoiceRows = ((arInv as any[]) || []).filter(
-          (r) => Number(r.total || 0) > 0,
-        );
-        const invIds = invoiceRows.map((r) => r.id);
-        let payRows: any[] = [];
-        if (invIds.length > 0) {
-          const { data: payForInv } = await supabase
-            .from('payments')
-            .select('invoice_id, amount')
-            .in('invoice_id', invIds as any)
-            .limit(5000);
-          payRows = (payForInv as any[]) || [];
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        const kpisPromise = token
+          ? fetch(
+              branchId === 'all'
+                ? '/api/overview/kpis'
+                : `/api/overview/kpis?branchId=${encodeURIComponent(
+                    branchId as string,
+                  )}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            ).then(async (res) => ({ res, out: await res.json() }))
+          : Promise.resolve(null);
+        const arPromise = token
+          ? fetch(
+              branchId === 'all'
+                ? '/api/overview/ar'
+                : `/api/overview/ar?branchId=${encodeURIComponent(
+                    branchId as string,
+                  )}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            ).then(async (res) => ({ res, out: await res.json() }))
+          : Promise.resolve(null);
+
+        const [
+          { data: j },
+          { data: l },
+          { data: inv },
+          { data: pp },
+          { data: pay },
+          tasksRes,
+          kpisRes,
+          arRes,
+        ] = await Promise.all([
+          jq,
+          lq,
+          invQ,
+          ppQ,
+          payQ,
+          tasksPromise,
+          kpisPromise,
+          arPromise,
+        ]);
+
+        if (!alive) return;
+
+        setJobs(j || []);
+        setLeadsDue(l || []);
+        setOverdueInvoices(inv || []);
+        setRecentProposals(pp || []);
+        setRecentPayments(pay || []);
+        const map: Record<string, string> = {};
+        for (const p of (pay as any[]) || []) {
+          const invRow: any = (p as any).invoices || {};
+          if (invRow?.job_id) map[p.invoice_id] = invRow.job_id;
         }
-        const paidByInv = new Map<string, number>();
-        for (const p of payRows) {
-          const k = p.invoice_id as string;
-          const v = Number(p.amount || 0);
-          paidByInv.set(k, (paidByInv.get(k) || 0) + v);
-        }
-        const todayDate = new Date(today);
-        let outstanding = 0;
-        let overdue = 0;
-        let current = 0;
-        let d1_30 = 0;
-        let d31_60 = 0;
-        let d61_90 = 0;
-        let d90p = 0;
-        for (const invRow of invoiceRows) {
-          const tot = Number(invRow.total || 0);
-          const paid = Number(paidByInv.get(invRow.id) || 0);
-          const due = Math.max(0, tot - paid);
-          if (due <= 0) continue;
-          outstanding += due;
-          const dueDateStr = invRow.due_date as string | null;
-          if (!dueDateStr) {
-            // No due date, treat as current
-            current += due;
-            continue;
-          }
-          const d = new Date(dueDateStr);
-          const diffDays = Math.floor(
-            (todayDate.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          if (diffDays <= 0) {
-            current += due;
-          } else if (diffDays <= 30) {
-            overdue += due;
-            d1_30 += due;
-          } else if (diffDays <= 60) {
-            overdue += due;
-            d31_60 += due;
-          } else if (diffDays <= 90) {
-            overdue += due;
-            d61_90 += due;
+        setPaymentInvoiceJobMap(map);
+
+        const [tTodayRes, tOverRes] = tasksRes || [];
+        setTasksToday(((tTodayRes as any)?.data as any[]) || []);
+        setTasksOverdue(((tOverRes as any)?.data as any[]) || []);
+
+        if (kpisRes && kpisRes.res.ok && kpisRes.out?.ok) {
+          const out = kpisRes.out;
+          if (out.scope === 'branch') {
+            setLeadSummary({
+              total: out.total || 0,
+              open: out.open || 0,
+              dueToday: out.dueToday || 0,
+              overdue: out.overdue || 0,
+            });
+            setSalesKpis({
+              leadsNewWeek: out.newWeek || 0,
+              leadsNewMonth: out.leadsNewMonth || 0,
+              leadsConvertedWeek: out.converted || 0,
+              leadsConvertedMonth: out.leadsConvertedMonth || 0,
+              proposalsWeek: out.proposalsWeek || 0,
+              proposalsMonth: out.proposalsMonth || 0,
+            });
           } else {
-            overdue += due;
-            d90p += due;
+            const per = Array.isArray(out.perBranch) ? out.perBranch : [];
+            const total =
+              per.reduce((a: number, b: any) => a + (b.total || 0), 0) +
+              (out.unassigned?.total || 0);
+            const open =
+              per.reduce((a: number, b: any) => a + (b.open || 0), 0) +
+              (out.unassigned?.open || 0);
+            const dueToday =
+              per.reduce((a: number, b: any) => a + (b.dueToday || 0), 0) +
+              (out.unassigned?.dueToday || 0);
+            const overdue =
+              per.reduce((a: number, b: any) => a + (b.overdue || 0), 0) +
+              (out.unassigned?.overdue || 0);
+            setLeadSummary({ total, open, dueToday, overdue });
+            setSalesKpis({
+              leadsNewWeek:
+                per.reduce((a: number, b: any) => a + (b.newWeek || 0), 0) +
+                (out.unassigned?.newWeek || 0),
+              leadsNewMonth: out.leadsNewMonth || 0,
+              leadsConvertedWeek:
+                per.reduce((a: number, b: any) => a + (b.converted || 0), 0) +
+                (out.unassigned?.converted || 0),
+              leadsConvertedMonth: out.leadsConvertedMonth || 0,
+              proposalsWeek: out.proposalsWeek || 0,
+              proposalsMonth: out.proposalsMonth || 0,
+            });
           }
+        } else {
+          setLeadSummary(null);
+          setSalesKpis(null);
         }
-        setArSummary({
-          outstanding,
-          overdue,
-          current,
-          d1_30,
-          d31_60,
-          d61_90,
-          d90p,
-        });
+
+        if (arRes && arRes.res.ok && arRes.out?.ok) {
+          const out = arRes.out;
+          setArSummary({
+            outstanding: out.outstanding || 0,
+            overdue: out.overdue || 0,
+            current: out.current || 0,
+            d1_30: out.d1_30 || 0,
+            d31_60: out.d31_60 || 0,
+            d61_90: out.d61_90 || 0,
+            d90p: out.d90p || 0,
+          });
+        } else {
+          setArSummary(null);
+        }
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, [branchId, supabase, today]);
 
   const pipelineCounts = useMemo(() => {
