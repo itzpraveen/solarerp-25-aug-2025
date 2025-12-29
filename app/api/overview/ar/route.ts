@@ -16,21 +16,23 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10);
 
     // Fetch open invoices (not Paid/Cancelled), branch-scoped via join if needed
-    let arInvQ = sb
-      .from('invoices')
-      .select('id, total, due_date, status, job_id')
-      .neq('status', 'Paid')
-      .neq('status', 'Cancelled');
-    if (branchId) {
-      arInvQ = sb
-        .from('invoices')
-        .select('id, total, due_date, status, job_id, jobs!inner(branch_id)')
-        .neq('status', 'Paid')
-        .neq('status', 'Cancelled')
-        .eq('jobs.branch_id', branchId);
-    }
+    const arInvQ = branchId
+      ? sb
+          .from('invoices')
+          .select('id, total, due_date, status, job_id, jobs!inner(branch_id)')
+          .neq('status', 'Paid')
+          .neq('status', 'Cancelled')
+          .eq('jobs.branch_id', branchId)
+      : sb
+          .from('invoices')
+          .select('id, total, due_date, status, job_id')
+          .neq('status', 'Paid')
+          .neq('status', 'Cancelled');
 
-    const { data: arInv, error: invError } = await arInvQ;
+    const { data: arInv, error: invError } = (await arInvQ) as {
+      data: any[] | null;
+      error: any | null;
+    };
     if (invError) throw invError;
 
     const invoiceRows = ((arInv as any[]) || []).filter(
