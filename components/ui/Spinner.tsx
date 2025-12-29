@@ -8,7 +8,7 @@ export default function Spinner({
   const px = `${size}px`;
   return (
     <div
-      className={`inline-block animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 dark:border-gray-700 dark:border-t-blue-400 ${className || ''}`}
+      className={`inline-block animate-spin rounded-full border-2 border-[var(--border-default)] border-t-[var(--primary-500)] ${className || ''}`}
       style={{ width: px, height: px }}
     />
   );

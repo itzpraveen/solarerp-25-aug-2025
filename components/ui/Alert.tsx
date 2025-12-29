@@ -15,18 +15,32 @@ export default function Alert({
   role?: 'status' | 'alert';
 }) {
   const styles: Record<Variant, string> = {
-    info: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200',
-    success:
-      'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
-    error:
-      'border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200',
-    warning:
-      'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
+    info: [
+      'bg-[var(--info-50)] text-[var(--info-700)] border-[var(--info-100)]',
+      'dark:bg-[var(--info-50)]/20 dark:text-[var(--info-600)] dark:border-[var(--info-100)]/30',
+    ].join(' '),
+    success: [
+      'bg-[var(--success-50)] text-[var(--success-700)] border-[var(--success-100)]',
+      'dark:bg-[var(--success-50)]/20 dark:text-[var(--success-600)] dark:border-[var(--success-100)]/30',
+    ].join(' '),
+    error: [
+      'bg-[var(--danger-50)] text-[var(--danger-700)] border-[var(--danger-100)]',
+      'dark:bg-[var(--danger-50)]/20 dark:text-[var(--danger-600)] dark:border-[var(--danger-100)]/30',
+    ].join(' '),
+    warning: [
+      'bg-[var(--warning-50)] text-[var(--warning-700)] border-[var(--warning-100)]',
+      'dark:bg-[var(--warning-50)]/20 dark:text-[var(--warning-600)] dark:border-[var(--warning-100)]/30',
+    ].join(' '),
   };
   return (
     <div
       role={role}
-      className={clsx('rounded border p-2 text-sm', styles[variant], className)}
+      className={clsx(
+        'rounded-lg border px-4 py-3 text-sm',
+        'flex items-start gap-3',
+        styles[variant],
+        className,
+      )}
     >
       {children}
     </div>

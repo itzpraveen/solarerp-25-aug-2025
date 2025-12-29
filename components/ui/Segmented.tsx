@@ -14,13 +14,12 @@ export default function Segmented<T extends string | number>({
   size?: 'sm' | 'md';
   className?: string;
 }) {
-  const base =
-    'inline-flex rounded-md border bg-white p-0.5 dark:border-gray-700 dark:bg-gray-900';
-  const btn = 'px-2 py-1 text-sm rounded';
-  const btnMd = 'px-3 py-1.5 text-sm';
   return (
     <div
-      className={clsx(base, className)}
+      className={clsx(
+        'inline-flex rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-1',
+        className,
+      )}
       role="tablist"
       aria-label="segmented-control"
     >
@@ -32,10 +31,11 @@ export default function Segmented<T extends string | number>({
             role="tab"
             aria-selected={active}
             className={clsx(
+              'rounded-md font-medium transition-all duration-150',
               active
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800',
-              size === 'md' ? btnMd : btn,
+                ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+              size === 'md' ? 'px-4 py-2 text-sm' : 'px-3 py-1.5 text-sm',
             )}
             onClick={() => onChange(o.value)}
             type="button"

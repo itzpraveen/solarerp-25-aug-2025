@@ -14,17 +14,19 @@ export default function Card({
   return (
     <div
       className={clsx(
-        'rounded-lg border bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900',
+        'rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)]',
+        'shadow-[var(--shadow-sm)]',
+        'transition-shadow duration-200',
         className,
       )}
     >
       {(title || actions) && (
-        <div className="flex items-center justify-between border-b px-3 py-2 md:px-4 dark:border-gray-800">
-          <h3 className="text-sm font-semibold">{title}</h3>
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
           <div className="flex items-center gap-2">{actions}</div>
         </div>
       )}
-      <div className="p-3 md:p-4">{children}</div>
+      <div className="p-4">{children}</div>
     </div>
   );
 }

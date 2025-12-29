@@ -139,17 +139,17 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/80">
+    <header className="sticky top-0 z-20 border-b border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg-surface)]/80">
       <div className="mx-auto max-w-7xl px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            className="md:hidden"
+            className="md:hidden p-1 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors"
             aria-label="Toggle Menu"
             onClick={() => setOpen((v) => !v)}
           >
-            {open ? <X size={20} /> : <Menu size={20} />}
+            {open ? <X size={20} className="text-[var(--text-primary)]" /> : <Menu size={20} className="text-[var(--text-primary)]" />}
           </button>
-          <Link href="/overview" className="font-semibold hover:opacity-90">
+          <Link href="/overview" className="font-semibold text-[var(--text-primary)] hover:text-[var(--primary-600)] transition-colors">
             SolarERP
           </Link>
         </div>
@@ -161,10 +161,10 @@ export default function AppHeader() {
                 key={l.href}
                 href={l.href}
                 className={
-                  'text-sm rounded-md px-2 py-1 transition-colors whitespace-nowrap ' +
+                  'text-sm rounded-lg px-3 py-1.5 transition-all duration-150 whitespace-nowrap font-medium ' +
                   (active
-                    ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800')
+                    ? 'bg-[var(--primary-100)] text-[var(--primary-700)] dark:bg-[var(--primary-100)]/20 dark:text-[var(--primary-600)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]')
                 }
               >
                 {l.label}
@@ -172,18 +172,18 @@ export default function AppHeader() {
             );
           })}
         </nav>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <button
             type="button"
             aria-label="Open search"
             onClick={() => window.dispatchEvent(new Event('open-cmdk'))}
-            className="hidden rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 sm:flex items-center gap-1"
+            className="hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150 sm:flex items-center gap-1.5"
             title="Search (Ctrl/Cmd+K)"
           >
             <Search size={16} />
             <span className="hidden md:inline">Search</span>
-            <span className="ml-1 hidden items-center gap-0.5 rounded border px-1 text-[10px] text-gray-500 dark:border-gray-700 dark:text-gray-400 md:inline-flex">
-              {isMac ? '⌘ K' : 'Ctrl K'}
+            <span className="ml-1 hidden items-center gap-0.5 rounded-md bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] md:inline-flex">
+              {isMac ? '⌘K' : 'Ctrl+K'}
             </span>
           </button>
           <div className="relative">
@@ -192,12 +192,12 @@ export default function AppHeader() {
               aria-haspopup="menu"
               aria-expanded={notifOpen}
               onClick={() => setNotifOpen((v) => !v)}
-              className="relative rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="relative rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150"
               title="Notifications"
             >
               <Bell size={16} />
               {dueLeadsCount + overdueInvCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-4 text-white">
+                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-[var(--danger-500)] px-1 text-[10px] font-medium leading-4 text-white shadow-sm">
                   {Math.min(99, dueLeadsCount + overdueInvCount)}
                 </span>
               )}
@@ -205,41 +205,44 @@ export default function AppHeader() {
             {notifOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-60 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                className="absolute right-0 mt-2 w-64 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-lg)]"
               >
-                <div className="flex items-center justify-between px-2 py-1 text-sm">
+                <div className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                  Notifications
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors">
                   <span
-                    className="text-gray-700 dark:text-gray-200"
+                    className="text-sm text-[var(--text-secondary)]"
                     title="Open leads with follow-ups due today"
                   >
                     Follow-ups due today
                   </span>
                   <span
                     className={
-                      dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'
+                      'text-sm font-medium ' + (dueLeadsCount > 0 ? 'text-[var(--danger-500)]' : 'text-[var(--text-muted)]')
                     }
                   >
                     {dueLeadsCount}
                   </span>
                 </div>
-                <div className="flex items-center justify-between px-2 py-1 text-sm">
-                  <span className="text-gray-700 dark:text-gray-200">
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors">
+                  <span className="text-sm text-[var(--text-secondary)]">
                     Overdue invoices
                   </span>
                   <span
                     className={
-                      overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'
+                      'text-sm font-medium ' + (overdueInvCount > 0 ? 'text-[var(--danger-500)]' : 'text-[var(--text-muted)]')
                     }
                   >
                     {overdueInvCount}
                   </span>
                 </div>
-                <div className="mt-2 flex items-center gap-2 px-2">
-                  <a className="text-blue-600 text-sm" href="/leads?due=today">
-                    Open Leads
+                <div className="mt-1 border-t border-[var(--border-subtle)] pt-1">
+                  <a className="block px-3 py-2 text-sm text-[var(--primary-600)] hover:bg-[var(--bg-subtle)] rounded-lg transition-colors" href="/leads?due=today">
+                    View Leads
                   </a>
-                  <a className="text-blue-600 text-sm" href="/jobs?tab=finance">
-                    Finance
+                  <a className="block px-3 py-2 text-sm text-[var(--primary-600)] hover:bg-[var(--bg-subtle)] rounded-lg transition-colors" href="/jobs?tab=finance">
+                    View Finance
                   </a>
                 </div>
               </div>
@@ -251,7 +254,7 @@ export default function AppHeader() {
               aria-haspopup="menu"
               aria-expanded={createOpen}
               onClick={() => setCreateOpen((v) => !v)}
-              className="rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 flex items-center gap-1"
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150 flex items-center gap-1.5"
               title="Create"
             >
               <Plus size={16} />
@@ -260,7 +263,7 @@ export default function AppHeader() {
             {createOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-44 rounded border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                className="absolute right-0 mt-2 w-48 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-lg)]"
               >
                 {[
                   { label: 'Lead', href: '/leads' },
@@ -273,7 +276,7 @@ export default function AppHeader() {
                     role="menuitem"
                     href={it.href}
                     onClick={() => setCreateOpen(false)}
-                    className="block px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="block px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] rounded-lg transition-colors"
                   >
                     New {it.label}
                   </a>
@@ -285,10 +288,10 @@ export default function AppHeader() {
             type="button"
             aria-label="Toggle theme"
             onClick={toggleTheme}
-            className="hidden rounded-md border px-2 py-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 sm:block"
+            className="hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150 sm:block"
             title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
           >
-            {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
           {email ? (
             <div className="relative">
@@ -297,7 +300,7 @@ export default function AppHeader() {
                 aria-haspopup="menu"
                 aria-expanded={userOpen}
                 onClick={() => setUserOpen((v) => !v)}
-                className="flex h-8 w-8 items-center justify-center rounded-full border bg-white text-sm font-semibold uppercase text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[var(--primary-500)] to-[var(--primary-700)] text-sm font-semibold uppercase text-white shadow-sm hover:shadow-md transition-all duration-150 ring-2 ring-[var(--bg-surface)] ring-offset-0"
                 title={email || 'Account'}
               >
                 {String(email).charAt(0)}
@@ -305,11 +308,11 @@ export default function AppHeader() {
               {userOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-2 w-56 rounded border bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                  className="absolute right-0 mt-2 w-60 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-lg)]"
                 >
                   {tenantId && (
-                    <div className="mb-2">
-                      <div className="px-2 pb-1 text-xs text-gray-500">
+                    <div className="mb-1 px-2 py-2">
+                      <div className="pb-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
                         Branch
                       </div>
                       <BranchSelect
@@ -334,30 +337,34 @@ export default function AppHeader() {
                       />
                     </div>
                   )}
-                  <div className="px-2 py-1 text-xs text-gray-500">
-                    Signed in
-                  </div>
-                  <div className="truncate px-2 pb-2 text-sm text-gray-700 dark:text-gray-300">
-                    {email}
-                    {role ? (
-                      <span className="ml-1 text-xs text-gray-500">
-                        • {role}
+                  <div className="border-t border-[var(--border-subtle)] px-3 py-2">
+                    <div className="text-xs font-medium text-[var(--text-muted)]">
+                      Signed in as
+                    </div>
+                    <div className="truncate text-sm font-medium text-[var(--text-primary)] mt-0.5">
+                      {email}
+                    </div>
+                    {role && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-[var(--bg-subtle)] text-xs text-[var(--text-secondary)]">
+                        {role}
                       </span>
-                    ) : null}
+                    )}
                   </div>
-                  <button
-                    onClick={signOut}
-                    className="w-full rounded border px-2 py-1 text-left text-sm dark:border-gray-700"
-                  >
-                    Sign out
-                  </button>
+                  <div className="border-t border-[var(--border-subtle)] pt-1 mt-1">
+                    <button
+                      onClick={signOut}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--danger-600)] transition-colors"
+                    >
+                      Sign out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           ) : (
             <Link
               href="/auth/signin"
-              className="rounded border px-2 py-1 dark:border-gray-700"
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] transition-all duration-150"
             >
               Sign in
             </Link>
@@ -367,16 +374,16 @@ export default function AppHeader() {
       {open && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm dark:bg-slate-950/70"
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <div className="absolute inset-x-0 top-0 h-[88vh] overflow-y-auto rounded-b-lg border-b bg-white shadow-xl dark:border-gray-800 dark:bg-gray-950">
-            <div className="mx-auto max-w-7xl p-3">
+          <div className="absolute inset-x-0 top-0 max-h-[90vh] overflow-y-auto rounded-b-2xl border-b border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)]">
+            <div className="mx-auto max-w-7xl p-4">
               <div className="flex items-center justify-between">
-                <div className="font-semibold">Menu</div>
+                <div className="font-semibold text-[var(--text-primary)]">Menu</div>
                 <button
-                  className="rounded-md border px-2 py-1 dark:border-gray-700"
+                  className="rounded-lg border border-[var(--border-default)] p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
                   onClick={() => setOpen(false)}
                   aria-label="Close menu"
                 >
@@ -384,7 +391,7 @@ export default function AppHeader() {
                 </button>
               </div>
               {/* Primary navigation */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 {links.map((l) => {
                   const active = pathname.startsWith(l.href);
                   return (
@@ -392,10 +399,10 @@ export default function AppHeader() {
                       key={l.href}
                       href={l.href}
                       className={
-                        'rounded-lg border px-3 py-2 text-center text-sm ' +
+                        'rounded-xl border px-3 py-2.5 text-center text-sm font-medium transition-all ' +
                         (active
-                          ? 'border-blue-600 bg-blue-600/10 text-blue-700 dark:text-blue-300'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-900')
+                          ? 'border-[var(--primary-500)] bg-[var(--primary-100)] text-[var(--primary-700)] dark:bg-[var(--primary-100)]/20 dark:text-[var(--primary-600)]'
+                          : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]')
                       }
                       onClick={() => setOpen(false)}
                     >
@@ -405,48 +412,51 @@ export default function AppHeader() {
                 })}
               </div>
               {/* Quick actions */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {[
-                  { label: 'New Lead', href: '/leads' },
-                  { label: 'New Customer', href: '/customers' },
-                  { label: 'New Job', href: '/jobs' },
-                  { label: 'New Proposal', href: '/proposals/new' },
-                ].map((it) => (
-                  <Link
-                    key={it.label}
-                    href={it.href}
-                    className="rounded-lg border px-3 py-2 text-center text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
-                    onClick={() => setOpen(false)}
-                  >
-                    {it.label}
-                  </Link>
-                ))}
+              <div className="mt-4">
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2 px-1">Quick Actions</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'New Lead', href: '/leads' },
+                    { label: 'New Customer', href: '/customers' },
+                    { label: 'New Job', href: '/jobs' },
+                    { label: 'New Proposal', href: '/proposals/new' },
+                  ].map((it) => (
+                    <Link
+                      key={it.label}
+                      href={it.href}
+                      className="rounded-xl border border-[var(--border-default)] px-3 py-2.5 text-center text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] transition-all"
+                      onClick={() => setOpen(false)}
+                    >
+                      {it.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
               {/* Notifications summary */}
-              <div className="mt-3 w-full rounded-lg border p-3 text-sm dark:border-gray-700">
+              <div className="mt-4 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)]/50 p-4 text-sm">
                 <div className="flex items-center justify-between">
-                  <div className="text-gray-700 dark:text-gray-200">Follow-ups today</div>
-                  <div className={dueLeadsCount > 0 ? 'text-red-600' : 'text-gray-600'}>
+                  <div className="text-[var(--text-secondary)]">Follow-ups today</div>
+                  <div className={'font-medium ' + (dueLeadsCount > 0 ? 'text-[var(--danger-500)]' : 'text-[var(--text-muted)]')}>
                     {dueLeadsCount}
                   </div>
                 </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <div className="text-gray-700 dark:text-gray-200">Overdue invoices</div>
-                  <div className={overdueInvCount > 0 ? 'text-red-600' : 'text-gray-600'}>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-[var(--text-secondary)]">Overdue invoices</div>
+                  <div className={'font-medium ' + (overdueInvCount > 0 ? 'text-[var(--danger-500)]' : 'text-[var(--text-muted)]')}>
                     {overdueInvCount}
                   </div>
                 </div>
-                <div className="mt-2 flex gap-3">
+                <div className="mt-3 flex gap-3 pt-2 border-t border-[var(--border-subtle)]">
                   <Link
                     href="/leads?due=today"
-                    className="text-blue-600"
+                    className="text-[var(--primary-600)] font-medium"
                     onClick={() => setOpen(false)}
                   >
                     Open Leads
                   </Link>
                   <Link
                     href="/jobs?tab=finance"
-                    className="text-blue-600"
+                    className="text-[var(--primary-600)] font-medium"
                     onClick={() => setOpen(false)}
                   >
                     Finance
@@ -454,29 +464,31 @@ export default function AppHeader() {
                 </div>
               </div>
               {/* Utilities */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
-                  className="rounded-lg border px-3 py-2 text-sm dark:border-gray-700"
+                  className="rounded-xl border border-[var(--border-default)] px-3 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors flex items-center justify-center gap-2"
                   onClick={() => {
                     setOpen(false);
                     window.dispatchEvent(new Event('open-cmdk'));
                   }}
                 >
-                  Search…
+                  <Search size={16} />
+                  Search
                 </button>
                 <button
-                  className="rounded-lg border px-3 py-2 text-sm dark:border-gray-700"
+                  className="rounded-xl border border-[var(--border-default)] px-3 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors flex items-center justify-center gap-2"
                   onClick={() => {
                     toggleTheme();
                     setOpen(false);
                   }}
                 >
-                  {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                  {theme === 'dark' ? 'Light mode' : 'Dark mode'}
                 </button>
               </div>
-              <div className="mt-4 flex justify-center">
+              <div className="mt-5 flex justify-center">
                 <button
-                  className="rounded-full border px-4 py-1 text-sm dark:border-gray-700"
+                  className="rounded-full bg-[var(--bg-subtle)] px-6 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--border-default)] transition-colors"
                   onClick={() => setOpen(false)}
                 >
                   Done

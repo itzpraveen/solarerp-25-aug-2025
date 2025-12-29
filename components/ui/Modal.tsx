@@ -17,13 +17,33 @@ export default function Modal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-[92vw] max-w-md rounded-lg border bg-white p-4 shadow-lg dark:border-gray-800 dark:bg-gray-900">
-        {title && <div className="text-sm font-semibold">{title}</div>}
-        <div className="mt-2">{children}</div>
-        {footer && <div className="mt-4 flex justify-end gap-2">{footer}</div>}
+      {/* Backdrop with blur */}
+      <div
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm dark:bg-slate-950/70"
+        onClick={onClose}
+      />
+      {/* Modal content */}
+      <div
+        className={[
+          'relative w-full max-w-md rounded-xl',
+          'border border-[var(--border-default)] bg-[var(--bg-surface)]',
+          'shadow-[var(--shadow-lg)]',
+          'animate-in fade-in-0 zoom-in-95 duration-200',
+        ].join(' ')}
+      >
+        {title && (
+          <div className="border-b border-[var(--border-subtle)] px-5 py-4">
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
+          </div>
+        )}
+        <div className="px-5 py-4">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-2 border-t border-[var(--border-subtle)] px-5 py-4">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

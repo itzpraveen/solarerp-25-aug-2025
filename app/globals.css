@@ -1,28 +1,190 @@
 @import "tailwindcss";
 
+/* ============================================
+   DESIGN TOKENS - CSS Custom Properties
+   A polished, professional color system
+   ============================================ */
+
+:root {
+  /* Background layers */
+  --bg-base: #f8fafc;          /* slate-50 - main background */
+  --bg-surface: #ffffff;        /* white - cards, inputs */
+  --bg-elevated: #ffffff;       /* white - modals, popovers */
+  --bg-subtle: #f1f5f9;         /* slate-100 - hover states, alternating rows */
+  --bg-muted: #e2e8f0;          /* slate-200 - disabled states */
+
+  /* Text colors */
+  --text-primary: #0f172a;      /* slate-900 - headings, primary text */
+  --text-secondary: #475569;    /* slate-600 - body text */
+  --text-tertiary: #64748b;     /* slate-500 - labels, captions */
+  --text-muted: #94a3b8;        /* slate-400 - placeholders, hints */
+  --text-inverted: #ffffff;     /* white - on colored backgrounds */
+
+  /* Border colors */
+  --border-default: #e2e8f0;    /* slate-200 - default borders */
+  --border-subtle: #f1f5f9;     /* slate-100 - subtle dividers */
+  --border-strong: #cbd5e1;     /* slate-300 - emphasized borders */
+  --border-focus: #3b82f6;      /* blue-500 - focus rings */
+
+  /* Primary brand color (blue) */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-200: #bfdbfe;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+
+  /* Success (emerald) */
+  --success-50: #ecfdf5;
+  --success-100: #d1fae5;
+  --success-500: #10b981;
+  --success-600: #059669;
+  --success-700: #047857;
+
+  /* Warning (amber) */
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+  --warning-700: #b45309;
+
+  /* Danger (red) */
+  --danger-50: #fef2f2;
+  --danger-100: #fee2e2;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  --danger-700: #b91c1c;
+
+  /* Info (blue) */
+  --info-50: #eff6ff;
+  --info-100: #dbeafe;
+  --info-500: #3b82f6;
+  --info-600: #2563eb;
+  --info-700: #1d4ed8;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode overrides */
+.dark {
+  /* Background layers - rich, deep grays with subtle blue undertone */
+  --bg-base: #0f172a;           /* slate-900 - main background */
+  --bg-surface: #1e293b;        /* slate-800 - cards, inputs */
+  --bg-elevated: #334155;       /* slate-700 - modals, popovers */
+  --bg-subtle: #1e293b;         /* slate-800 - hover states */
+  --bg-muted: #334155;          /* slate-700 - disabled states */
+
+  /* Text colors */
+  --text-primary: #f8fafc;      /* slate-50 - headings, primary text */
+  --text-secondary: #e2e8f0;    /* slate-200 - body text */
+  --text-tertiary: #94a3b8;     /* slate-400 - labels, captions */
+  --text-muted: #64748b;        /* slate-500 - placeholders, hints */
+  --text-inverted: #0f172a;     /* slate-900 - on colored backgrounds */
+
+  /* Border colors */
+  --border-default: #334155;    /* slate-700 - default borders */
+  --border-subtle: #1e293b;     /* slate-800 - subtle dividers */
+  --border-strong: #475569;     /* slate-600 - emphasized borders */
+  --border-focus: #60a5fa;      /* blue-400 - focus rings */
+
+  /* Primary brand color (adjusted for dark) */
+  --primary-50: #1e3a5f;
+  --primary-100: #1e40af;
+  --primary-200: #1d4ed8;
+  --primary-500: #3b82f6;
+  --primary-600: #60a5fa;
+  --primary-700: #93c5fd;
+
+  /* Success */
+  --success-50: #064e3b;
+  --success-100: #065f46;
+  --success-500: #10b981;
+  --success-600: #34d399;
+  --success-700: #6ee7b7;
+
+  /* Warning */
+  --warning-50: #78350f;
+  --warning-100: #92400e;
+  --warning-500: #f59e0b;
+  --warning-600: #fbbf24;
+  --warning-700: #fcd34d;
+
+  /* Danger */
+  --danger-50: #7f1d1d;
+  --danger-100: #991b1b;
+  --danger-500: #ef4444;
+  --danger-600: #f87171;
+  --danger-700: #fca5a5;
+
+  /* Info */
+  --info-50: #1e3a5f;
+  --info-100: #1e40af;
+  --info-500: #3b82f6;
+  --info-600: #60a5fa;
+  --info-700: #93c5fd;
+
+  /* Shadows - darker for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
 html,
 body {
   height: 100%;
 }
+
 body {
-  @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Improve default focus and selection */
 ::selection {
-  @apply bg-blue-600 text-white dark:bg-blue-500;
+  background-color: var(--primary-500);
+  color: var(--text-inverted);
+}
+
+.dark ::selection {
+  background-color: var(--primary-600);
 }
 
 a {
-  @apply text-blue-600 dark:text-blue-400;
+  color: var(--primary-600);
+  transition: color var(--transition-fast);
+}
+.dark a {
+  color: var(--primary-600);
 }
 a:hover {
-  @apply underline;
+  text-decoration: underline;
+  color: var(--primary-700);
 }
+.dark a:hover {
+  color: var(--primary-700);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
 
 /* Smooth tables on mobile */
 .table-wrap {
-  @apply overflow-x-auto;
+  overflow-x: auto;
 }
 
 /* Compact table density helper used by Leads */
@@ -34,22 +196,34 @@ a:hover {
   padding: 0.25rem; /* p-1 */
 }
 
-/* Subtle custom scrollbar */
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
+
 *::-webkit-scrollbar-thumb {
-  background-color: rgb(203 213 225);
+  background-color: var(--border-strong);
   border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-tertiary);
+}
+
 *::-webkit-scrollbar-track {
   background-color: transparent;
 }
 
-/* Dark scrollbar */
-.dark *::-webkit-scrollbar-thumb {
-  background-color: rgb(71 85 105);
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 /* Utility: hide scrollbars where horizontal scroll is intentional (mobile tabs) */
@@ -59,4 +233,18 @@ a:hover {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
+}
+
+/* ============================================
+   FOCUS STYLES
+   ============================================ */
+
+/* Beautiful focus rings for accessibility */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }

@@ -34,12 +34,12 @@ export default function DataTable<T extends { id?: string | number }>({
   }, [rows, term]);
 
   return (
-    <div className="rounded border bg-white overflow-x-auto dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden shadow-[var(--shadow-sm)]">
       {(onSearch || searchPlaceholder) && (
-        <div className="flex items-center justify-between gap-2 p-2">
+        <div className="flex items-center justify-between gap-2 p-3 border-b border-[var(--border-subtle)]">
           <input
-            className="w-full rounded border px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-950"
-            placeholder={searchPlaceholder || 'Search'}
+            className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]/20 transition-all"
+            placeholder={searchPlaceholder || 'Search...'}
             value={term}
             onChange={(e) => {
               setTerm(e.target.value);
@@ -48,50 +48,55 @@ export default function DataTable<T extends { id?: string | number }>({
           />
         </div>
       )}
-      <table className="w-full text-sm">
-        <thead>
-          <tr
-            className={
-              (stickyHeader ? 'sticky top-0 ' : '') +
-              'border-b bg-gray-50 text-left dark:border-gray-800 dark:bg-gray-800'
-            }
-          >
-            {columns.map((c) => (
-              <th key={c.key} className={'p-2 ' + (c.className || '')}>
-                {c.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((r, i) => (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
             <tr
-              key={(r.id as any) ?? i}
-              className="border-b dark:border-gray-800"
+              className={
+                (stickyHeader ? 'sticky top-0 z-10 ' : '') +
+                'border-b border-[var(--border-default)] bg-[var(--bg-subtle)] text-left'
+              }
             >
               {columns.map((c) => (
-                <td key={c.key} className={'p-2 ' + (c.className || '')}>
-                  {c.render
-                    ? c.render(r)
-                    : c.accessor
-                      ? c.accessor(r)
-                      : (r as any)[c.key]}
-                </td>
+                <th
+                  key={c.key}
+                  className={'px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wide ' + (c.className || '')}
+                >
+                  {c.header}
+                </th>
               ))}
             </tr>
-          ))}
-          {filtered.length === 0 && (
-            <tr>
-              <td
-                colSpan={columns.length}
-                className="p-3 text-center text-gray-600 dark:text-gray-400"
+          </thead>
+          <tbody className="divide-y divide-[var(--border-subtle)]">
+            {filtered.map((r, i) => (
+              <tr
+                key={(r.id as any) ?? i}
+                className="hover:bg-[var(--bg-subtle)]/50 transition-colors"
               >
-                No rows
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                {columns.map((c) => (
+                  <td key={c.key} className={'px-4 py-3 text-[var(--text-primary)] ' + (c.className || '')}>
+                    {c.render
+                      ? c.render(r)
+                      : c.accessor
+                        ? c.accessor(r)
+                        : (r as any)[c.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-8 text-center text-[var(--text-muted)]"
+                >
+                  No rows found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

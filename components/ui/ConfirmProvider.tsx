@@ -62,35 +62,35 @@ export default function ConfirmProvider({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm dark:bg-slate-950/70"
             onClick={() => onClose(false)}
           />
-          <div className="relative w-[90vw] max-w-md rounded-lg border bg-white p-4 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+          <div className="relative w-full max-w-md rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-lg)] animate-in fade-in-0 zoom-in-95 duration-200">
             {state.title && (
-              <div className="text-sm font-semibold">{state.title}</div>
+              <div className="text-base font-semibold text-[var(--text-primary)]">{state.title}</div>
             )}
             {state.description && (
-              <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              <div className="mt-2 text-sm text-[var(--text-secondary)]">
                 {state.description}
               </div>
             )}
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-5 flex justify-end gap-2">
               <button
-                className="rounded border px-3 py-1.5 text-sm dark:border-gray-700"
+                className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] transition-all"
                 onClick={() => onClose(false)}
               >
                 {state.cancelText ?? 'Cancel'}
               </button>
               <button
-                className={
-                  'rounded px-3 py-1.5 text-sm text-white ' +
-                  (state.variant === 'danger'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-blue-600 hover:bg-blue-700')
-                }
+                className={[
+                  'rounded-lg px-4 py-2 text-sm font-medium text-white transition-all',
+                  state.variant === 'danger'
+                    ? 'bg-[var(--danger-600)] hover:bg-[var(--danger-700)] hover:shadow-md'
+                    : 'bg-[var(--primary-600)] hover:bg-[var(--primary-700)] hover:shadow-md',
+                ].join(' ')}
                 onClick={() => onClose(true)}
               >
                 {state.confirmText ?? 'Confirm'}

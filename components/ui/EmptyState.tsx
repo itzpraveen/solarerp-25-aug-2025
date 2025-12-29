@@ -13,15 +13,19 @@ export default function EmptyState({
   icon?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-white p-8 text-center text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-      <div className="mb-2 text-gray-400 dark:text-gray-500">
+    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] p-10 text-center">
+      <div className="mb-3 rounded-full bg-[var(--bg-subtle)] p-3 text-[var(--text-muted)]">
         {icon || <Inbox size={28} />}
       </div>
-      <div className="text-base font-medium text-gray-800 dark:text-gray-100">
+      <div className="text-base font-semibold text-[var(--text-primary)]">
         {title}
       </div>
-      {description && <div className="mt-1 max-w-md">{description}</div>}
-      {action && <div className="mt-3">{action}</div>}
+      {description && (
+        <div className="mt-1 max-w-md text-sm text-[var(--text-secondary)]">
+          {description}
+        </div>
+      )}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

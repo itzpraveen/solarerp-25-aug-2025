@@ -60,23 +60,24 @@ export default function ToastProvider({
         {list.map((t) => (
           <div
             key={t.id}
-            className={
-              'pointer-events-auto rounded border px-3 py-2 text-sm shadow-sm backdrop-blur ' +
-              (t.variant === 'error'
-                ? 'border-red-200 bg-red-50/95 text-red-800 dark:border-red-900 dark:bg-red-950/70 dark:text-red-200'
+            className={[
+              'pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-[var(--shadow-lg)] backdrop-blur-sm',
+              'animate-in slide-in-from-right-5 fade-in-0 duration-200',
+              t.variant === 'error'
+                ? 'border-[var(--danger-100)] bg-[var(--danger-50)]/95 text-[var(--danger-700)] dark:border-[var(--danger-100)]/30 dark:bg-[var(--danger-50)]/20 dark:text-[var(--danger-600)]'
                 : t.variant === 'success'
-                  ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-200'
-                  : 'border-gray-200 bg-white/95 text-gray-800 dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-100')
-            }
+                  ? 'border-[var(--success-100)] bg-[var(--success-50)]/95 text-[var(--success-700)] dark:border-[var(--success-100)]/30 dark:bg-[var(--success-50)]/20 dark:text-[var(--success-600)]'
+                  : 'border-[var(--border-default)] bg-[var(--bg-surface)]/95 text-[var(--text-primary)]',
+            ].join(' ')}
           >
-            {t.title && <div className="font-medium">{t.title}</div>}
+            {t.title && <div className="font-semibold">{t.title}</div>}
             {t.description && (
-              <div className="text-xs opacity-90">{t.description}</div>
+              <div className="mt-0.5 text-sm opacity-90">{t.description}</div>
             )}
             {t.actionLabel && t.onAction && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <button
-                  className="rounded border px-2 py-1 text-xs dark:border-gray-700"
+                  className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--bg-subtle)] transition-colors"
                   onClick={async () => {
                     await t.onAction!();
                     remove(t.id);

@@ -12,21 +12,34 @@ export default function Badge({
   className?: string;
 }) {
   const styles: Record<Variant, string> = {
-    default:
-      'border-gray-300 text-gray-700 dark:border-gray-700 dark:text-gray-200',
-    success:
-      'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-200',
-    warning:
-      'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-200',
-    danger: 'border-red-300 text-red-700 dark:border-red-800 dark:text-red-200',
-    info: 'border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-200',
-    muted:
-      'border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400',
+    default: [
+      'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-default)]',
+    ].join(' '),
+    success: [
+      'bg-[var(--success-50)] text-[var(--success-700)] border-[var(--success-100)]',
+      'dark:bg-[var(--success-50)]/30 dark:text-[var(--success-600)] dark:border-[var(--success-100)]/50',
+    ].join(' '),
+    warning: [
+      'bg-[var(--warning-50)] text-[var(--warning-700)] border-[var(--warning-100)]',
+      'dark:bg-[var(--warning-50)]/30 dark:text-[var(--warning-600)] dark:border-[var(--warning-100)]/50',
+    ].join(' '),
+    danger: [
+      'bg-[var(--danger-50)] text-[var(--danger-700)] border-[var(--danger-100)]',
+      'dark:bg-[var(--danger-50)]/30 dark:text-[var(--danger-600)] dark:border-[var(--danger-100)]/50',
+    ].join(' '),
+    info: [
+      'bg-[var(--info-50)] text-[var(--info-700)] border-[var(--info-100)]',
+      'dark:bg-[var(--info-50)]/30 dark:text-[var(--info-600)] dark:border-[var(--info-100)]/50',
+    ].join(' '),
+    muted: [
+      'bg-transparent text-[var(--text-muted)] border-[var(--border-default)]',
+    ].join(' '),
   };
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'transition-colors duration-150',
         styles[variant],
         className,
       )}

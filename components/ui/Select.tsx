@@ -14,7 +14,12 @@ const Select = forwardRef<HTMLSelectElement, Props>(function Select(
     <select
       ref={ref}
       className={clsx(
-        'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-500 dark:focus:ring-blue-500/30',
+        'w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]',
+        'px-3 py-2 text-sm text-[var(--text-primary)]',
+        'shadow-sm transition-all duration-150',
+        'hover:border-[var(--border-strong)]',
+        'focus:border-[var(--border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]/20',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[var(--bg-muted)]',
         className,
       )}
       {...props}

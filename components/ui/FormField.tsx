@@ -20,16 +20,16 @@ export default function FormField({
   children,
 }: Props) {
   return (
-    <div className={clsx('space-y-1', className)}>
+    <div className={clsx('space-y-1.5', className)}>
       {label && <Label htmlFor={id}>{label}</Label>}
       {children}
-      <div className="min-h-[1rem]">
+      <div className="min-h-[1.25rem]">
         {error ? (
-          <div className="text-xs text-red-600" role="alert">
+          <div className="text-xs text-[var(--danger-600)] font-medium" role="alert">
             {error}
           </div>
         ) : hint ? (
-          <div className="text-xs text-gray-500">{hint}</div>
+          <div className="text-xs text-[var(--text-muted)]">{hint}</div>
         ) : null}
       </div>
     </div>

@@ -14,7 +14,7 @@ export default function Label({
     <label
       htmlFor={htmlFor}
       className={clsx(
-        'block text-sm font-medium text-gray-700 dark:text-gray-300',
+        'block text-sm font-medium text-[var(--text-secondary)]',
         className,
       )}
     >
