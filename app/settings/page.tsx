@@ -26,7 +26,8 @@ export default function SettingsPage() {
     userId: string;
     name: string;
   } | null>(null);
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteUsername, setInviteUsername] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviteRole, setInviteRole] = useState<
     | 'owner'
     | 'admin'
@@ -38,6 +39,15 @@ export default function SettingsPage() {
     | 'staff'
   >('staff');
   const [inviting, setInviting] = useState(false);
+  const [savingPasswordFor, setSavingPasswordFor] = useState<string | null>(
+    null,
+  );
+  const [resettingPasswordFor, setResettingPasswordFor] = useState<
+    string | null
+  >(null);
+  const [passwordDrafts, setPasswordDrafts] = useState<
+    Record<string, string>
+  >({});
   const [fixingProfiles, setFixingProfiles] = useState(false);
   const [fixResult, setFixResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,8 +228,8 @@ export default function SettingsPage() {
   };
 
   const invite = async () => {
-    if (!inviteEmail) {
-      setFlash('Email required');
+    if (!inviteUsername) {
+      setFlash('Username required');
       setTimeout(() => setFlash(null), 1500);
       return;
     }
@@ -233,26 +243,81 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({
+          username: inviteUsername.trim(),
+          role: inviteRole,
+          ...(invitePassword ? { password: invitePassword } : {}),
+        }),
       });
       const out = await res.json();
-      if (!res.ok || !out.ok) throw new Error(out?.error || 'Invite failed');
-      setInviteEmail('');
+      if (!res.ok || !out.ok) throw new Error(out?.error || 'Create failed');
+      setInviteUsername('');
+      setInvitePassword('');
       setInviteRole('staff');
       const { data: members } = await supabase
         .from('profiles')
         .select('*')
         .eq('tenant_id', tenantId);
       setTeam((members as any[]) || []);
-      toast({ title: 'Invitation added', variant: 'success' });
+      toast({ title: 'User created', variant: 'success' });
     } catch (e: any) {
       toast({
-        title: 'Invite failed',
+        title: 'Create failed',
         description: String(e?.message || e),
         variant: 'error',
       });
     } finally {
       setInviting(false);
+    }
+  };
+
+  const updatePassword = async (
+    userId: string,
+    opts: { password?: string; useDefault?: boolean },
+  ) => {
+    const nextPassword = opts.password || '';
+    if (!nextPassword && !opts.useDefault) {
+      toast({
+        title: 'Password required',
+        description: 'Enter a password or reset to default.',
+        variant: 'error',
+      });
+      return;
+    }
+    const setting = opts.useDefault ? 'default' : 'custom';
+    if (opts.useDefault) setResettingPasswordFor(userId);
+    else setSavingPasswordFor(userId);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch('/api/team/password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          userId,
+          ...(opts.useDefault ? { useDefault: true } : { password: nextPassword }),
+        }),
+      });
+      const out = await res.json();
+      if (!res.ok || !out.ok) throw new Error(out?.error || 'Update failed');
+      setPasswordDrafts((prev) => ({ ...prev, [userId]: '' }));
+      toast({
+        title: 'Password updated',
+        description: setting === 'default' ? 'Reset to default.' : 'Custom password set.',
+        variant: 'success',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Password update failed',
+        description: String(e?.message || e),
+        variant: 'error',
+      });
+    } finally {
+      if (opts.useDefault) setResettingPasswordFor(null);
+      else setSavingPasswordFor(null);
     }
   };
 
@@ -555,12 +620,19 @@ export default function SettingsPage() {
               </p>
               {myRole && (myRole === 'owner' || myRole === 'admin') && (
                 <div className="rounded border bg-gray-50 p-3 text-sm">
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                     <input
                       className="rounded border px-3 py-2"
-                      placeholder="Member email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="Username"
+                      value={inviteUsername}
+                      onChange={(e) => setInviteUsername(e.target.value)}
+                    />
+                    <input
+                      className="rounded border px-3 py-2"
+                      placeholder="Temp password (optional)"
+                      type="password"
+                      value={invitePassword}
+                      onChange={(e) => setInvitePassword(e.target.value)}
                     />
                     <select
                       className="rounded border px-2 py-2"
@@ -577,12 +649,13 @@ export default function SettingsPage() {
                       <option value="staff">Staff (legacy)</option>
                     </select>
                     <Button onClick={invite} loading={inviting}>
-                      Invite
+                      Create
                     </Button>
                   </div>
                   <div className="mt-2 text-xs text-gray-600">
-                    Invited users will receive a sign-in email (real env). In
-                    mock, they appear immediately.
+                    New users are created with a username + password. If you
+                    leave the password empty, the default admin password is
+                    used.
                   </div>
                   <div className="mt-3 flex items-center gap-2">
                     <Button onClick={fixMissingProfiles} loading={fixingProfiles} variant="secondary">
@@ -598,9 +671,11 @@ export default function SettingsPage() {
                 <thead>
                   <tr className="text-left text-gray-600">
                     <th className="p-2">Name</th>
+                    <th className="p-2">Username</th>
                     <th className="p-2">Phone</th>
                     <th className="p-2">User ID</th>
                     <th className="p-2">Role</th>
+                    <th className="p-2">Password</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -659,6 +734,9 @@ export default function SettingsPage() {
                             {m.display_name || '—'}
                           </span>
                         )}
+                      </td>
+                      <td className="p-2 text-xs text-gray-700">
+                        {m.username || '—'}
                       </td>
                       <td className="p-2">
                         {myRole === 'owner' || myRole === 'admin' ? (
@@ -807,6 +885,49 @@ export default function SettingsPage() {
                               </button>
                             )}
                         </div>
+                      </td>
+                      <td className="p-2">
+                        {myRole === 'owner' || myRole === 'admin' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="w-40 rounded border px-2 py-1 text-xs"
+                              type="password"
+                              placeholder="New password"
+                              value={passwordDrafts[m.user_id] || ''}
+                              onChange={(e) =>
+                                setPasswordDrafts((prev) => ({
+                                  ...prev,
+                                  [m.user_id]: e.target.value,
+                                }))
+                              }
+                            />
+                            <button
+                              className="rounded border px-2 py-1 text-xs"
+                              disabled={
+                                savingPasswordFor === m.user_id ||
+                                !passwordDrafts[m.user_id]
+                              }
+                              onClick={() =>
+                                updatePassword(m.user_id, {
+                                  password: passwordDrafts[m.user_id],
+                                })
+                              }
+                            >
+                              Set
+                            </button>
+                            <button
+                              className="rounded border px-2 py-1 text-xs"
+                              disabled={resettingPasswordFor === m.user_id}
+                              onClick={() =>
+                                updatePassword(m.user_id, { useDefault: true })
+                              }
+                            >
+                              Reset
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

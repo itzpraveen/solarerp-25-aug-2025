@@ -1,14 +1,14 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-import { isPhone } from '@/lib/validation';
+import { normalizeLoginIdentifier } from '@/lib/authUsername';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 
 export default function SignIn() {
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
@@ -22,27 +22,7 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!supabase) return;
-    // Fallback: explicitly set session from URL hash if magic-link tokens present
-    try {
-      const hash = typeof window !== 'undefined' ? window.location.hash : '';
-      if (hash && /access_token=/.test(hash)) {
-        const params = new URLSearchParams(hash.replace(/^#/, ''));
-        const at = params.get('access_token');
-        const rt = params.get('refresh_token');
-        if (at && rt) {
-          supabase.auth
-            .setSession({ access_token: at, refresh_token: rt })
-            .finally(() => {
-              try {
-                const url = new URL(window.location.href);
-                url.hash = '';
-                window.history.replaceState({}, '', url.toString());
-              } catch {}
-            });
-        }
-      }
-    } catch {}
-// Helper: after auth, try ensureProfile; if forbidden, allow bootstrap fallback
+    // Helper: after auth, try ensureProfile; if forbidden, allow bootstrap fallback
     const afterAuth = async (token?: string | null) => {
       try {
         if (token) {
@@ -82,7 +62,7 @@ export default function SignIn() {
       }
     };
 
-    // Handle session present on initial load (e.g., after magic-link redirect)
+    // Handle session present on initial load
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session?.user) await afterAuth(data.session.access_token);
@@ -96,83 +76,58 @@ export default function SignIn() {
     return () => sub.subscription.unsubscribe();
   }, [supabase, router]);
 
-  const sendMagicLink = async () => {
+  const signIn = async () => {
     setLoading(true);
     setMessage(null);
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const allowSelf = process.env.NEXT_PUBLIC_ALLOW_SELF_SIGNUP === '1';
-    const { error } = await supabase!.auth.signInWithOtp({
-      email,
-      options: {
-        // Ensure magic link lands back on this app in any environment
-        emailRedirectTo: origin ? `${origin}/auth/signin` : undefined,
-        shouldCreateUser: !!allowSelf,
-      },
+    const normalized = normalizeLoginIdentifier(identifier);
+    if (!normalized.ok) {
+      setLoading(false);
+      setMessage(normalized.error);
+      return;
+    }
+    const { error } = await supabase!.auth.signInWithPassword({
+      email: normalized.email,
+      password,
     });
     setLoading(false);
-    setMessage(error ? error.message : 'Check your email for the magic link.');
-  };
-
-  const sendOtpSms = async () => {
-    setLoading(true);
-    setMessage(null);
-    const { error } = await supabase!.auth.signInWithOtp({ phone });
-    setLoading(false);
-    setMessage(error ? error.message : 'OTP sent to your phone.');
+    setMessage(error ? 'Invalid username or password.' : null);
   };
 
   return (
     <div className="mx-auto max-w-md space-y-6">
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <div className="space-y-4">
-        {process.env.NEXT_PUBLIC_ALLOW_SELF_SIGNUP !== '1' && (
-          <div className="rounded border bg-[var(--primary-50)] p-3 text-xs text-[var(--primary-700)]">
-            Login only: You must be invited by an admin to access this app. If
-            you are not invited, the magic link will not create a new account.
+        <div>
+          <label className="block text-sm font-medium">Username</label>
+          <Input
+            className="mt-1"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="username"
+            autoComplete="username"
+          />
+          <div className="mt-1 text-xs text-gray-600">
+            Use your username (no @). Existing accounts can also use email.
           </div>
-        )}
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <Input
-            className="mt-1"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-          />
-          <Button
-            onClick={sendMagicLink}
-            disabled={!email || loading}
-            className="mt-2"
-          >
-            Send magic link
-          </Button>
         </div>
         <div>
-          <label className="block text-sm font-medium">
-            Phone (WhatsApp/SMS)
-          </label>
+          <label className="block text-sm font-medium">Password</label>
           <Input
-            type="tel"
-            inputMode="numeric"
+            type="password"
             className="mt-1"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="91XXXXXXXXXX or +91XXXXXXXXXX"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
           />
-          {phone && !isPhone(phone) && (
-            <div className="mt-1 text-xs text-red-600">
-              Enter a valid phone number.
-            </div>
-          )}
-          <Button
-            onClick={sendOtpSms}
-            disabled={!isPhone(phone) || loading}
-            className="mt-2"
-            variant="secondary"
-          >
-            Send OTP
-          </Button>
         </div>
+        <Button
+          onClick={signIn}
+          disabled={!identifier || !password || loading}
+          className="mt-2"
+        >
+          Sign in
+        </Button>
         {message && <p className="text-sm text-gray-600">{message}</p>}
       </div>
     </div>

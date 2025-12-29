@@ -4,9 +4,15 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import { logAudit } from '@/lib/audit';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { env } from '@/lib/env';
+import {
+  isValidUsername,
+  normalizeUsername,
+  usernameToEmail,
+} from '@/lib/authUsername';
 
 const BodySchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(3).max(32),
   role: z
     .enum([
       'owner',
@@ -19,6 +25,7 @@ const BodySchema = z.object({
       'staff',
     ])
     .default('staff'),
+  password: z.string().min(6).max(128).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -44,7 +51,25 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Invalid payload' },
         { status: 400 },
       );
-    const { email, role } = parsed.data;
+    const username = normalizeUsername(parsed.data.username);
+    if (!isValidUsername(username)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid username format' },
+        { status: 400 },
+      );
+    }
+    const { role } = parsed.data;
+    const email = usernameToEmail(
+      username,
+      env.authUsernameDomain || 'erp.renewg.in',
+    );
+    const password = parsed.data.password || env.defaultUserPassword;
+    if (!password) {
+      return NextResponse.json(
+        { ok: false, error: 'Default password not configured' },
+        { status: 500 },
+      );
+    }
 
     const { data: authUser } = await (sb as any).auth.getUser();
     const uid = (authUser?.user as any)?.id as string | undefined;
@@ -66,25 +91,19 @@ export async function POST(req: NextRequest) {
 
     const tenantId = (me as any).tenant_id as string;
 
-    // Real environment: invite or create the user and upsert profile
+    // Real environment: create the user and upsert profile
     const admin = supabaseAdmin();
-    // Try invite; if it fails due to existing, list users and match by email
+    // Try create; if it fails due to existing, list users and match by email
     let userId: string | null = null;
     try {
-      const { data: invited } = await (
-        admin as any
-      ).auth.admin.inviteUserByEmail(email);
-      userId = invited?.user?.id || null;
-    } catch (_) {}
-
-    if (!userId) {
-      try {
-        const { data: created } = await (admin as any).auth.admin.createUser({
-          email,
-          email_confirm: false,
-        });
-        userId = created?.user?.id || null;
-      } catch (_) {}
+      const { data: created } = await (admin as any).auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      userId = created?.user?.id || null;
+    } catch (_) {
+      userId = null;
     }
 
     if (!userId) {
@@ -102,16 +121,22 @@ export async function POST(req: NextRequest) {
 
     if (!userId)
       return NextResponse.json(
-        { ok: false, error: 'Unable to invite or create user' },
+        { ok: false, error: 'Unable to create user' },
         { status: 500 },
       );
 
-    await admin.from('profiles').upsert({
+    const { error: upsertErr } = await admin.from('profiles').upsert({
       user_id: userId,
       tenant_id: tenantId,
       role,
-      display_name: email.split('@')[0],
+      display_name: username,
+      username,
     });
+    if (upsertErr)
+      return NextResponse.json(
+        { ok: false, error: 'Profile update failed' },
+        { status: 500 },
+      );
 
     // Best-effort audit
     await logAudit(sb as any, {
@@ -120,7 +145,7 @@ export async function POST(req: NextRequest) {
       action: 'team.invite',
       entity: 'profiles',
       entityId: userId,
-      metadata: { email, role },
+      metadata: { username, role },
     });
 
     return NextResponse.json({ ok: true, userId });
