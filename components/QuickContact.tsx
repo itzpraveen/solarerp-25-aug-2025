@@ -54,12 +54,15 @@ export default function QuickContact({
 
   if (!phoneDigits && !email && !address) return null;
 
+  const linkClass =
+    "rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]";
+
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className || ""}`}>
       {telHref && (
         <a
           href={telHref}
-          className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={linkClass}
           title="Call"
         >
           Call
@@ -70,7 +73,7 @@ export default function QuickContact({
           href={waHref}
           target="_blank"
           rel="noreferrer"
-          className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={linkClass}
           title="WhatsApp"
         >
           WhatsApp
@@ -79,7 +82,7 @@ export default function QuickContact({
       {smsHref && (
         <a
           href={smsHref}
-          className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={linkClass}
           title="SMS"
         >
           SMS
@@ -88,7 +91,7 @@ export default function QuickContact({
       {mailHref && (
         <a
           href={mailHref}
-          className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={linkClass}
           title="Email"
         >
           Email
@@ -99,7 +102,7 @@ export default function QuickContact({
           href={mapHref}
           target="_blank"
           rel="noreferrer"
-          className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          className={linkClass}
           title="Open in Maps"
         >
           Map
@@ -108,4 +111,3 @@ export default function QuickContact({
     </div>
   );
 }
-

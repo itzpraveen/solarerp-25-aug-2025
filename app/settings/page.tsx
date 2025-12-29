@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import RequireOwner from '~/components/RequireOwner';
 import Button from '~/components/ui/Button';
+import Input from '~/components/ui/Input';
+import Select from '~/components/ui/Select';
+import Textarea from '~/components/ui/Textarea';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
 import TaskTemplatesManager from '~/components/TaskTemplatesManager';
@@ -70,6 +73,11 @@ export default function SettingsPage() {
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [editingBranchName, setEditingBranchName] = useState('');
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const panelClass =
+    'rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-sm)] space-y-3';
+  const mutedPanelClass =
+    'rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]';
+  const compactFieldClass = 'px-2 py-1 text-xs rounded-md';
 
   useEffect(() => {
     (async () => {
@@ -369,23 +377,23 @@ export default function SettingsPage() {
   return (
     <RequireOwner
       fallback={
-        <div className="rounded border bg-white p-4 text-sm text-gray-600">
+        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-secondary)]">
           Only Owner/Admin can view and edit settings.
         </div>
       }
     >
       {loading && (
-        <div className="rounded border bg-white p-4 text-sm text-gray-700">
+        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-secondary)]">
           Loading settings…
         </div>
       )}
       {flash && (
-        <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-700">
+        <div className="rounded border border-[var(--success-100)] bg-[var(--success-50)] p-2 text-xs text-[var(--success-700)]">
           {flash}
         </div>
       )}
       {errorMsg && (
-        <div className="rounded border bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded border border-[var(--danger-100)] bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-700)]">
           {errorMsg}
         </div>
       )}
@@ -394,7 +402,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold">Settings</h1>
             {myRole && (
-              <span className="rounded-full border px-2 py-1 text-xs text-gray-700">
+              <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
                 Your role:{' '}
                 {String(myRole).charAt(0).toUpperCase() +
                   String(myRole).slice(1)}
@@ -402,11 +410,11 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="rounded border bg-white p-4 space-y-3">
+            <div className={panelClass}>
               <div>
                 <label className="block text-sm font-medium">Currency</label>
-                <input
-                  className="mt-1 w-full rounded border px-3 py-2"
+                <Input
+                  className="mt-1"
                   value={form.currency || ''}
                   onChange={(e) =>
                     setForm({ ...form, currency: e.target.value })
@@ -417,8 +425,8 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium">
                   Default Tax %
                 </label>
-                <input
-                  className="mt-1 w-full rounded border px-3 py-2"
+                <Input
+                  className="mt-1"
                   type="number"
                   value={form.default_tax_rate || 0}
                   onChange={(e) =>
@@ -434,8 +442,8 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium">
                     Quote Prefix
                   </label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.quote_prefix || ''}
                     onChange={(e) =>
                       setForm({ ...form, quote_prefix: e.target.value })
@@ -447,15 +455,15 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium">
                     Quote Format
                   </label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.quote_format || ''}
                     onChange={(e) =>
                       setForm({ ...form, quote_format: e.target.value })
                     }
                     placeholder="e.g., {YY}_{KW}KW_SOLAR PLANT_{NAME}"
                   />
-                  <p className="mt-1 text-xs text-gray-600">
+                  <p className="mt-1 text-xs text-[var(--text-tertiary)]">
                     Tokens: {'{YY}'}, {'{YYYY}'}, {'{KW}'}, {'{SYSTEM}'},{' '}
                     {'{NAME}'}, {'{PLACE}'}
                   </p>
@@ -463,8 +471,8 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium">UPI ID</label>
-                <input
-                  className="mt-1 w-full rounded border px-3 py-2"
+                <Input
+                  className="mt-1"
                   value={form.upi_id || ''}
                   onChange={(e) => setForm({ ...form, upi_id: e.target.value })}
                 />
@@ -472,8 +480,8 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium">Company Name</label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.company_name || ''}
                     onChange={(e) =>
                       setForm({ ...form, company_name: e.target.value })
@@ -485,8 +493,8 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium">
                     Company Phone
                   </label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.company_phone || ''}
                     onChange={(e) =>
                       setForm({ ...form, company_phone: e.target.value })
@@ -497,8 +505,8 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium">
                     Company Email
                   </label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.company_email || ''}
                     onChange={(e) =>
                       setForm({ ...form, company_email: e.target.value })
@@ -509,8 +517,8 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium">
                     Company Address
                   </label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.company_address || ''}
                     onChange={(e) =>
                       setForm({ ...form, company_address: e.target.value })
@@ -521,8 +529,8 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium">
                     Company Logo URL
                   </label>
-                  <input
-                    className="mt-1 w-full rounded border px-3 py-2"
+                  <Input
+                    className="mt-1"
                     value={form.company_logo_url || ''}
                     onChange={(e) =>
                       setForm({ ...form, company_logo_url: e.target.value })
@@ -574,7 +582,7 @@ export default function SettingsPage() {
                     >
                       Upload Logo
                     </Button>
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-[var(--text-tertiary)]">
                       Stores under documents/{tenantId}/logo.* (private).
                     </span>
                   </div>
@@ -584,8 +592,8 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium">
                   Malayalam Note (Proposals)
                 </label>
-                <textarea
-                  className="mt-1 w-full rounded border px-3 py-2"
+                <Textarea
+                  className="mt-1"
                   value={form.proposal_note_ml || ''}
                   onChange={(e) =>
                     setForm({ ...form, proposal_note_ml: e.target.value })
@@ -596,8 +604,8 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium">
                   Deposit % (auto-invoice on Won)
                 </label>
-                <input
-                  className="mt-1 w-full rounded border px-3 py-2"
+                <Input
+                  className="mt-1"
                   type="number"
                   value={form.deposit_percent || 0}
                   onChange={(e) =>
@@ -613,29 +621,26 @@ export default function SettingsPage() {
               </Button>
               {/* Mock mode removed for production simplicity */}
             </div>
-            <div className="rounded border bg-white p-4 space-y-3">
+            <div className={panelClass}>
               <h2 className="text-lg font-medium">Team & Roles</h2>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Manage roles for your team members.
               </p>
               {myRole && (myRole === 'owner' || myRole === 'admin') && (
-                <div className="rounded border bg-gray-50 p-3 text-sm">
+                <div className={mutedPanelClass}>
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                    <input
-                      className="rounded border px-3 py-2"
+                    <Input
                       placeholder="Username"
                       value={inviteUsername}
                       onChange={(e) => setInviteUsername(e.target.value)}
                     />
-                    <input
-                      className="rounded border px-3 py-2"
+                    <Input
                       placeholder="Temp password (optional)"
                       type="password"
                       value={invitePassword}
                       onChange={(e) => setInvitePassword(e.target.value)}
                     />
-                    <select
-                      className="rounded border px-2 py-2"
+                    <Select
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value as any)}
                     >
@@ -647,12 +652,12 @@ export default function SettingsPage() {
                       <option value="accountant">Accountant</option>
                       <option value="viewer">Viewer</option>
                       <option value="staff">Staff (legacy)</option>
-                    </select>
+                    </Select>
                     <Button onClick={invite} loading={inviting}>
                       Create
                     </Button>
                   </div>
-                  <div className="mt-2 text-xs text-gray-600">
+                  <div className="mt-2 text-xs text-[var(--text-tertiary)]">
                     New users are created with a username + password. If you
                     leave the password empty, the default admin password is
                     used.
@@ -662,29 +667,30 @@ export default function SettingsPage() {
                       Fix missing profiles
                     </Button>
                     {fixResult && (
-                      <span className="text-xs text-gray-700">{fixResult}</span>
+                      <span className="text-xs text-[var(--text-secondary)]">{fixResult}</span>
                     )}
                   </div>
                 </div>
               )}
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-600">
-                    <th className="p-2">Name</th>
-                    <th className="p-2">Username</th>
-                    <th className="p-2">Phone</th>
-                    <th className="p-2">User ID</th>
-                    <th className="p-2">Role</th>
-                    <th className="p-2">Password</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.map((m) => (
-                    <tr key={m.user_id} className="border-t">
+              <div className="overflow-hidden rounded-lg border border-[var(--border-default)]">
+                <table className="w-full text-sm">
+                  <thead className="bg-[var(--bg-subtle)]">
+                    <tr className="text-left text-[var(--text-secondary)]">
+                      <th className="p-2">Name</th>
+                      <th className="p-2">Username</th>
+                      <th className="p-2">Phone</th>
+                      <th className="p-2">User ID</th>
+                      <th className="p-2">Role</th>
+                      <th className="p-2">Password</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {team.map((m) => (
+                      <tr key={m.user_id} className="border-t border-[var(--border-subtle)]">
                       <td className="p-2">
                         {myRole === 'owner' || myRole === 'admin' ? (
-                          <input
-                            className="w-full rounded border px-2 py-1 text-xs"
+                          <Input
+                            className={compactFieldClass}
                             value={m.display_name || ''}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -730,18 +736,18 @@ export default function SettingsPage() {
                             placeholder="Display name"
                           />
                         ) : (
-                          <span className="text-xs text-gray-700">
+                          <span className="text-xs text-[var(--text-secondary)]">
                             {m.display_name || '—'}
                           </span>
                         )}
                       </td>
-                      <td className="p-2 text-xs text-gray-700">
+                      <td className="p-2 text-xs text-[var(--text-secondary)]">
                         {m.username || '—'}
                       </td>
                       <td className="p-2">
                         {myRole === 'owner' || myRole === 'admin' ? (
-                          <input
-                            className="w-full rounded border px-2 py-1 text-xs"
+                          <Input
+                            className={compactFieldClass}
                             value={m.phone || ''}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -786,21 +792,21 @@ export default function SettingsPage() {
                             placeholder="Phone"
                           />
                         ) : (
-                          <span className="text-xs text-gray-700">
+                          <span className="text-xs text-[var(--text-secondary)]">
                             {m.phone || '—'}
                           </span>
                         )}
                       </td>
                       <td
-                        className="p-2 text-xs text-gray-500"
+                        className="p-2 text-xs text-[var(--text-tertiary)]"
                         title={m.user_id}
                       >
                         {String(m.user_id).slice(0, 8)}…
                       </td>
                       <td className="p-2">
                         <div className="flex items-center gap-2">
-                          <select
-                            className="rounded border px-2 py-1"
+                          <Select
+                            className={compactFieldClass}
                             value={m.role}
                             onChange={async (e) => {
                               const role = e.target.value as any;
@@ -869,11 +875,12 @@ export default function SettingsPage() {
                             <option value="accountant">Accountant</option>
                             <option value="viewer">Viewer</option>
                             <option value="staff">Staff (legacy)</option>
-                          </select>
+                          </Select>
                           {(myRole === 'owner' || myRole === 'admin') &&
                             m.user_id !== myUserId && (
-                              <button
-                                className="rounded border px-2 py-1 text-xs"
+                              <Button
+                                size="xs"
+                                variant="outline"
                                 onClick={() =>
                                   setPendingRemove({
                                     userId: m.user_id,
@@ -882,15 +889,15 @@ export default function SettingsPage() {
                                 }
                               >
                                 Remove
-                              </button>
+                              </Button>
                             )}
                         </div>
                       </td>
                       <td className="p-2">
                         {myRole === 'owner' || myRole === 'admin' ? (
                           <div className="flex items-center gap-2">
-                            <input
-                              className="w-40 rounded border px-2 py-1 text-xs"
+                            <Input
+                              className="w-40 px-2 py-1 text-xs rounded-md"
                               type="password"
                               placeholder="New password"
                               value={passwordDrafts[m.user_id] || ''}
@@ -901,8 +908,9 @@ export default function SettingsPage() {
                                 }))
                               }
                             />
-                            <button
-                              className="rounded border px-2 py-1 text-xs"
+                            <Button
+                              size="xs"
+                              variant="outline"
                               disabled={
                                 savingPasswordFor === m.user_id ||
                                 !passwordDrafts[m.user_id]
@@ -914,27 +922,29 @@ export default function SettingsPage() {
                               }
                             >
                               Set
-                            </button>
-                            <button
-                              className="rounded border px-2 py-1 text-xs"
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="outline"
                               disabled={resettingPasswordFor === m.user_id}
                               onClick={() =>
                                 updatePassword(m.user_id, { useDefault: true })
                               }
                             >
                               Reset
-                            </button>
+                            </Button>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-500">—</span>
+                          <span className="text-xs text-[var(--text-tertiary)]">—</span>
                         )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
               {pendingRemove && (
-                <div className="mt-3 rounded border bg-yellow-50 p-3 text-xs text-gray-800">
+                <div className="mt-3 rounded border border-[var(--warning-100)] bg-[var(--warning-50)] p-3 text-xs text-[var(--warning-700)]">
                   <div className="flex items-center justify-between">
                     <span>Remove {pendingRemove.name} from this tenant?</span>
                     <div className="flex items-center gap-2">
@@ -989,15 +999,14 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
-          <div className="rounded border bg-white p-4 space-y-3">
+          <div className={panelClass}>
             <h2 className="text-lg font-medium">Branches</h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--text-secondary)]">
               Create and manage your branches. Deleting a branch clears branch
               on related records.
             </p>
             <div className="flex items-center gap-2">
-              <input
-                className="rounded border px-3 py-2"
+              <Input
                 placeholder="New branch name"
                 value={newBranch}
                 onChange={(e) => setNewBranch(e.target.value)}
@@ -1010,81 +1019,83 @@ export default function SettingsPage() {
                 Add
               </Button>
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-600">
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {branches.map((b) => (
-                  <tr key={b.id} className="border-t">
-                    <td className="p-2">
-                      {editingBranchId === b.id ? (
-                        <input
-                          className="w-full rounded border px-2 py-1"
-                          value={editingBranchName}
-                          onChange={(e) => setEditingBranchName(e.target.value)}
-                        />
-                      ) : (
-                        <span>{b.name}</span>
-                      )}
-                    </td>
-                    <td className="p-2">
-                      {editingBranchId === b.id ? (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            onClick={saveBranchName}
-                            loading={savingBranch}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingBranchId(null);
-                              setEditingBranchName('');
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingBranchId(b.id as string);
-                              setEditingBranchName(b.name as string);
-                            }}
-                          >
-                            Rename
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteBranch(b.id as string)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      )}
-                    </td>
+            <div className="overflow-hidden rounded-lg border border-[var(--border-default)]">
+              <table className="w-full text-sm">
+                <thead className="bg-[var(--bg-subtle)]">
+                  <tr className="text-left text-[var(--text-secondary)]">
+                    <th className="p-2">Name</th>
+                    <th className="p-2">Actions</th>
                   </tr>
-                ))}
-                {branches.length === 0 && (
-                  <tr>
-                    <td className="p-2 text-sm text-gray-500" colSpan={2}>
-                      No branches yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {branches.map((b) => (
+                    <tr key={b.id} className="border-t border-[var(--border-subtle)]">
+                      <td className="p-2">
+                        {editingBranchId === b.id ? (
+                          <Input
+                            className={compactFieldClass}
+                            value={editingBranchName}
+                            onChange={(e) => setEditingBranchName(e.target.value)}
+                          />
+                        ) : (
+                          <span>{b.name}</span>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        {editingBranchId === b.id ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={saveBranchName}
+                              loading={savingBranch}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingBranchId(null);
+                                setEditingBranchName('');
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingBranchId(b.id as string);
+                                setEditingBranchName(b.name as string);
+                              }}
+                            >
+                              Rename
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => deleteBranch(b.id as string)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {branches.length === 0 && (
+                    <tr>
+                      <td className="p-2 text-sm text-[var(--text-tertiary)]" colSpan={2}>
+                        No branches yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
           {/* Task Templates manager */}
           <TaskTemplatesManager tenantId={tenantId} />

@@ -33,14 +33,21 @@ export default function MilestoneTimeline({ job }: { job: Job }) {
   return (
     <Card title="Timeline">
       <div className="relative pl-3">
-        <div className="absolute left-[6px] top-0 bottom-0 w-[2px] bg-gray-200 dark:bg-gray-800" />
+        <div className="absolute left-[6px] top-0 bottom-0 w-[2px] bg-[var(--border-subtle)]" />
         <ul className="space-y-3">
           {items.map((it, i) => (
             <li key={String(it.key)} className="relative flex items-center gap-3">
-              <div className={clsx("h-3 w-3 rounded-full border", it.date ? "bg-emerald-500 border-emerald-600" : "bg-white border-gray-300 dark:bg-gray-900 dark:border-gray-700")} />
+              <div
+                className={clsx(
+                  "h-3 w-3 rounded-full border",
+                  it.date
+                    ? "bg-[var(--success-500)] border-[var(--success-600)]"
+                    : "bg-[var(--bg-surface)] border-[var(--border-strong)]",
+                )}
+              />
               <div className="flex flex-col">
                 <span className="text-sm font-medium">{it.label}</span>
-                <span className="text-xs text-gray-600">{it.date || "—"}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{it.date || "—"}</span>
               </div>
             </li>
           ))}
@@ -49,4 +56,3 @@ export default function MilestoneTimeline({ job }: { job: Job }) {
     </Card>
   );
 }
-

@@ -18,12 +18,9 @@ import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import BranchSelect from '~/components/BranchSelect';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 
-type Customer = { id: string; name: string };
-
 export default function JobsPage() {
   const supabase = supabaseBrowser();
   const router = useRouter();
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [custId, setCustId] = useState('');
   const [systemType, setSystemType] = useState('On-grid');
   const [program, setProgram] = useState<ProgramType>('PM_Surya');
@@ -46,16 +43,6 @@ export default function JobsPage() {
     name: string;
   } | null>(null);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('customers')
-        .select('id,name')
-        .order('name');
-      setCustomers((data as any[]) || []);
-    })();
-  }, [supabase]);
 
   // Persist quick create visibility preference
   useEffect(() => {
@@ -356,7 +343,11 @@ export default function JobsPage() {
                       key={s}
                       type="button"
                       onClick={() => setSystemType(s)}
-                      className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-[var(--primary-600)] text-white border-[var(--primary-600)]' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}
+                      className={`rounded border px-2 py-1 text-sm transition-colors ${
+                        systemType === s
+                          ? 'bg-[var(--primary-600)] text-white border-[var(--primary-600)]'
+                          : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]'
+                      }`}
                     >
                       {s}
                     </button>
@@ -375,7 +366,7 @@ export default function JobsPage() {
                     value={capacity}
                     onChange={(e) => setCapacity(Number(e.target.value))}
                   />
-                  <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-500">
+                  <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-[var(--text-tertiary)]">
                     kW
                   </span>
                 </div>
@@ -397,7 +388,7 @@ export default function JobsPage() {
               </button>
               {/* Starter templates */}
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-gray-600">Templates:</span>
+                <span className="text-[var(--text-secondary)]">Templates:</span>
                 {[
                   { p: 'PM_Surya' as ProgramType, s: 'On-grid', c: 3 },
                   { p: 'PM_Surya' as ProgramType, s: 'On-grid', c: 5 },
@@ -406,7 +397,7 @@ export default function JobsPage() {
                   <button
                     key={`${t.p}-${t.s}-${t.c}`}
                     type="button"
-                    className="rounded border px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className="rounded border border-[var(--border-default)] px-2 py-1 text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                     onClick={() => {
                       setProgram(t.p);
                       setSystemType(t.s);
@@ -440,7 +431,7 @@ export default function JobsPage() {
                 </div>
               )}
             </div>
-            <div className="text-xs text-gray-600">
+            <div className="text-xs text-[var(--text-secondary)]">
               Target branch:{' '}
               <span className="font-medium">
                 {branchId === 'all'
@@ -456,7 +447,6 @@ export default function JobsPage() {
             initialPhone={quickInit.phone || ''}
             initialAddress={quickInit.address || ''}
             onCreated={(id, name, address) => {
-              setCustomers((list) => [{ id, name }, ...list]);
               setCustId(id);
               setSelectedCustomer({ id, name });
               if (!location && address) setLocation(address);

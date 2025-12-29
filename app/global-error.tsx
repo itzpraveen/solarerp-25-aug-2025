@@ -5,9 +5,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
   return (
     <html>
       <body>
-        <div className="mx-auto mt-16 max-w-lg rounded border bg-white p-6 text-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="mx-auto mt-16 max-w-lg rounded border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 text-sm shadow-[var(--shadow-sm)]">
           <h1 className="text-lg font-semibold">Something went wrong</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">
+          <p className="mt-2 text-[var(--text-secondary)]">
             An unexpected error occurred. Please try again. {error?.digest ? `(ref: ${error.digest})` : ''}
           </p>
           <div className="mt-4 flex items-center gap-2">
@@ -19,4 +19,3 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     </html>
   );
 }
-

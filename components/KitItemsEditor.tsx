@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Button from '~/components/ui/Button';
 import Input from '~/components/ui/Input';
+import Select from '~/components/ui/Select';
 import Card from '~/components/ui/Card';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 
@@ -117,13 +118,12 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
   return (
     <Card title="Kit Items">
       {error && (
-        <div className="mb-2 rounded border bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <div className="mb-2 rounded border border-[var(--danger-100)] bg-[var(--danger-50)] p-2 text-xs text-[var(--danger-700)]">
           {error}
         </div>
       )}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-        <select
-          className="rounded border px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        <Select
           value={addCode}
           onChange={(e) => setAddCode(e.target.value)}
         >
@@ -133,7 +133,7 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
               {it.name} {it.unit ? `(${it.unit})` : ''}
             </option>
           ))}
-        </select>
+        </Select>
         <Input
           type="number"
           min={0}
@@ -147,19 +147,19 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
         </Button>
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded border bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]">
         {loading ? (
-          <div className="p-3 text-sm text-gray-600 dark:text-gray-400">
+          <div className="p-3 text-sm text-[var(--text-secondary)]">
             Loading…
           </div>
         ) : rows.length === 0 ? (
-          <div className="p-3 text-sm text-gray-600 dark:text-gray-400">
+          <div className="p-3 text-sm text-[var(--text-secondary)]">
             No items in this kit.
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50 text-left dark:border-gray-800 dark:bg-gray-800">
+              <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-left text-[var(--text-secondary)]">
                 <th className="p-2">Item</th>
                 <th className="p-2">Qty</th>
                 <th className="p-2">Unit</th>
@@ -173,7 +173,7 @@ export default function KitItemsEditor({ kitName }: { kitName: string }) {
                 return (
                   <tr
                     key={r.item_code}
-                    className="border-b dark:border-gray-800"
+                    className="border-b border-[var(--border-subtle)]"
                   >
                     <td className="p-2">{info?.name || r.item_code}</td>
                     <td className="p-2">{Number(r.qty || 0)}</td>

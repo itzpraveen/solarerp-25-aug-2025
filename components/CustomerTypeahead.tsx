@@ -109,9 +109,9 @@ export default function CustomerTypeahead({
         }}
       />
       {open && (
-        <div className="absolute z-30 mt-1 w-full rounded border bg-white text-sm shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="absolute z-30 mt-1 w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface)] text-sm shadow-[var(--shadow-sm)]">
           {loading && (
-            <div className="px-3 py-2 text-gray-600 dark:text-gray-300">
+            <div className="px-3 py-2 text-[var(--text-secondary)]">
               Searching…
             </div>
           )}
@@ -120,7 +120,7 @@ export default function CustomerTypeahead({
               <button
                 type="button"
                 key={r.id}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left ${i === sel ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left ${i === sel ? 'bg-[var(--bg-subtle)]' : ''}`}
                 onMouseEnter={() => setSel(i)}
                 onClick={() => {
                   onSelect(r);
@@ -128,7 +128,7 @@ export default function CustomerTypeahead({
                 }}
               >
                 <span className="truncate">{r.name}</span>
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-[var(--text-tertiary)]">
                   {r.phone || ''}
                 </span>
               </button>

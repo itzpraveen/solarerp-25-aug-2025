@@ -1,6 +1,7 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { useProfile } from '@/lib/useProfile';
 
 type Result =
   | { type: 'job'; id: string; title: string; subtitle?: string }
@@ -12,18 +13,21 @@ export default function CommandPalette() {
   const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [sel, setSel] = useState(0);
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [branchId, setBranchId] = useState<string | 'all'>('all');
+  const { profile } = useProfile();
 
   const close = useCallback(() => {
     setOpen(false);
     setQ('');
+    setDebouncedQ('');
     setResults([]);
     setSel(0);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -51,38 +55,36 @@ export default function CommandPalette() {
     if (!open) return;
     const t = setTimeout(() => inputRef.current?.focus(), 10);
     return () => clearTimeout(t);
-  }, [open, supabase]);
+  }, [open]);
 
   // Initialize context (tenant + branch) when palette opens
   useEffect(() => {
     if (!open) return;
-    (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = (u?.user as any)?.id as string | undefined;
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', uid as any)
-        .maybeSingle();
-      const tId = (prof as any)?.tenant_id as string | undefined;
-      if (tId) {
-        setTenantId(tId);
-        try {
-          const saved = localStorage.getItem(`pref:branch:${tId}`) as
-            | string
-            | null;
-          if (saved) setBranchId(saved as any);
-        } catch {}
-      }
-    })();
-  }, [open, supabase]);
+    const tId = profile?.tenant_id;
+    if (!tId) return;
+    try {
+      const saved = localStorage.getItem(`pref:branch:${tId}`) as
+        | string
+        | null;
+      if (saved) setBranchId(saved as any);
+    } catch {}
+  }, [open, profile?.tenant_id]);
+
+  // Debounce search input to reduce Supabase queries
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => setDebouncedQ(q), 200);
+    return () => clearTimeout(t);
+  }, [q, open]);
 
   // Fetch results from Supabase when q changes
   useEffect(() => {
     let active = true;
     const run = async () => {
-      const term = q.trim();
+      if (!open) return;
+      const term = debouncedQ.trim();
       if (term.length < 2) {
+        setLoading(false);
         setResults([
           {
             type: 'nav',
@@ -210,7 +212,7 @@ export default function CommandPalette() {
     return () => {
       active = false;
     };
-  }, [q, supabase, branchId]);
+  }, [debouncedQ, supabase, branchId, open]);
 
   const onOpenRoute = useCallback(
     (r: Result) => {
@@ -239,11 +241,11 @@ export default function CommandPalette() {
       className="fixed inset-0 z-50 flex items-start justify-center"
     >
       <div className="absolute inset-0 bg-black/40" onClick={close} />
-      <div className="relative mt-24 w-full max-w-2xl rounded-lg border bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex items-center border-b px-3 py-2 dark:border-gray-800">
+      <div className="relative mt-24 w-full max-w-2xl rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)]">
+        <div className="flex items-center border-b border-[var(--border-subtle)] px-3 py-2">
           <input
             ref={inputRef}
-            className="w-full bg-transparent px-2 py-2 text-sm outline-none placeholder:text-gray-500 dark:text-gray-100"
+            className="w-full bg-transparent px-2 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             placeholder="Search jobs and customers… (Ctrl/Cmd+K)"
             value={q}
             onChange={(e) => {
@@ -268,31 +270,31 @@ export default function CommandPalette() {
         </div>
         <div className="max-h-80 overflow-auto py-1">
           {loading && (
-            <div className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">
               Searching…
             </div>
           )}
           {nothing && (
-            <div className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="px-3 py-2 text-sm text-[var(--text-secondary)]">
               No results
             </div>
           )}
           {results.map((r, i) => (
             <button
               key={`${r.type}:${r.id}`}
-              className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === sel ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+              className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === sel ? 'bg-[var(--bg-subtle)]' : ''}`}
               onMouseEnter={() => setSel(i)}
               onClick={() => onOpenRoute(r)}
             >
               <div>
                 <div className="font-medium">{r.title}</div>
                 {r.subtitle && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div className="text-xs text-[var(--text-secondary)]">
                     {r.subtitle}
                   </div>
                 )}
               </div>
-              <div className="text-xs rounded border px-1.5 py-0.5 text-gray-600 dark:border-gray-800 dark:text-gray-400">
+              <div className="text-xs rounded border border-[var(--border-default)] px-1.5 py-0.5 text-[var(--text-tertiary)]">
                 {r.type}
               </div>
             </button>

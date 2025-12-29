@@ -144,14 +144,14 @@ export default function CalendarPage() {
         <h1 className="text-xl font-semibold">Technician Calendar</h1>
         <div className="flex items-center gap-2">
           <button
-            className="rounded border px-2 py-1 text-sm dark:border-gray-700"
+            className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
             onClick={() => setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth()-1); return startOfMonth(d); })}
           >
             Prev
           </button>
           <div className="min-w-[160px] text-center text-sm">{monthLabel}</div>
           <button
-            className="rounded border px-2 py-1 text-sm dark:border-gray-700"
+            className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
             onClick={() => setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth()+1); return startOfMonth(d); })}
           >
             Next
@@ -161,7 +161,7 @@ export default function CalendarPage() {
       <div className="flex items-center gap-2">
         <label className="text-sm">Assignee</label>
         <select
-          className="rounded border px-2 py-1 text-sm dark:border-gray-700"
+          className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-sm text-[var(--text-primary)] shadow-sm transition-colors hover:border-[var(--border-strong)] focus:border-[var(--border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]/20"
           value={assignee}
           onChange={(e) => setAssignee(e.target.value as any)}
         >
@@ -176,16 +176,16 @@ export default function CalendarPage() {
       </div>
       <div className="grid grid-cols-7 gap-2 text-sm">
         {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => (
-          <div key={d} className="px-2 py-1 text-center font-medium text-gray-500">{d}</div>
+          <div key={d} className="px-2 py-1 text-center font-medium text-[var(--text-tertiary)]">{d}</div>
         ))}
         {days.map((d) => {
           const key = d.toISOString().slice(0, 10);
           const list = byDate.get(key) || [];
           const isCurMonth = d.getMonth() === month.getMonth();
           return (
-            <div key={key} className={`min-h-[120px] rounded border p-2 ${isCurMonth ? '' : 'opacity-50'} dark:border-gray-700`}>
+            <div key={key} className={`min-h-[120px] rounded border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${isCurMonth ? '' : 'opacity-50'}`}>
               <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">{d.getDate()}</div>
+                <div className="text-xs text-[var(--text-tertiary)]">{d.getDate()}</div>
                 {list.length > 0 && (
                   <div className="rounded bg-[var(--primary-50)] px-1 text-[10px] text-[var(--primary-700)] dark:text-[var(--primary-600)]">{list.length}</div>
                 )}
@@ -197,7 +197,7 @@ export default function CalendarPage() {
                       {t.title || 'Task'}
                     </a>
                     <select
-                      className="rounded border px-1 py-0.5 text-[11px] dark:border-gray-700"
+                      className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[11px] text-[var(--text-primary)]"
                       value={t.assigned_to || ''}
                       onChange={(e) => assignTask(t.id, e.target.value || null)}
                     >
@@ -211,7 +211,7 @@ export default function CalendarPage() {
                   </li>
                 ))}
                 {list.length > 4 && (
-                  <li className="text-[11px] text-gray-500">+{list.length - 4} more…</li>
+                  <li className="text-[11px] text-[var(--text-tertiary)]">+{list.length - 4} more…</li>
                 )}
               </ul>
             </div>

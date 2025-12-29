@@ -89,7 +89,7 @@ function JobDetailPageInner() {
       <Breadcrumbs
         items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]}
       />
-      <div className="sticky top-16 z-10 flex gap-2 overflow-x-auto whitespace-nowrap bg-gray-50 py-2 no-scrollbar dark:bg-gray-950">
+      <div className="sticky top-16 z-10 flex gap-2 overflow-x-auto whitespace-nowrap bg-[var(--bg-subtle)] py-2 no-scrollbar border-b border-[var(--border-subtle)]">
         {(
           [
             'overview',

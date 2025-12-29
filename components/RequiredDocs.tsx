@@ -42,7 +42,7 @@ export default function RequiredDocs({ jobId, status }: { jobId: string; status:
   return (
     <Card title="Required Items" actions={<a className="text-xs text-[var(--primary-600)]" href={`?tab=docs`}>Docs</a>}>
       {req.length === 0 ? (
-        <div className="text-sm text-gray-600">No required documents for this stage.</div>
+        <div className="text-sm text-[var(--text-secondary)]">No required documents for this stage.</div>
       ) : (
         <ul className="space-y-2 text-sm">
           {req.map((r) => (
@@ -51,19 +51,21 @@ export default function RequiredDocs({ jobId, status }: { jobId: string; status:
                 className={clsx(
                   "inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs",
                   have.has(r)
-                    ? "bg-emerald-500 border-emerald-600 text-white"
-                    : "bg-white border-gray-300 text-gray-600 dark:bg-gray-900 dark:border-gray-700",
+                    ? "bg-[var(--success-500)] border-[var(--success-600)] text-white"
+                    : "bg-[var(--bg-surface)] border-[var(--border-strong)] text-[var(--text-tertiary)]",
                 )}
               >
                 {have.has(r) ? "✓" : "!"}
               </span>
-              <span className={have.has(r) ? "text-gray-700" : "text-gray-800"}>{labelFor(r)}</span>
+              <span className={have.has(r) ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}>
+                {labelFor(r)}
+              </span>
             </li>
           ))}
         </ul>
       )}
       {missing.length > 0 && (
-        <div className="mt-2 text-xs text-amber-700">
+        <div className="mt-2 text-xs text-[var(--warning-700)]">
           Missing: {missing.map(labelFor).join(", ")}
         </div>
       )}

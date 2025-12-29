@@ -26,21 +26,35 @@ export default function StageProgress({
             return (
               <li key={s} className="flex-1 flex items-center gap-2">
                 {i !== 0 && (
-                  <div className={clsx("h-1 flex-1 rounded", done ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-800")} />
+                  <div
+                    className={clsx(
+                      "h-1 flex-1 rounded",
+                      done ? "bg-[var(--success-500)]" : "bg-[var(--border-subtle)]",
+                    )}
+                  />
                 )}
                 <div className="flex items-center gap-2">
                   <div
                     className={clsx(
                       "h-6 w-6 shrink-0 rounded-full text-[10px] flex items-center justify-center border",
                       done
-                        ? "bg-emerald-500 border-emerald-600 text-white"
-                        : "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-600",
+                        ? "bg-[var(--success-500)] border-[var(--success-600)] text-white"
+                        : "bg-[var(--bg-surface)] border-[var(--border-strong)] text-[var(--text-tertiary)]",
                     )}
                   >
                     {i + 1}
                   </div>
                   {!compact && (
-                    <span className={clsx("hidden md:inline text-xs", done ? "text-emerald-700 dark:text-emerald-400" : "text-gray-700 dark:text-gray-300")}>{statusLabel(s as JobStatus)}</span>
+                    <span
+                      className={clsx(
+                        "hidden md:inline text-xs",
+                        done
+                          ? "text-[var(--success-700)]"
+                          : "text-[var(--text-secondary)]",
+                      )}
+                    >
+                      {statusLabel(s as JobStatus)}
+                    </span>
                   )}
                 </div>
               </li>

@@ -4,6 +4,7 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 import Spinner from '~/components/ui/Spinner';
 import Skeleton from '~/components/ui/Skeleton';
+import Input from '~/components/ui/Input';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
 
@@ -182,14 +183,14 @@ export default function PipelineBoard({
     <div className="overflow-x-auto no-scrollbar">
       {showToolbar && (
         <div className="mb-2 flex items-center gap-2">
-          <input
-            className="w-full rounded border px-2 py-1 text-sm dark:border-gray-800"
+          <Input
+            className="h-8 px-2 py-1 text-sm"
             placeholder="Search by customer or location"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
           />
           <button
-            className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
             onClick={() => setTerm('')}
           >
             Clear
@@ -200,16 +201,16 @@ export default function PipelineBoard({
         {JOB_STATUSES.map((col: JobStatus) => (
           <div
             key={col}
-            className="snap-start rounded-lg border bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+            className="snap-start rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)]"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               const jobId = e.dataTransfer.getData('text/plain');
               onDrop(jobId, col);
             }}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-gray-50/80 px-3 py-2 text-sm font-medium backdrop-blur dark:border-gray-800 dark:bg-gray-800/50">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-sm font-medium">
               <span>{statusLabel(col)}</span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-[var(--text-tertiary)]">
                 {filteredJobs.filter((j) => j.status === col).length}
               </span>
             </div>
@@ -226,7 +227,7 @@ export default function PipelineBoard({
                 .map((j) => (
                   <div
                     key={j.id}
-                    className="cursor-move rounded border p-2 shadow-sm hover:shadow dark:border-gray-800 dark:bg-gray-950/40"
+                    className="cursor-move rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)]"
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', j.id);
@@ -237,12 +238,15 @@ export default function PipelineBoard({
                         <div className="truncate text-sm font-semibold">
                           {j.customers?.[0]?.name || '—'}
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                        <div className="text-xs text-[var(--text-secondary)]">
                           {j.system_type} • {j.capacity_kw ?? '—'} kW
                         </div>
                       </div>
                       {taskCounts[j.id] && (
-                        <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-gray-700 dark:border-gray-800 dark:text-gray-300" title="Open tasks / Total">
+                        <span
+                          className="shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]"
+                          title="Open tasks / Total"
+                        >
                           {taskCounts[j.id].open}/{taskCounts[j.id].total}
                         </span>
                       )}
@@ -258,7 +262,7 @@ export default function PipelineBoard({
                         {((j as any).customers?.[0]?.phone as string | null) && (
                           <a
                             href={`tel:${(j as any).customers?.[0]?.phone}`}
-                            className="inline-block text-xs text-gray-600 dark:text-gray-300"
+                            className="inline-block text-xs text-[var(--text-secondary)]"
                             title="Call customer"
                           >
                             Call
@@ -268,7 +272,7 @@ export default function PipelineBoard({
                       {/* Accessible status change */}
                       <select
                         aria-label="Change status"
-                        className="rounded border px-1 py-0.5 text-[11px] dark:border-gray-800"
+                        className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[11px] text-[var(--text-primary)]"
                         value={j.status}
                         onChange={async (e) => {
                           const next = e.target.value as JobStatus;
@@ -291,7 +295,7 @@ export default function PipelineBoard({
                 ))}
               {!loading &&
                 jobs.filter((j) => j.status === col).length === 0 && (
-                  <div className="rounded border border-dashed p-3 text-center text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                  <div className="rounded border border-dashed border-[var(--border-default)] p-3 text-center text-xs text-[var(--text-muted)]">
                     No cards
                   </div>
                 )}

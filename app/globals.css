@@ -248,3 +248,33 @@ a:hover {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
+
+/* Legacy Tailwind neutral overrides to align with theme tokens */
+.bg-white {
+  background-color: var(--bg-surface);
+}
+.bg-gray-50 {
+  background-color: var(--bg-subtle);
+}
+.bg-gray-100 {
+  background-color: var(--bg-muted);
+}
+.text-gray-500 {
+  color: var(--text-tertiary);
+}
+.text-gray-600 {
+  color: var(--text-secondary);
+}
+.text-gray-700,
+.text-gray-800 {
+  color: var(--text-primary);
+}
+.border-gray-200 {
+  border-color: var(--border-subtle);
+}
+.border-gray-300 {
+  border-color: var(--border-default);
+}
+.border-gray-400 {
+  border-color: var(--border-strong);
+}
