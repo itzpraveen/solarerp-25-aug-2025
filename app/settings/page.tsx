@@ -78,6 +78,9 @@ export default function SettingsPage() {
   const mutedPanelClass =
     'rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]';
   const compactFieldClass = 'px-2 py-1 text-xs rounded-md';
+  const sectionTitleClass =
+    'text-sm font-semibold text-[var(--text-primary)]';
+  const sectionHintClass = 'text-xs text-[var(--text-tertiary)]';
 
   useEffect(() => {
     (async () => {
@@ -399,8 +402,13 @@ export default function SettingsPage() {
       )}
       {!loading && !errorMsg && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold">Settings</h1>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-semibold">Settings</h1>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Company profile, billing defaults, and team access.
+              </p>
+            </div>
             {myRole && (
               <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
                 Your role:{' '}
@@ -412,214 +420,244 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className={panelClass}>
               <div>
-                <label className="block text-sm font-medium">Currency</label>
-                <Input
-                  className="mt-1"
-                  value={form.currency || ''}
-                  onChange={(e) =>
-                    setForm({ ...form, currency: e.target.value })
-                  }
-                />
+                <h2 className="text-lg font-medium">Company & Billing</h2>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Defaults used across quotes, invoices, and proposals.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium">
-                  Default Tax %
-                </label>
-                <Input
-                  className="mt-1"
-                  type="number"
-                  value={form.default_tax_rate || 0}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      default_tax_rate: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium">
-                    Quote Prefix
-                  </label>
+                  <label className="block text-sm font-medium">Currency</label>
                   <Input
                     className="mt-1"
-                    value={form.quote_prefix || ''}
+                    value={form.currency || ''}
                     onChange={(e) =>
-                      setForm({ ...form, quote_prefix: e.target.value })
+                      setForm({ ...form, currency: e.target.value })
                     }
-                    placeholder="e.g., q"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium">
-                    Quote Format
+                    Default Tax %
                   </label>
                   <Input
                     className="mt-1"
-                    value={form.quote_format || ''}
+                    type="number"
+                    value={form.default_tax_rate || 0}
                     onChange={(e) =>
-                      setForm({ ...form, quote_format: e.target.value })
+                      setForm({
+                        ...form,
+                        default_tax_rate: Number(e.target.value),
+                      })
                     }
-                    placeholder="e.g., {YY}_{KW}KW_SOLAR PLANT_{NAME}"
                   />
-                  <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                    Tokens: {'{YY}'}, {'{YYYY}'}, {'{KW}'}, {'{SYSTEM}'},{' '}
-                    {'{NAME}'}, {'{PLACE}'}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">
+                    Deposit % (auto-invoice on Won)
+                  </label>
+                  <Input
+                    className="mt-1"
+                    type="number"
+                    value={form.deposit_percent || 0}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        deposit_percent: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">UPI ID</label>
+                  <Input
+                    className="mt-1"
+                    value={form.upi_id || ''}
+                    onChange={(e) =>
+                      setForm({ ...form, upi_id: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="border-t border-[var(--border-subtle)] pt-4 space-y-3">
+                <div>
+                  <h3 className={sectionTitleClass}>Quotes & Proposals</h3>
+                  <p className={sectionHintClass}>
+                    Numbering format, prefix, and optional notes.
                   </p>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium">UPI ID</label>
-                <Input
-                  className="mt-1"
-                  value={form.upi_id || ''}
-                  onChange={(e) => setForm({ ...form, upi_id: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium">Company Name</label>
-                  <Input
-                    className="mt-1"
-                    value={form.company_name || ''}
-                    onChange={(e) =>
-                      setForm({ ...form, company_name: e.target.value })
-                    }
-                    placeholder="Your company legal/trade name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">
-                    Company Phone
-                  </label>
-                  <Input
-                    className="mt-1"
-                    value={form.company_phone || ''}
-                    onChange={(e) =>
-                      setForm({ ...form, company_phone: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">
-                    Company Email
-                  </label>
-                  <Input
-                    className="mt-1"
-                    value={form.company_email || ''}
-                    onChange={(e) =>
-                      setForm({ ...form, company_email: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">
-                    Company Address
-                  </label>
-                  <Input
-                    className="mt-1"
-                    value={form.company_address || ''}
-                    onChange={(e) =>
-                      setForm({ ...form, company_address: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">
-                    Company Logo URL
-                  </label>
-                  <Input
-                    className="mt-1"
-                    value={form.company_logo_url || ''}
-                    onChange={(e) =>
-                      setForm({ ...form, company_logo_url: e.target.value })
-                    }
-                  />
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/svg+xml"
-                      className="hidden"
-                      onChange={async (e) => {
-                        try {
-                          const f = e.target.files?.[0];
-                          if (!f) return;
-                          if (!tenantId) {
-                            setFlash('Profile not ready — cannot upload logo');
-                            return;
-                          }
-                          const ext =
-                            (f.name.split('.').pop() || '') ||
-                            (f.type === 'image/svg+xml'
-                              ? 'svg'
-                              : f.type === 'image/png'
-                                ? 'png'
-                                : f.type === 'image/jpeg'
-                                  ? 'jpg'
-                                  : 'bin');
-                          const key = `${tenantId}/logo.${ext}`;
-                          const { error } = await supabase.storage
-                            .from('documents')
-                            .upload(key, f, {
-                              upsert: true,
-                              contentType: f.type || undefined,
-                            } as any);
-                          if (error) throw error;
-                          setForm({ ...form, company_logo_url: key });
-                          setFlash('Logo uploaded. Click Save to persist.');
-                        } catch (err: any) {
-                          setFlash(String(err?.message || 'Logo upload failed'));
-                        } finally {
-                          if (logoInputRef.current) logoInputRef.current.value = '';
-                        }
-                      }}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium">
+                      Quote Prefix
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.quote_prefix || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, quote_prefix: e.target.value })
+                      }
+                      placeholder="e.g., q"
                     />
-                    <Button
-                      variant="secondary"
-                      onClick={() => logoInputRef.current?.click()}
-                    >
-                      Upload Logo
-                    </Button>
-                    <span className="text-xs text-[var(--text-tertiary)]">
-                      Stores under documents/{tenantId}/logo.* (private).
-                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">
+                      Quote Format
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.quote_format || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, quote_format: e.target.value })
+                      }
+                      placeholder="e.g., {YY}_{KW}KW_SOLAR PLANT_{NAME}"
+                    />
+                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                      Tokens: {'{YY}'}, {'{YYYY}'}, {'{KW}'}, {'{SYSTEM}'},{' '}
+                      {'{NAME}'}, {'{PLACE}'}
+                    </p>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium">
+                    Malayalam Note (Proposals)
+                  </label>
+                  <Textarea
+                    className="mt-1"
+                    value={form.proposal_note_ml || ''}
+                    onChange={(e) =>
+                      setForm({ ...form, proposal_note_ml: e.target.value })
+                    }
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium">
-                  Malayalam Note (Proposals)
-                </label>
-                <Textarea
-                  className="mt-1"
-                  value={form.proposal_note_ml || ''}
-                  onChange={(e) =>
-                    setForm({ ...form, proposal_note_ml: e.target.value })
-                  }
-                />
+              <div className="border-t border-[var(--border-subtle)] pt-4 space-y-3">
+                <div>
+                  <h3 className={sectionTitleClass}>Company Profile</h3>
+                  <p className={sectionHintClass}>
+                    Details shown on proposals and invoices.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium">
+                      Company Name
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.company_name || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, company_name: e.target.value })
+                      }
+                      placeholder="Your company legal/trade name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">
+                      Company Phone
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.company_phone || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, company_phone: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">
+                      Company Email
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.company_email || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, company_email: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium">
+                      Company Address
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.company_address || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, company_address: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium">
+                      Company Logo URL
+                    </label>
+                    <Input
+                      className="mt-1"
+                      value={form.company_logo_url || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, company_logo_url: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml"
+                    className="hidden"
+                    onChange={async (e) => {
+                      try {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        if (!tenantId) {
+                          setFlash('Profile not ready — cannot upload logo');
+                          return;
+                        }
+                        const ext =
+                          (f.name.split('.').pop() || '') ||
+                          (f.type === 'image/svg+xml'
+                            ? 'svg'
+                            : f.type === 'image/png'
+                              ? 'png'
+                              : f.type === 'image/jpeg'
+                                ? 'jpg'
+                                : 'bin');
+                        const key = `${tenantId}/logo.${ext}`;
+                        const { error } = await supabase.storage
+                          .from('documents')
+                          .upload(key, f, {
+                            upsert: true,
+                            contentType: f.type || undefined,
+                          } as any);
+                        if (error) throw error;
+                        setForm({ ...form, company_logo_url: key });
+                        setFlash('Logo uploaded. Click Save to persist.');
+                      } catch (err: any) {
+                        setFlash(String(err?.message || 'Logo upload failed'));
+                      } finally {
+                        if (logoInputRef.current)
+                          logoInputRef.current.value = '';
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    Upload Logo
+                  </Button>
+                  <span className="text-xs text-[var(--text-tertiary)]">
+                    Stores under documents/{tenantId}/logo.* (private).
+                  </span>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium">
-                  Deposit % (auto-invoice on Won)
-                </label>
-                <Input
-                  className="mt-1"
-                  type="number"
-                  value={form.deposit_percent || 0}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      deposit_percent: Number(e.target.value),
-                    })
-                  }
-                />
+              <div className="flex items-center justify-end pt-2">
+                <Button onClick={save} loading={saving}>
+                  Save
+                </Button>
               </div>
-              <Button onClick={save} loading={saving}>
-                Save
-              </Button>
-              {/* Mock mode removed for production simplicity */}
             </div>
             <div className={panelClass}>
               <h2 className="text-lg font-medium">Team & Roles</h2>
@@ -628,34 +666,54 @@ export default function SettingsPage() {
               </p>
               {myRole && (myRole === 'owner' || myRole === 'admin') && (
                 <div className={mutedPanelClass}>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                    <Input
-                      placeholder="Username"
-                      value={inviteUsername}
-                      onChange={(e) => setInviteUsername(e.target.value)}
-                    />
-                    <Input
-                      placeholder="Temp password (optional)"
-                      type="password"
-                      value={invitePassword}
-                      onChange={(e) => setInvitePassword(e.target.value)}
-                    />
-                    <Select
-                      value={inviteRole}
-                      onChange={(e) => setInviteRole(e.target.value as any)}
-                    >
-                      <option value="owner">Owner</option>
-                      <option value="admin">Admin</option>
-                      <option value="manager">Manager</option>
-                      <option value="sales">Sales</option>
-                      <option value="technician">Technician</option>
-                      <option value="accountant">Accountant</option>
-                      <option value="viewer">Viewer</option>
-                      <option value="staff">Staff (legacy)</option>
-                    </Select>
-                    <Button onClick={invite} loading={inviting}>
-                      Create
-                    </Button>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                    <div>
+                      <label className="text-xs font-medium text-[var(--text-tertiary)]">
+                        Username
+                      </label>
+                      <Input
+                        className="mt-1"
+                        placeholder="e.g., renewg.domain"
+                        value={inviteUsername}
+                        onChange={(e) => setInviteUsername(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-[var(--text-tertiary)]">
+                        Temp Password
+                      </label>
+                      <Input
+                        className="mt-1"
+                        placeholder="Optional"
+                        type="password"
+                        value={invitePassword}
+                        onChange={(e) => setInvitePassword(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-[var(--text-tertiary)]">
+                        Role
+                      </label>
+                      <Select
+                        className="mt-1"
+                        value={inviteRole}
+                        onChange={(e) => setInviteRole(e.target.value as any)}
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="sales">Sales</option>
+                        <option value="technician">Technician</option>
+                        <option value="accountant">Accountant</option>
+                        <option value="viewer">Viewer</option>
+                        <option value="staff">Staff (legacy)</option>
+                      </Select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={invite} loading={inviting}>
+                        Create
+                      </Button>
+                    </div>
                   </div>
                   <div className="mt-2 text-xs text-[var(--text-tertiary)]">
                     New users are created with a username + password. If you
@@ -1005,7 +1063,7 @@ export default function SettingsPage() {
               Create and manage your branches. Deleting a branch clears branch
               on related records.
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
               <Input
                 placeholder="New branch name"
                 value={newBranch}

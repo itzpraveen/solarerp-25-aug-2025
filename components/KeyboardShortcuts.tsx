@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 export default function KeyboardShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
+      const key = (e.key || '').toLowerCase();
+      if (!key) return;
       // Dot focuses command palette
       if (key === '.' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         window.dispatchEvent(new Event('open-cmdk'));

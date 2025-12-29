@@ -90,7 +90,7 @@ export default function OverviewPage() {
         // Recent payments (filter by branch via join to invoices and jobs)
         let payQ = supabase
           .from('payments')
-          .select('id, date, amount, invoice_id, invoices!inner(job_id), invoices(jobs!inner(branch_id))')
+          .select('id, date, amount, invoice_id, invoices!inner(job_id, jobs!inner(branch_id))')
           .order('date', { ascending: false })
           .limit(5);
         if (branchId !== 'all')

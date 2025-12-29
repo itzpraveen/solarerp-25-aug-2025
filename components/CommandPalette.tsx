@@ -32,12 +32,14 @@ export default function CommandPalette() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const isCmdK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
+      const rawKey = e.key || '';
+      const key = rawKey.toLowerCase();
+      const isCmdK = (e.ctrlKey || e.metaKey) && key === 'k';
       if (isCmdK) {
         e.preventDefault();
         setOpen(true);
       }
-      if (open && e.key === 'Escape') {
+      if (open && (rawKey === 'Escape' || key === 'escape')) {
         e.preventDefault();
         close();
       }
