@@ -80,7 +80,7 @@ function JobDetailPageInner() {
             if (history.length > 1) history.back();
             else window.location.href = '/jobs';
           }}
-          className="text-sm text-blue-600"
+          className="text-sm text-[var(--primary-600)]"
         >
           Back
         </button>
@@ -158,7 +158,7 @@ function JobDetailPageInner() {
                 {job?.customer_id && (
                   <div>
                     <a
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       href={`/customers/${job.customer_id}`}
                     >
                       View customer profile
@@ -179,7 +179,7 @@ function JobDetailPageInner() {
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                     >
                       Open in Maps
                     </a>
@@ -207,7 +207,7 @@ function JobDetailPageInner() {
                       )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                     >
                       Open in Maps
                     </a>
@@ -583,7 +583,7 @@ function ServiceForJob({ jobId }: { jobId: string }) {
               <span className="truncate">{r.summary || '—'}</span>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-600">{r.status}</span>
-                <a className="text-blue-600" href={`/service/${r.id}`}>
+                <a className="text-[var(--primary-600)]" href={`/service/${r.id}`}>
                   Open
                 </a>
               </div>
@@ -721,7 +721,7 @@ function Finance({ jobId }: { jobId: string }) {
         </ul>
         <div className="mt-3 space-y-2">
           <button
-            className="text-blue-600 text-sm"
+            className="text-[var(--primary-600)] text-sm"
             onClick={() => setShowInv((v) => !v)}
           >
             {showInv ? 'Hide' : 'New Invoice'}
@@ -745,7 +745,7 @@ function Finance({ jobId }: { jobId: string }) {
                 onChange={(e) => setInvAmt(Number(e.target.value))}
               />
               <button
-                className="rounded bg-blue-600 px-3 py-2 text-white text-sm"
+                className="rounded bg-[var(--primary-600)] px-3 py-2 text-white text-sm"
                 onClick={async () => {
                   const { ensureProfileIfMissing } = await import('@/lib/ensureProfileClient');
                   const tenantId = await ensureProfileIfMissing(supabase as any);
@@ -848,7 +848,7 @@ function Finance({ jobId }: { jobId: string }) {
           {payMode === 'UPI' && upiId && payAmt > 0 && (
             <div className="text-xs text-gray-600">
               <a
-                className="text-blue-600"
+                className="text-[var(--primary-600)]"
                 href={`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(companyName || 'Company')}&am=${encodeURIComponent(String(payAmt))}&cu=INR`}
               >
                 Open UPI app to pay ₹{payAmt}
@@ -856,7 +856,7 @@ function Finance({ jobId }: { jobId: string }) {
             </div>
           )}
           <button
-            className="rounded bg-blue-600 px-3 py-2 text-white text-sm"
+            className="rounded bg-[var(--primary-600)] px-3 py-2 text-white text-sm"
             onClick={async () => {
               const { data: inv } = await supabase
                 .from('invoices')
@@ -1003,7 +1003,7 @@ function Activity({ jobId }: { jobId: string }) {
                   content = `Invoice created (${r.metadata?.type || '—'}) • ₹${r.metadata?.total ?? '—'}`;
                   action = (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       onClick={() => goTab('finance')}
                     >
                       Finance
@@ -1014,7 +1014,7 @@ function Activity({ jobId }: { jobId: string }) {
                   content = `Invoice marked ${r.metadata?.newStatus || '—'}`;
                   action = (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       onClick={() => goTab('finance')}
                     >
                       Finance
@@ -1025,7 +1025,7 @@ function Activity({ jobId }: { jobId: string }) {
                   content = `Payment recorded • ₹${r.metadata?.amount ?? '—'}`;
                   action = (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       onClick={() => goTab('finance')}
                     >
                       Finance
@@ -1037,7 +1037,7 @@ function Activity({ jobId }: { jobId: string }) {
                   action = (
                     <div className="flex items-center gap-2">
                       <button
-                        className="text-xs text-blue-600"
+                        className="text-xs text-[var(--primary-600)]"
                         onClick={() => goTab('docs')}
                       >
                         Docs
@@ -1060,7 +1060,7 @@ function Activity({ jobId }: { jobId: string }) {
                   action = (
                     <div className="flex items-center gap-2">
                       <button
-                        className="text-xs text-blue-600"
+                        className="text-xs text-[var(--primary-600)]"
                         onClick={() => goTab('proposals')}
                       >
                         Proposals
@@ -1081,7 +1081,7 @@ function Activity({ jobId }: { jobId: string }) {
                   action = (
                     <div className="flex items-center gap-2">
                       <button
-                        className="text-xs text-blue-600"
+                        className="text-xs text-[var(--primary-600)]"
                         onClick={() => goTab('proposals')}
                       >
                         Proposals
@@ -1102,7 +1102,7 @@ function Activity({ jobId }: { jobId: string }) {
                   action = (
                     <div className="flex items-center gap-2">
                       <button
-                        className="text-xs text-blue-600"
+                        className="text-xs text-[var(--primary-600)]"
                         onClick={() => goTab('proposals')}
                       >
                         Proposals
@@ -1131,7 +1131,7 @@ function Activity({ jobId }: { jobId: string }) {
                   content = `Task created: ${r.metadata?.title || '—'}`;
                   action = (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       onClick={() => goTab('tasks')}
                     >
                       Tasks
@@ -1142,7 +1142,7 @@ function Activity({ jobId }: { jobId: string }) {
                   content = `Task updated`;
                   action = (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       onClick={() => goTab('tasks')}
                     >
                       Tasks
@@ -1153,7 +1153,7 @@ function Activity({ jobId }: { jobId: string }) {
                   content = `Task deleted: ${r.metadata?.title || '—'}`;
                   action = (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-[var(--primary-600)]"
                       onClick={() => goTab('tasks')}
                     >
                       Tasks
@@ -1300,7 +1300,7 @@ function Proposals({ jobId }: { jobId: string }) {
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">Proposals</h3>
         <a
-          className="rounded bg-blue-600 px-3 py-2 text-white"
+          className="rounded bg-[var(--primary-600)] px-3 py-2 text-white"
           href={`/proposals/new?jobId=${jobId}`}
         >
           New Proposal
@@ -1338,7 +1338,7 @@ function Proposals({ jobId }: { jobId: string }) {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => openPdf(r.pdf_url)}
-                  className="text-blue-600"
+                  className="text-[var(--primary-600)]"
                 >
                   Open PDF
                 </button>
@@ -1581,7 +1581,7 @@ function Docs({ jobId }: { jobId: string }) {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  className="text-blue-600"
+                  className="text-[var(--primary-600)]"
                   onClick={async () => {
                     try {
                       if (!looksLikeKey) {
@@ -2049,7 +2049,7 @@ function Tasks({ jobId }: { jobId: string }) {
                                 ? 'border-orange-500 text-orange-600'
                                 : t.priority === 'Low'
                                   ? 'border-gray-400 text-gray-600'
-                                  : 'border-blue-400 text-blue-600')
+                                  : 'border-[var(--primary-500)] text-[var(--primary-600)]')
                           }
                         >
                           {t.priority || 'Medium'}
@@ -2159,7 +2159,7 @@ function Tasks({ jobId }: { jobId: string }) {
                       <>
                         {t.status !== 'InProgress' && t.status !== 'Done' && (
                           <button
-                            className="text-xs text-blue-600"
+                            className="text-xs text-[var(--primary-600)]"
                             onClick={() =>
                               updateTask(t.id, { status: 'InProgress' })
                             }

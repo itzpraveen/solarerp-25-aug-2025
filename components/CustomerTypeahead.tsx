@@ -136,7 +136,7 @@ export default function CustomerTypeahead({
           {!loading && showCreate && (
             <button
               type="button"
-              className="w-full px-3 py-2 text-left text-blue-600"
+              className="w-full px-3 py-2 text-left text-[var(--primary-600)]"
               onClick={() => onCreateRequested(term.trim())}
             >
               Create “{term.trim()}” as new customer

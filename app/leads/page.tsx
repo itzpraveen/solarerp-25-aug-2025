@@ -1171,7 +1171,7 @@ function LeadsPageInner() {
                           <td className="p-2">{renderHL(l.name || '—')}</td>
                           <td className="p-2">{renderHL(l.phone || '—')}{l.phone && (
                             <span className="ml-2 whitespace-nowrap">
-                              <a className="underline text-blue-600" href={`tel:${String(l.phone).replace(/\\D+/g, '')}`} title="Call">📞</a>
+                              <a className="underline text-[var(--primary-600)]" href={`tel:${String(l.phone).replace(/\\D+/g, '')}`} title="Call">📞</a>
                               <a className="ml-1 underline text-green-600" href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`} target="_blank" rel="noreferrer" title="WhatsApp">🟢</a>
                             </span>
                           )}
@@ -1198,7 +1198,7 @@ function LeadsPageInner() {
                             {(l as any)._jobOnly ? (
                               <a
                                 href={`/jobs/${(l as any)._jobId}`}
-                                className="text-blue-600 text-sm"
+                                className="text-[var(--primary-600)] text-sm"
                                 title="Open job"
                               >
                                 Open

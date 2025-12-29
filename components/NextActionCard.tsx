@@ -63,7 +63,7 @@ export default function NextActionCard({ jobId }: { jobId: string }) {
       title="Next Actions"
       actions={
         <Link
-          className="text-xs text-blue-600"
+          className="text-xs text-[var(--primary-600)]"
           href={`/jobs/${jobId}?tab=tasks#tasks`}
         >
           View all

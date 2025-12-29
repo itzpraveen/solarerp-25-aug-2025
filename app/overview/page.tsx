@@ -443,7 +443,7 @@ export default function OverviewPage() {
                   </span>
                   <div className="flex items-center gap-2">
                     <QuickContact phone={l.phone} messageTemplate={`Hi ${l.name || ''}, following up on your solar enquiry.`} />
-                    <a className="text-blue-600" href="/leads">
+                    <a className="text-[var(--primary-600)]" href="/leads">
                       Open
                     </a>
                   </div>
@@ -465,7 +465,7 @@ export default function OverviewPage() {
                     {i.due_date || '—'}
                   </span>
                   <a
-                    className="text-blue-600"
+                    className="text-[var(--primary-600)]"
                     href={`/jobs/${i.job_id}?tab=finance`}
                   >
                     Collect
@@ -487,7 +487,7 @@ export default function OverviewPage() {
                     {p.date || '—'} • {fCurr.format(Number(p.total || 0))}
                   </span>
                   <a
-                    className="text-blue-600"
+                    className="text-[var(--primary-600)]"
                     href={`/jobs/${p.job_id}?tab=proposals`}
                   >
                     Open
@@ -510,13 +510,13 @@ export default function OverviewPage() {
                   </span>
                   {paymentInvoiceJobMap[p.invoice_id] ? (
                     <a
-                      className="text-blue-600"
+                      className="text-[var(--primary-600)]"
                       href={`/jobs/${paymentInvoiceJobMap[p.invoice_id]}?tab=finance`}
                     >
                       Finance
                     </a>
                   ) : (
-                    <a className="text-blue-600" href="/jobs">
+                    <a className="text-[var(--primary-600)]" href="/jobs">
                       Jobs
                     </a>
                   )}
@@ -589,7 +589,7 @@ export default function OverviewPage() {
                 <li key={t.id} className="flex items-center justify-between">
                   <span className="truncate">{t.title || '—'}</span>
                   <a
-                    className="text-blue-600"
+                    className="text-[var(--primary-600)]"
                     href={`/jobs/${t.job_id}?tab=tasks`}
                   >
                     Open
@@ -610,7 +610,7 @@ export default function OverviewPage() {
                     {t.title || '—'} • Due {t.due_date || '—'}
                   </span>
                   <a
-                    className="text-blue-600"
+                    className="text-[var(--primary-600)]"
                     href={`/jobs/${t.job_id}?tab=tasks`}
                   >
                     Open

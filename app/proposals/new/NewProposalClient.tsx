@@ -548,7 +548,7 @@ export default function NewProposalClient() {
             {signedUrl && pdfKey && leadId && (
               <div className="mt-3">
                 <button
-                  className="rounded bg-blue-600 px-3 py-2 text-white"
+                  className="rounded bg-[var(--primary-600)] px-3 py-2 text-white"
                   onClick={async () => {
                     try {
                       const l = (leads || []).find((x) => x.id === leadId);
@@ -1503,7 +1503,7 @@ export default function NewProposalClient() {
         </div>
         <button
           onClick={generate}
-          className="rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-50"
+          className="rounded bg-[var(--primary-600)] px-3 py-2 text-white disabled:opacity-50"
           disabled={generating}
         >
           {generating ? 'Generating…' : 'Generate PDF'}
@@ -1609,7 +1609,7 @@ export default function NewProposalClient() {
       {signedUrl && (
         <div className="rounded border bg-white p-4">
           <h3 className="font-semibold">PDF</h3>
-          <a className="text-blue-600" target="_blank" rel="noreferrer" href={signedUrl}>
+          <a className="text-[var(--primary-600)]" target="_blank" rel="noreferrer" href={signedUrl}>
             Open PDF
           </a>
           {(customer?.phone ||

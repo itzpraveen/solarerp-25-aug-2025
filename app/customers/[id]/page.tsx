@@ -108,7 +108,7 @@ export default function CustomerDetail() {
           <RequirePermission perm="jobs.edit">
             <button
               onClick={() => setJobOpen((v) => !v)}
-              className="rounded bg-blue-600 px-3 py-2 text-white"
+              className="rounded bg-[var(--primary-600)] px-3 py-2 text-white"
             >
               {jobOpen ? 'Close' : 'New Job'}
             </button>
@@ -263,7 +263,7 @@ export default function CustomerDetail() {
               <span>
                 {j.system_type} • {j.status}
               </span>
-              <a className="text-blue-600" href={`/jobs/${j.id}`}>
+              <a className="text-[var(--primary-600)]" href={`/jobs/${j.id}`}>
                 Open
               </a>
             </li>

@@ -160,7 +160,7 @@ export default function ServiceTickets() {
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-600">{t.status}</span>
                   <a
-                    className="text-blue-600 text-sm"
+                    className="text-[var(--primary-600)] text-sm"
                     href={`/service/${t.id}`}
                   >
                     Open

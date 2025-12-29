@@ -103,7 +103,7 @@ export default function ProposalsListPage() {
           </label>
           <a
             href="/proposals/new"
-            className="rounded bg-blue-600 px-3 py-2 text-white text-sm"
+            className="rounded bg-[var(--primary-600)] px-3 py-2 text-white text-sm"
           >
             New Proposal
           </a>

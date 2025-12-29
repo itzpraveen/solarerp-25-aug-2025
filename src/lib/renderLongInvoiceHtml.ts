@@ -273,15 +273,15 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   .table { width: 100%; border-collapse: collapse; }
   .table th, .table td { border: 1px solid #e6e8ef; padding: 8px; vertical-align: top; }
   .right { text-align: right; }
-  .tag { display:inline-block; padding:2px 8px; border:1px solid #c8ceda; background:#f7f9ff; border-radius: 999px; font-size: 12px; color:#223; }
+  .tag { display:inline-block; padding:2px 8px; border:1px solid #b2e4ca; background:#f2fbf6; border-radius: 999px; font-size: 12px; color:#223; }
   .page-break { page-break-before: always; }
   .kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: #666; margin-bottom: 4px; }
-  .accent { background: #f6f8ff; border-color: #c9d2ff; }
-  .header { border: 1px solid #c9d2ff; border-radius: 12px; padding: 14px; background: linear-gradient(180deg, #f6f8ff 0%, #ffffff 100%); }
+  .accent { background: #f2fbf6; border-color: #b2e4ca; }
+  .header { border: 1px solid #b2e4ca; border-radius: 12px; padding: 14px; background: linear-gradient(180deg, #f2fbf6 0%, #ffffff 100%); }
   .header-top { align-items: center; }
   .logo { display:flex; align-items:center; justify-content:flex-end; }
   .logo img { max-height: 56px; max-width: 45%; height:auto; width:auto; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
-  .summary { border:1px dashed #c9d2ff; border-radius:8px; padding:8px; margin-top:6px; background:#fafbff; }
+  .summary { border:1px dashed #b2e4ca; border-radius:8px; padding:8px; margin-top:6px; background:#f2fbf6; }
   .summary .row { gap:8px; }
   .summary .label { color:#445; }
   .summary .value { font-weight:600; }

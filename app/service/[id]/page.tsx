@@ -89,7 +89,7 @@ export default function ServiceTicketDetail() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Service Ticket</h1>
-        <a className="text-blue-600 text-sm" href="/service">
+        <a className="text-[var(--primary-600)] text-sm" href="/service">
           Back
         </a>
       </div>

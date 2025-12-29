@@ -250,7 +250,7 @@ export default function PipelineBoard({
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <a
-                          className="inline-block text-xs text-blue-600 dark:text-blue-400"
+                          className="inline-block text-xs text-[var(--primary-600)] dark:text-[var(--primary-600)]"
                           href={`/jobs/${j.id}`}
                         >
                           Open

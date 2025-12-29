@@ -12,7 +12,7 @@ export default function Breadcrumbs({
         <span key={i}>
           {i > 0 && <span className="mx-1">/</span>}
           {it.href ? (
-            <Link className="text-blue-600" href={it.href}>
+            <Link className="text-[var(--primary-600)]" href={it.href}>
               {it.label}
             </Link>
           ) : (

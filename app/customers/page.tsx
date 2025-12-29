@@ -281,7 +281,7 @@ export default function CustomersPage() {
                 header: 'Actions',
                 render: (c: any) => (
                   <div className="flex items-center gap-2">
-                    <a href={`/customers/${c.id}`} className="text-blue-600">
+                    <a href={`/customers/${c.id}`} className="text-[var(--primary-600)]">
                       Open
                     </a>
                     <RequireOwner>

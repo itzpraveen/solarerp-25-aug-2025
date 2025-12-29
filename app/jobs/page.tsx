@@ -356,7 +356,7 @@ export default function JobsPage() {
                       key={s}
                       type="button"
                       onClick={() => setSystemType(s)}
-                      className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}
+                      className={`rounded border px-2 py-1 text-sm ${systemType === s ? 'bg-[var(--primary-600)] text-white border-[var(--primary-600)]' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700'}`}
                     >
                       {s}
                     </button>
@@ -390,7 +390,7 @@ export default function JobsPage() {
             <div>
               <button
                 type="button"
-                className="text-xs text-blue-600"
+                className="text-xs text-[var(--primary-600)]"
                 onClick={() => setShowMore((v) => !v)}
               >
                 {showMore ? 'Hide options' : 'More options'}

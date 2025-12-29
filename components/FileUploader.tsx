@@ -39,7 +39,7 @@ export default function FileUploader({
       />
       <button
         onClick={upload}
-        className="rounded bg-blue-600 px-3 py-2 text-white"
+        className="rounded bg-[var(--primary-600)] px-3 py-2 text-white"
       >
         Upload
       </button>

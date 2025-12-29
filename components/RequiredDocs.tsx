@@ -40,7 +40,7 @@ export default function RequiredDocs({ jobId, status }: { jobId: string; status:
   const missing = req.filter((r) => !have.has(r));
 
   return (
-    <Card title="Required Items" actions={<a className="text-xs text-blue-600" href={`?tab=docs`}>Docs</a>}>
+    <Card title="Required Items" actions={<a className="text-xs text-[var(--primary-600)]" href={`?tab=docs`}>Docs</a>}>
       {req.length === 0 ? (
         <div className="text-sm text-gray-600">No required documents for this stage.</div>
       ) : (

@@ -187,13 +187,13 @@ export default function CalendarPage() {
               <div className="flex items-center justify-between">
                 <div className="text-xs text-gray-500">{d.getDate()}</div>
                 {list.length > 0 && (
-                  <div className="rounded bg-blue-600/10 px-1 text-[10px] text-blue-700 dark:text-blue-300">{list.length}</div>
+                  <div className="rounded bg-[var(--primary-50)] px-1 text-[10px] text-[var(--primary-700)] dark:text-[var(--primary-600)]">{list.length}</div>
                 )}
               </div>
               <ul className="mt-1 space-y-1">
                 {list.slice(0, 4).map((t) => (
                   <li key={t.id} className="flex items-center justify-between gap-2">
-                    <a className="truncate text-blue-600" href={t.job_id ? `/jobs/${t.job_id}?tab=tasks` : '#'}>
+                    <a className="truncate text-[var(--primary-600)]" href={t.job_id ? `/jobs/${t.job_id}?tab=tasks` : '#'}>
                       {t.title || 'Task'}
                     </a>
                     <select
