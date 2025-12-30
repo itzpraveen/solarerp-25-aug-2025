@@ -19,7 +19,7 @@ import PageHeader from '~/components/ui/PageHeader';
 import { useBranchSelection } from '@/lib/useBranchSelection';
 import Select from '~/components/ui/Select';
 import Badge from '~/components/ui/Badge';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 
 function LeadsPageInner() {
   const supabase = supabaseBrowser();
@@ -74,7 +74,55 @@ function LeadsPageInner() {
   const [filterMode, setFilterMode] = useState<'open' | 'all' | 'converted'>(
     'open',
   );
-  const [sortBy, setSortBy] = useState<'score' | 'date' | 'followup'>('score');
+  type SortKey =
+    | 'date'
+    | 'name'
+    | 'phone'
+    | 'address'
+    | 'source'
+    | 'capacity'
+    | 'score'
+    | 'followup'
+    | 'last_contacted'
+    | 'status'
+    | 'branch'
+    | 'remarks';
+  type SortDirection = 'asc' | 'desc';
+  const sortDefaults: Record<SortKey, SortDirection> = {
+    date: 'desc',
+    name: 'asc',
+    phone: 'asc',
+    address: 'asc',
+    source: 'asc',
+    capacity: 'desc',
+    score: 'desc',
+    followup: 'asc',
+    last_contacted: 'desc',
+    status: 'asc',
+    branch: 'asc',
+    remarks: 'asc',
+  };
+  const [sortBy, setSortBy] = useState<{
+    key: SortKey;
+    dir: SortDirection;
+  }>({
+    key: 'score',
+    dir: 'desc',
+  });
+  const sortColumns: Record<SortKey, string> = {
+    date: 'date',
+    name: 'name',
+    phone: 'phone',
+    address: 'address',
+    source: 'source',
+    capacity: 'interested_capacity_kw',
+    score: 'score',
+    followup: 'next_follow_up_date',
+    last_contacted: 'last_contacted_at',
+    status: 'status',
+    branch: 'branch_id',
+    remarks: 'notes',
+  };
   const initialDue =
     (search.get('due') || '').toLowerCase() === 'today' ||
     (search.get('due') || '') === '1';
@@ -307,17 +355,24 @@ function LeadsPageInner() {
       </div>
     </div>
   );
-  const renderSortHeader = (
-    value: 'score' | 'date' | 'followup',
-    label: string,
-    direction: 'asc' | 'desc',
-  ) => {
-    const active = sortBy === value;
-    const Icon = direction === 'asc' ? ArrowUp : ArrowDown;
+  const renderSortHeader = (value: SortKey, label: string) => {
+    const active = sortBy.key === value;
+    const direction = active ? sortBy.dir : sortDefaults[value];
+    const Icon = active
+      ? direction === 'asc'
+        ? ArrowUp
+        : ArrowDown
+      : ArrowUpDown;
     return (
       <button
         type="button"
-        onClick={() => setSortBy(value)}
+        onClick={() =>
+          setSortBy((prev) =>
+            prev.key === value
+              ? { key: value, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+              : { key: value, dir: sortDefaults[value] },
+          )
+        }
         title={`Sort by ${label.toLowerCase()}`}
         className={
           'inline-flex items-center gap-1 font-semibold transition-colors ' +
@@ -338,6 +393,12 @@ function LeadsPageInner() {
       </button>
     );
   };
+  const getAriaSort = (value: SortKey) =>
+    sortBy.key === value
+      ? sortBy.dir === 'asc'
+        ? 'ascending'
+        : 'descending'
+      : 'none';
   // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
   const getTenantId = useCallback(async (): Promise<string | null> => {
     // Ensure a profile exists; if not, try to create when self‑signup is on
@@ -453,17 +514,14 @@ function LeadsPageInner() {
       );
     }
     // Sorting
-    if (sortBy === 'score') {
-      q = q.order('score', { ascending: false }).order('date', {
-        ascending: false,
-      });
-    } else if (sortBy === 'followup') {
-      q = q
-        .order('next_follow_up_date', { ascending: true, nullsFirst: true })
-        .order('date', { ascending: false });
-    } else {
-      q = q.order('date', { ascending: false });
-    }
+    const sortColumn = sortColumns[sortBy.key];
+    const ascending = sortBy.dir === 'asc';
+    const orderOptions: { ascending: boolean; nullsFirst?: boolean } = {
+      ascending,
+    };
+    if (sortBy.key === 'followup') orderOptions.nullsFirst = ascending;
+    q = q.order(sortColumn, orderOptions);
+    if (sortBy.key !== 'date') q = q.order('date', { ascending: false });
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     const { data, count, error } = await q.range(from, to);
@@ -1080,8 +1138,13 @@ function LeadsPageInner() {
                     { label: 'Date', value: 'date' },
                     { label: 'Follow-up', value: 'followup' },
                   ]}
-                  value={sortBy}
-                  onChange={(v) => setSortBy(v as any)}
+                  value={sortBy.key}
+                  onChange={(v) =>
+                    setSortBy({
+                      key: v as SortKey,
+                      dir: sortDefaults[v as SortKey],
+                    })
+                  }
                 />
               </div>
               <div className="flex-1 min-w-[220px]">
@@ -1536,53 +1599,65 @@ function LeadsPageInner() {
             </div>
             <div className="hidden md:block overflow-x-auto">
               <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
-              <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  <th className="p-2">
-                    <input
-                      type="checkbox"
-                      onChange={(e) => {
-                        const v = e.target.checked;
-                        const map: Record<string, boolean> = {};
-                        (leads || []).forEach((l) => {
-                          if (!(l as any)._jobOnly) map[l.id] = v;
-                        });
-                        setSelected(map);
-                      }}
-                    />
-                  </th>
-                  <th
-                    className="p-2"
-                    aria-sort={sortBy === 'date' ? 'descending' : 'none'}
-                  >
-                    {renderSortHeader('date', 'Date', 'desc')}
-                  </th>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Phone</th>
-                  <th className="p-2">Address</th>
-                  <th className="p-2">Source</th>
-                  <th className="p-2">Capacity (kW)</th>
-                  <th
-                    className="p-2"
-                    aria-sort={sortBy === 'score' ? 'descending' : 'none'}
-                  >
-                    {renderSortHeader('score', 'Score', 'desc')}
-                  </th>
-                  <th className="p-2">Actions</th>
-                  <th className="p-2">Manage</th>
-                  <th
-                    className="p-2"
-                    aria-sort={sortBy === 'followup' ? 'ascending' : 'none'}
-                  >
-                    {renderSortHeader('followup', 'Next Follow-up', 'asc')}
-                  </th>
-                  <th className="p-2">Last Contacted</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">Branch</th>
-                  <th className="p-2">Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
+                <thead>
+                  <tr className="border-b bg-gray-50 text-left">
+                    <th className="p-2">
+                      <input
+                        type="checkbox"
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          const map: Record<string, boolean> = {};
+                          (leads || []).forEach((l) => {
+                            if (!(l as any)._jobOnly) map[l.id] = v;
+                          });
+                          setSelected(map);
+                        }}
+                      />
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('date')}>
+                      {renderSortHeader('date', 'Date')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('name')}>
+                      {renderSortHeader('name', 'Name')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('phone')}>
+                      {renderSortHeader('phone', 'Phone')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('address')}>
+                      {renderSortHeader('address', 'Address')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('source')}>
+                      {renderSortHeader('source', 'Source')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('capacity')}>
+                      {renderSortHeader('capacity', 'Capacity (kW)')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('score')}>
+                      {renderSortHeader('score', 'Score')}
+                    </th>
+                    <th className="p-2">Actions</th>
+                    <th className="p-2">Manage</th>
+                    <th className="p-2" aria-sort={getAriaSort('followup')}>
+                      {renderSortHeader('followup', 'Next Follow-up')}
+                    </th>
+                    <th
+                      className="p-2"
+                      aria-sort={getAriaSort('last_contacted')}
+                    >
+                      {renderSortHeader('last_contacted', 'Last Contacted')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('status')}>
+                      {renderSortHeader('status', 'Status')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('branch')}>
+                      {renderSortHeader('branch', 'Branch')}
+                    </th>
+                    <th className="p-2" aria-sort={getAriaSort('remarks')}>
+                      {renderSortHeader('remarks', 'Remarks')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                 {leads.map((l) => (
                   <React.Fragment key={l.id}>
                     <tr className="border-b">
