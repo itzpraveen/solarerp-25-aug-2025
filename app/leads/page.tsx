@@ -141,6 +141,171 @@ function LeadsPageInner() {
       }
     };
   }, [debouncedSearch]);
+  const leadStatusVariant = (status?: string | null) => {
+    const v = String(status || '').toLowerCase();
+    if (!v) return 'muted';
+    if (v.includes('convert')) return 'success';
+    if (v.includes('lost') || v.includes('closed')) return 'danger';
+    if (v.includes('follow') || v.includes('due')) return 'warning';
+    if (v.includes('contact') || v.includes('new')) return 'info';
+    return 'default';
+  };
+  const renderConvertForm = (l: any) => (
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
+      {/* Hide Address input if the lead already has an address */}
+      {!((l as any)?.address) && (
+        <Input
+          className="md:col-span-2"
+          placeholder="Address"
+          value={convertForm.address}
+          onChange={(e) =>
+            setConvertForm({
+              ...convertForm,
+              address: e.target.value,
+            })
+          }
+        />
+      )}
+      <Select
+        value={convertForm.program_type}
+        onChange={(e) => {
+          const p = e.target.value as ProgramType;
+          const allowed = PROGRAM_ALLOWED_SYSTEMS[p];
+          setConvertForm((prev: any) => ({
+            ...prev,
+            program_type: p,
+            system_type: allowed.includes(prev.system_type)
+              ? prev.system_type
+              : allowed[0],
+          }));
+        }}
+      >
+        <option value="PM_Surya">PM Surya</option>
+        <option value="Commercial">Commercial</option>
+      </Select>
+      <Select
+        value={convertForm.system_type}
+        onChange={(e) =>
+          setConvertForm({
+            ...convertForm,
+            system_type: e.target.value,
+          })
+        }
+      >
+        {PROGRAM_ALLOWED_SYSTEMS[convertForm.program_type as ProgramType].map(
+          (s) => (
+            <option key={s}>{s}</option>
+          ),
+        )}
+      </Select>
+      <Input
+        type="number"
+        placeholder="Capacity kW"
+        value={convertForm.capacity_kw}
+        onChange={(e) =>
+          setConvertForm({
+            ...convertForm,
+            capacity_kw: Number(e.target.value),
+          })
+        }
+      />
+      {/* Location consolidated with Address to avoid duplication */}
+      <Input
+        placeholder="Roof Type"
+        value={convertForm.roof_type}
+        onChange={(e) =>
+          setConvertForm({
+            ...convertForm,
+            roof_type: e.target.value,
+          })
+        }
+      />
+      <div className="md:col-span-6 flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          onClick={async () => {
+            const tenantId = await getTenantId();
+            if (!tenantId) return alert('Profile not ready');
+            // Reuse existing customer by phone within tenant if present, else create
+            let customerId: string | null = null;
+            if (l.phone) {
+              const { data: existing } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('tenant_id', tenantId)
+                .eq('phone', l.phone)
+                .maybeSingle();
+              if (existing?.id) customerId = existing.id as string;
+            }
+            if (!customerId) {
+              const { data: cust } = await supabase
+                .from('customers')
+                .insert({
+                  tenant_id: tenantId,
+                  name: l.name,
+                  phone: l.phone || null,
+                  address: convertForm.address || (l as any)?.address || null,
+                })
+                .select('id')
+                .single();
+              customerId = (cust as any)!.id as string;
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            const { data: job } = await supabase
+              .from('jobs')
+              .insert({
+                tenant_id: tenantId,
+                customer_id: customerId!,
+                lead_id: l.id,
+                system_type: convertForm.system_type,
+                program_type: convertForm.program_type,
+                status: 'Lead',
+                capacity_kw: convertForm.capacity_kw,
+                location: convertForm.address || (l as any)?.address || null,
+                roof_type: convertForm.roof_type || null,
+                date_lead: (l as any)?.date || today,
+                branch_id:
+                  (l as any)?.branch_id || (branchId !== 'all' ? branchId : null),
+              })
+              .select('id')
+              .single();
+            // Immediately move to Qualified and create default tasks
+            try {
+              const { data: session } = await supabase.auth.getSession();
+              const token = session.session?.access_token;
+              if ((job as any)?.id && token) {
+                await fetch('/api/jobs/updateStatus', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    jobId: (job as any).id,
+                    newStatus: 'Qualified',
+                  }),
+                });
+              }
+            } catch {}
+            await supabase
+              .from('leads')
+              .update({ status: 'Converted' })
+              .eq('id', l.id);
+            window.location.href = `/jobs/${(job as any)!.id}`;
+          }}
+        >
+          Create
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setConvertingId(null)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
   // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
   const getTenantId = useCallback(async (): Promise<string | null> => {
     // Ensure a profile exists; if not, try to create when self‑signup is on
@@ -576,8 +741,7 @@ function LeadsPageInner() {
               value={addressInput}
               onChange={(e) => setAddressInput(e.target.value)}
             />
-            <select
-              className="rounded border px-3 py-2"
+            <Select
               value={source}
               onChange={(e) => setSource(e.target.value)}
             >
@@ -589,7 +753,7 @@ function LeadsPageInner() {
               <option>WhatsApp</option>
               <option>Facebook</option>
               <option>Other</option>
-            </select>
+            </Select>
             <Input
               type="number"
               min={0}
@@ -604,8 +768,7 @@ function LeadsPageInner() {
               value={nextFollowUp}
               onChange={(e) => setNextFollowUp(e.target.value)}
             />
-            <select
-              className="rounded border px-3 py-2"
+            <Select
               value={addBranchOverride}
               onChange={(e) => setAddBranchOverride(e.target.value)}
               title="Assign branch"
@@ -617,7 +780,7 @@ function LeadsPageInner() {
                   {b.name || '—'}
                 </option>
               ))}
-            </select>
+            </Select>
             <Input
               placeholder="Remarks"
               value={remarks}
@@ -661,15 +824,15 @@ function LeadsPageInner() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-sm">Dedupe:</label>
-              <select
-                className="rounded border px-2 py-1 text-sm"
+              <Select
+                className="w-48 !px-2 !py-1 text-sm"
                 value={dedupeMode}
                 onChange={(e) => setDedupeMode(e.target.value as any)}
               >
                 <option value="create">Create anyway</option>
                 <option value="skip">Skip duplicates</option>
                 <option value="update">Update existing</option>
-              </select>
+              </Select>
               <label className="flex items-center gap-2 text-sm">
                 <input id="createBranches" type="checkbox" defaultChecked />
                 Auto-create branches
@@ -848,7 +1011,7 @@ function LeadsPageInner() {
               </Select>
             </div>
           )}
-          <div className="rounded border bg-white overflow-x-auto">
+          <div className="rounded border bg-white">
             <div className="flex flex-wrap items-center gap-2 p-2 text-xs text-gray-600 sticky top-16 bg-white z-10 border-b">
               <label className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
                 <input
@@ -984,7 +1147,363 @@ function LeadsPageInner() {
                 </div>
               </div>
             </Modal>
-            <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
+            <div className="md:hidden space-y-2 border-t border-[var(--border-subtle)] p-2">
+              {leads.map((l) => {
+                const jobOnly = (l as any)._jobOnly;
+                const scoreValue = l.score ?? 0;
+                const isDue =
+                  l.next_follow_up_date &&
+                  l.next_follow_up_date <= todayStr;
+                return (
+                  <div key={l.id} className="rounded-lg border bg-white p-3 text-sm">
+                    {editing === l.id ? (
+                      <div className="grid grid-cols-1 gap-2">
+                        <Input
+                          value={editForm.name}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, name: e.target.value })
+                          }
+                          placeholder="Name"
+                        />
+                        <Input
+                          value={editForm.phone}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, phone: e.target.value })
+                          }
+                          placeholder="Phone"
+                        />
+                        <Input
+                          value={editForm.address || ''}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, address: e.target.value })
+                          }
+                          placeholder="Address"
+                        />
+                        <Select
+                          value={editForm.source || ''}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, source: e.target.value })
+                          }
+                        >
+                          <option value="">Source…</option>
+                          <option>Phone</option>
+                          <option>Walk-in</option>
+                          <option>Referral</option>
+                          <option>Website</option>
+                          <option>WhatsApp</option>
+                          <option>Facebook</option>
+                          <option>Other</option>
+                        </Select>
+                        <Input
+                          type="number"
+                          value={editForm.interested_capacity_kw || 0}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              interested_capacity_kw: Number(e.target.value),
+                            })
+                          }
+                          placeholder="Capacity kW"
+                        />
+                        <Input
+                          type="date"
+                          value={editForm.next_follow_up_date || ''}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              next_follow_up_date: e.target.value,
+                            })
+                          }
+                        />
+                        <Select
+                          value={editForm.branch_id || 'none'}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              branch_id:
+                                e.target.value === 'none'
+                                  ? null
+                                  : e.target.value,
+                            })
+                          }
+                        >
+                          <option value="none">Unassigned</option>
+                          {branches.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name || '—'}
+                            </option>
+                          ))}
+                        </Select>
+                        <Input
+                          value={editForm.notes || ''}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, notes: e.target.value })
+                          }
+                          placeholder="Remarks"
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              await supabase
+                                .from('leads')
+                                .update({
+                                  name: editForm.name,
+                                  phone: editForm.phone,
+                                  source: editForm.source || null,
+                                  interested_capacity_kw:
+                                    editForm.interested_capacity_kw,
+                                  address: editForm.address || null,
+                                  notes: editForm.notes || null,
+                                  next_follow_up_date:
+                                    editForm.next_follow_up_date || null,
+                                  branch_id: editForm.branch_id || null,
+                                })
+                                .eq('id', l.id);
+                              setEditing(null);
+                              load();
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditing(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            <div className="pt-1">
+                              {jobOnly ? (
+                                <input
+                                  type="checkbox"
+                                  disabled
+                                  title="Job card (read-only)"
+                                />
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  checked={!!selected[l.id]}
+                                  onChange={(e) =>
+                                    setSelected({
+                                      ...selected,
+                                      [l.id]: e.target.checked,
+                                    })
+                                  }
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-semibold">
+                                {renderHL(l.name || '—')}
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {renderHL(l.phone || '—')}
+                                {l.phone && (
+                                  <span className="ml-2 whitespace-nowrap">
+                                    <a
+                                      className="underline text-[var(--primary-600)]"
+                                      href={`tel:${String(l.phone).replace(/\\D+/g, '')}`}
+                                      title="Call"
+                                    >
+                                      📞
+                                    </a>
+                                    <a
+                                      className="ml-1 underline text-green-600"
+                                      href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="WhatsApp"
+                                    >
+                                      🟢
+                                    </a>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge
+                              variant={
+                                scoreValue >= 40
+                                  ? 'danger'
+                                  : scoreValue >= 25
+                                    ? 'warning'
+                                    : 'default'
+                              }
+                            >
+                              {scoreValue}
+                            </Badge>
+                            <Badge
+                              variant={leadStatusVariant(l.status) as any}
+                            >
+                              {l.status || '—'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-600">
+                          {renderHL(l.address || '—')}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                          <span>Source: {renderHL(l.source || '—')}</span>
+                          <span>
+                            Capacity: {l.interested_capacity_kw ?? '—'} kW
+                          </span>
+                          <span
+                            className={
+                              isDue ? 'text-red-600 font-medium' : undefined
+                            }
+                          >
+                            Next: {l.next_follow_up_date || '—'}
+                          </span>
+                          <span>Last: {l.last_contacted_at || '—'}</span>
+                          <span>
+                            Branch:{' '}
+                            {l.branch_id
+                              ? branchNames[l.branch_id] || '—'
+                              : '—'}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-600">
+                          <span title={l.notes || ''}>
+                            {renderHL(l.notes || '—')}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {jobOnly ? (
+                            <a
+                              href={`/jobs/${(l as any)._jobId}`}
+                              className="text-[var(--primary-600)] text-sm"
+                              title="Open job"
+                            >
+                              Open
+                            </a>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                confirm({
+                                  title: 'Convert lead',
+                                  description: 'Convert this lead to a Job?',
+                                  confirmText: 'Convert',
+                                }).then((ok) => {
+                                  if (!ok) return;
+                                  setConvertingId(l.id);
+                                  setConvertForm({
+                                    address: (l as any)?.address || '',
+                                    program_type: 'PM_Surya',
+                                    system_type: 'On-grid',
+                                    capacity_kw:
+                                      l.interested_capacity_kw || 1,
+                                    location: '',
+                                    roof_type: '',
+                                  });
+                                });
+                              }}
+                            >
+                              Convert
+                            </Button>
+                          )}
+                          {!jobOnly && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditing(l.id);
+                                  setEditForm(l);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <RequireOwner>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const ok = await confirm({
+                                      title: 'Delete lead',
+                                      description:
+                                        'Are you sure you want to permanently delete this lead?',
+                                      confirmText: 'Delete',
+                                    });
+                                    if (!ok) return;
+                                    await supabase
+                                      .from('leads')
+                                      .delete()
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </RequireOwner>
+                              {l.phone && (
+                                <a
+                                  href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded border px-2 py-1 text-sm"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const d = prompt(
+                                    'Set next follow-up (YYYY-MM-DD):',
+                                    l.next_follow_up_date || todayStr,
+                                  );
+                                  if (!d) return;
+                                  await supabase
+                                    .from('leads')
+                                    .update({ next_follow_up_date: d })
+                                    .eq('id', l.id);
+                                  load();
+                                }}
+                              >
+                                Set Next
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  await supabase
+                                    .from('leads')
+                                    .update({
+                                      last_contacted_at: todayStr,
+                                      status: 'Contacted',
+                                    })
+                                    .eq('id', l.id);
+                                  load();
+                                }}
+                              >
+                                Mark contacted
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {convertingId === l.id && (
+                      <div className="mt-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)]/40 p-3">
+                        {renderConvertForm(l)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden md:block overflow-x-auto">
+              <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
               <thead>
                 <tr className="border-b bg-gray-50 text-left">
                   <th className="p-2">
@@ -1077,8 +1596,7 @@ function LeadsPageInner() {
                             />
                           </td>
                           <td className="p-2">
-                            <select
-                              className="rounded border px-3 py-2 w-full"
+                            <Select
                               value={editForm.source || ''}
                               onChange={(e) =>
                                 setEditForm({
@@ -1095,7 +1613,7 @@ function LeadsPageInner() {
                               <option>WhatsApp</option>
                               <option>Facebook</option>
                               <option>Other</option>
-                            </select>
+                            </Select>
                           </td>
                           <td className="p-2">
                             <Input
@@ -1127,12 +1645,13 @@ function LeadsPageInner() {
                           <td className="p-2 text-xs text-gray-600">
                             {l.last_contacted_at || '—'}
                           </td>
-                          <td className="p-2 text-xs text-gray-600">
-                            {l.status || '—'}
+                          <td className="p-2 text-xs">
+                            <Badge variant={leadStatusVariant(l.status) as any}>
+                              {l.status || '—'}
+                            </Badge>
                           </td>
                           <td className="p-2">
-                            <select
-                              className="w-full rounded border px-3 py-2"
+                            <Select
                               value={editForm.branch_id || 'none'}
                               onChange={(e) =>
                                 setEditForm({
@@ -1150,7 +1669,7 @@ function LeadsPageInner() {
                                   {b.name || '—'}
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                           </td>
                           <td className="p-2">
                             <Input
@@ -1395,8 +1914,10 @@ function LeadsPageInner() {
                           <td className="p-2 text-xs text-gray-600">
                             {l.last_contacted_at || '—'}
                           </td>
-                          <td className="p-2 text-xs text-gray-600">
-                            {l.status || '—'}
+                          <td className="p-2 text-xs">
+                            <Badge variant={leadStatusVariant(l.status) as any}>
+                              {l.status || '—'}
+                            </Badge>
                           </td>
                           <td className="p-2 text-xs">
                             {l.branch_id ? (
@@ -1417,175 +1938,7 @@ function LeadsPageInner() {
                     {convertingId === l.id && (
                       <tr className="bg-gray-50" key={`${l.id}-convert`}>
                         <td className="p-2" colSpan={8}>
-                          <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
-                            {/* Hide Address input if the lead already has an address */}
-                            {!((l as any)?.address) && (
-                              <Input
-                                className="md:col-span-2"
-                                placeholder="Address"
-                                value={convertForm.address}
-                                onChange={(e) =>
-                                  setConvertForm({
-                                    ...convertForm,
-                                    address: e.target.value,
-                                  })
-                                }
-                              />
-                            )}
-                            <select
-                              className="rounded border px-3 py-2"
-                              value={convertForm.program_type}
-                              onChange={(e) => {
-                                const p = e.target.value as ProgramType;
-                                const allowed = PROGRAM_ALLOWED_SYSTEMS[p];
-                                setConvertForm((prev: any) => ({
-                                  ...prev,
-                                  program_type: p,
-                                  system_type: allowed.includes(
-                                    prev.system_type,
-                                  )
-                                    ? prev.system_type
-                                    : allowed[0],
-                                }));
-                              }}
-                            >
-                              <option value="PM_Surya">PM Surya</option>
-                              <option value="Commercial">Commercial</option>
-                            </select>
-                            <select
-                              className="rounded border px-3 py-2"
-                              value={convertForm.system_type}
-                              onChange={(e) =>
-                                setConvertForm({
-                                  ...convertForm,
-                                  system_type: e.target.value,
-                                })
-                              }
-                            >
-                              {PROGRAM_ALLOWED_SYSTEMS[
-                                convertForm.program_type as ProgramType
-                              ].map((s) => (
-                                <option key={s}>{s}</option>
-                              ))}
-                            </select>
-                            <Input
-                              type="number"
-                              placeholder="Capacity kW"
-                              value={convertForm.capacity_kw}
-                              onChange={(e) =>
-                                setConvertForm({
-                                  ...convertForm,
-                                  capacity_kw: Number(e.target.value),
-                                })
-                              }
-                            />
-                            {/* Location consolidated with Address to avoid duplication */}
-                            <Input
-                              placeholder="Roof Type"
-                              value={convertForm.roof_type}
-                              onChange={(e) =>
-                                setConvertForm({
-                                  ...convertForm,
-                                  roof_type: e.target.value,
-                                })
-                              }
-                            />
-                            <div className="md:col-span-6 flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={async () => {
-                                  const tenantId = await getTenantId();
-                                  if (!tenantId) return alert('Profile not ready');
-                                  // Reuse existing customer by phone within tenant if present, else create
-                                  let customerId: string | null = null;
-                                  if (l.phone) {
-                                    const { data: existing } = await supabase
-                                      .from('customers')
-                                      .select('id')
-                                      .eq('tenant_id', tenantId)
-                                      .eq('phone', l.phone)
-                                      .maybeSingle();
-                                    if (existing?.id)
-                                      customerId = existing.id as string;
-                                  }
-                                  if (!customerId) {
-                                    const { data: cust } = await supabase
-                                      .from('customers')
-                                      .insert({
-                                        tenant_id: tenantId,
-                                        name: l.name,
-                                        phone: l.phone || null,
-                                        address:
-                                          convertForm.address ||
-                                          (l as any)?.address ||
-                                          null,
-                                      })
-                                      .select('id')
-                                      .single();
-                                    customerId = (cust as any)!.id as string;
-                                  }
-                                  const today = new Date()
-                                    .toISOString()
-                                    .slice(0, 10);
-                                  const { data: job } = await supabase
-                                    .from('jobs')
-                                    .insert({
-                                      tenant_id: tenantId,
-                                      customer_id: customerId!,
-                                      lead_id: l.id,
-                                      system_type: convertForm.system_type,
-                                      program_type: convertForm.program_type,
-                                      status: 'Lead',
-                                      capacity_kw: convertForm.capacity_kw,
-                                      location:
-                                        convertForm.address ||
-                                        (l as any)?.address ||
-                                        null,
-                                      roof_type: convertForm.roof_type || null,
-                                      date_lead: (l as any)?.date || today,
-                                      branch_id:
-                                        (l as any)?.branch_id ||
-                                        (branchId !== 'all' ? branchId : null),
-                                    })
-                                    .select('id')
-                                    .single();
-                                  // Immediately move to Qualified and create default tasks
-                                  try {
-                                    const { data: session } =
-                                      await supabase.auth.getSession();
-                                    const token = session.session?.access_token;
-                                    if ((job as any)?.id && token) {
-                                      await fetch('/api/jobs/updateStatus', {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                          Authorization: `Bearer ${token}`,
-                                        },
-                                        body: JSON.stringify({
-                                          jobId: (job as any).id,
-                                          newStatus: 'Qualified',
-                                        }),
-                                      });
-                                    }
-                                  } catch {}
-                                  await supabase
-                                    .from('leads')
-                                    .update({ status: 'Converted' })
-                                    .eq('id', l.id);
-                                  window.location.href = `/jobs/${(job as any)!.id}`;
-                                }}
-                              >
-                                Create
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setConvertingId(null)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
+                          {renderConvertForm(l)}
                         </td>
                       </tr>
                     )}
@@ -1593,6 +1946,7 @@ function LeadsPageInner() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
           {/* Bottom pager */}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">

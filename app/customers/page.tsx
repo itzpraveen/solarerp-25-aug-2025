@@ -250,7 +250,97 @@ export default function CustomersPage() {
         />
       ) : (
         <>
-          <div className="rounded border bg-white overflow-x-auto">
+          <div className="md:hidden space-y-2">
+            <div className="flex items-center justify-between rounded border bg-white p-2 text-xs text-gray-600">
+              <div className="flex items-center gap-2">
+                <span>Rows:</span>
+                <Select
+                  className="w-20 !px-2 !py-1 text-xs"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                Page {page} of {totalPages} • {totalCount}
+              </div>
+            </div>
+            {customers.map((c) => (
+              <div key={c.id} className="rounded-lg border bg-white p-3 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-semibold">{c.name || '—'}</div>
+                    <div className="text-xs text-gray-600">
+                      {c.phone || '—'} • {c.email || '—'}
+                    </div>
+                  </div>
+                  <a
+                    href={`/customers/${c.id}`}
+                    className="text-[var(--primary-600)] text-sm"
+                  >
+                    Open
+                  </a>
+                </div>
+                <div className="mt-2 text-xs text-gray-600">
+                  {c.address || '—'}
+                </div>
+                <RequireOwner>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {c.deleted_at ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={async () => {
+                          await supabase
+                            .from('customers')
+                            .update({ deleted_at: null })
+                            .eq('id', c.id);
+                          load();
+                          toast({
+                            title: 'Customer restored',
+                            variant: 'success',
+                          });
+                        }}
+                      >
+                        Restore
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={async () => {
+                          const ok = confirm(
+                            'Soft-delete this customer? Their jobs and documents will remain.',
+                          );
+                          if (!ok) return;
+                          await supabase
+                            .from('customers')
+                            .update({ deleted_at: new Date().toISOString() })
+                            .eq('id', c.id);
+                          load();
+                          toast({
+                            title: 'Customer deleted',
+                            variant: 'success',
+                          });
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </RequireOwner>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block rounded border bg-white overflow-x-auto">
             <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
               <div className="flex items-center gap-2">
                 <span>Rows:</span>
@@ -276,67 +366,72 @@ export default function CustomersPage() {
             <DataTable
               rows={customers}
               columns={
-            [
-              { key: 'name', header: 'Name' },
-              { key: 'phone', header: 'Phone' },
-              { key: 'email', header: 'Email' },
-              { key: 'address', header: 'Address' },
-              {
-                key: 'actions',
-                header: 'Actions',
-                render: (c: any) => (
-                  <div className="flex items-center gap-2">
-                    <a href={`/customers/${c.id}`} className="text-[var(--primary-600)]">
-                      Open
-                    </a>
-                    <RequireOwner>
-                      {c.deleted_at ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={async () => {
-                            await supabase
-                              .from('customers')
-                              .update({ deleted_at: null })
-                              .eq('id', c.id);
-                            load();
-                            toast({
-                              title: 'Customer restored',
-                              variant: 'success',
-                            });
-                          }}
+                [
+                  { key: 'name', header: 'Name' },
+                  { key: 'phone', header: 'Phone' },
+                  { key: 'email', header: 'Email' },
+                  { key: 'address', header: 'Address' },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    render: (c: any) => (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`/customers/${c.id}`}
+                          className="text-[var(--primary-600)]"
                         >
-                          Restore
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={async () => {
-                            const ok = confirm(
-                              'Soft-delete this customer? Their jobs and documents will remain.',
-                            );
-                            if (!ok) return;
-                            await supabase
-                              .from('customers')
-                              .update({ deleted_at: new Date().toISOString() })
-                              .eq('id', c.id);
-                            load();
-                            toast({
-                              title: 'Customer deleted',
-                              variant: 'success',
-                            });
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </RequireOwner>
-                  </div>
-                ),
-              },
-            ] as Column<any>[]
-          }
+                          Open
+                        </a>
+                        <RequireOwner>
+                          {c.deleted_at ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={async () => {
+                                await supabase
+                                  .from('customers')
+                                  .update({ deleted_at: null })
+                                  .eq('id', c.id);
+                                load();
+                                toast({
+                                  title: 'Customer restored',
+                                  variant: 'success',
+                                });
+                              }}
+                            >
+                              Restore
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={async () => {
+                                const ok = confirm(
+                                  'Soft-delete this customer? Their jobs and documents will remain.',
+                                );
+                                if (!ok) return;
+                                await supabase
+                                  .from('customers')
+                                  .update({
+                                    deleted_at: new Date().toISOString(),
+                                  })
+                                  .eq('id', c.id);
+                                load();
+                                toast({
+                                  title: 'Customer deleted',
+                                  variant: 'success',
+                                });
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </RequireOwner>
+                      </div>
+                    ),
+                  },
+                ] as Column<any>[]
+              }
             />
           </div>
           {/* Bottom pager */}

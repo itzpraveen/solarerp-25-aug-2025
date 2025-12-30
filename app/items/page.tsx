@@ -250,7 +250,196 @@ export default function ItemsPage() {
         />
       ) : (
         <>
-          <div className="rounded border bg-white overflow-x-auto">
+          <div className="md:hidden space-y-2">
+            <div className="flex items-center justify-between rounded border bg-white p-2 text-xs text-gray-600">
+              <div className="flex items-center gap-2">
+                <span>Rows:</span>
+                <Select
+                  className="w-20 !px-2 !py-1 text-xs"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                Page {page} of {totalPages} • {totalCount}
+              </div>
+            </div>
+            {items.map((it) => {
+              const isEditing = editing === it.item_code;
+              return (
+                <div key={it.item_code} className="rounded-lg border bg-white p-3 text-sm">
+                  {isEditing ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      <Input
+                        value={editForm.name}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, name: e.target.value })
+                        }
+                        placeholder="Name"
+                      />
+                      <Input
+                        value={editForm.category || ''}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, category: e.target.value })
+                        }
+                        placeholder="Category"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          value={editForm.unit || ''}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, unit: e.target.value })
+                          }
+                          placeholder="Unit"
+                        />
+                        <Input
+                          type="number"
+                          value={editForm.gst_rate || 0}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              gst_rate: Number(e.target.value),
+                            })
+                          }
+                          placeholder="GST %"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          type="number"
+                          value={editForm.mrp || 0}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              mrp: Number(e.target.value),
+                            })
+                          }
+                          placeholder="MRP"
+                        />
+                        <Input
+                          value={editForm.preferred_vendor || ''}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              preferred_vendor: e.target.value,
+                            })
+                          }
+                          placeholder="Vendor"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            const v = validateItemPayload({
+                              ...editForm,
+                              item_code: it.item_code,
+                            });
+                            if (v) {
+                              setErr(v);
+                              return;
+                            }
+                            await supabase
+                              .from('items')
+                              .update({
+                                name: editForm.name,
+                                category: editForm.category,
+                                unit: editForm.unit,
+                                gst_rate: Number(editForm.gst_rate) || 0,
+                                mrp: Number(editForm.mrp) || 0,
+                                preferred_vendor: editForm.preferred_vendor,
+                              })
+                              .eq('item_code', it.item_code);
+                            setEditing(null);
+                            load();
+                            toast({ title: 'Item saved', variant: 'success' });
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditing(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold">{it.name || '—'}</div>
+                          <div className="text-xs text-gray-600">
+                            Code: {it.item_code || '—'}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          ₹{it.mrp ?? '—'}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-600">
+                        {it.category || '—'} • {it.unit || '—'} • GST {it.gst_rate ?? 0}%
+                      </div>
+                      <div className="mt-1 text-xs text-gray-600">
+                        Vendor: {it.preferred_vendor || '—'}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditing(it.item_code);
+                            setEditForm(it);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <RequireOwner>
+                          <Button
+                            variant={it.archived ? 'secondary' : 'danger'}
+                            size="sm"
+                            onClick={async () => {
+                              if (!it.archived) {
+                                const ok = confirm(
+                                  'Archive this item? It will be hidden from pickers and kits.',
+                                );
+                                if (!ok) return;
+                              }
+                              await supabase
+                                .from('items')
+                                .update({ archived: !it.archived })
+                                .eq('item_code', it.item_code);
+                              load();
+                              toast({
+                                title: it.archived
+                                  ? 'Item unarchived'
+                                  : 'Item archived',
+                                variant: 'success',
+                              });
+                            }}
+                          >
+                            {it.archived ? 'Unarchive' : 'Archive'}
+                          </Button>
+                        </RequireOwner>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden md:block rounded border bg-white overflow-x-auto">
             <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
               <div className="flex items-center gap-2">
                 <span>Rows:</span>
@@ -276,198 +465,201 @@ export default function ItemsPage() {
             <DataTable
               rows={items}
               columns={
-            [
-              { key: 'item_code', header: 'Code' },
-              {
-                key: 'name',
-                header: 'Name',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <Input
-                      value={editForm.name}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, name: e.target.value })
-                      }
-                    />
-                  ) : (
-                    it.name || '—'
-                  ),
-              },
-              {
-                key: 'category',
-                header: 'Category',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <Input
-                      value={editForm.category || ''}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, category: e.target.value })
-                      }
-                    />
-                  ) : (
-                    it.category || '—'
-                  ),
-              },
-              {
-                key: 'unit',
-                header: 'Unit',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <Input
-                      value={editForm.unit || ''}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, unit: e.target.value })
-                      }
-                    />
-                  ) : (
-                    it.unit || '—'
-                  ),
-              },
-              {
-                key: 'gst_rate',
-                header: 'GST %',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <Input
-                      type="number"
-                      value={editForm.gst_rate || 0}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          gst_rate: Number(e.target.value),
-                        })
-                      }
-                    />
-                  ) : (
-                    (it.gst_rate ?? '—')
-                  ),
-              },
-              {
-                key: 'mrp',
-                header: 'MRP',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <Input
-                      type="number"
-                      value={editForm.mrp || 0}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          mrp: Number(e.target.value),
-                        })
-                      }
-                    />
-                  ) : (
-                    (it.mrp ?? '—')
-                  ),
-              },
-              {
-                key: 'preferred_vendor',
-                header: 'Vendor',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <Input
-                      value={editForm.preferred_vendor || ''}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          preferred_vendor: e.target.value,
-                        })
-                      }
-                    />
-                  ) : (
-                    it.preferred_vendor || '—'
-                  ),
-              },
-              {
-                key: 'actions',
-                header: 'Actions',
-                render: (it: any) =>
-                  editing === it.item_code ? (
-                    <div className="whitespace-nowrap">
-                      <Button
-                        size="sm"
-                        onClick={async () => {
-                          const v = validateItemPayload({
-                            ...editForm,
-                            item_code: it.item_code,
-                          });
-                          if (v) {
-                            setErr(v);
-                            return;
+                [
+                  { key: 'item_code', header: 'Code' },
+                  {
+                    key: 'name',
+                    header: 'Name',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <Input
+                          value={editForm.name}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, name: e.target.value })
                           }
-                          await supabase
-                            .from('items')
-                            .update({
-                              name: editForm.name,
-                              category: editForm.category,
-                              unit: editForm.unit,
-                              gst_rate: Number(editForm.gst_rate) || 0,
-                              mrp: Number(editForm.mrp) || 0,
-                              preferred_vendor: editForm.preferred_vendor,
+                        />
+                      ) : (
+                        it.name || '—'
+                      ),
+                  },
+                  {
+                    key: 'category',
+                    header: 'Category',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <Input
+                          value={editForm.category || ''}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              category: e.target.value,
                             })
-                            .eq('item_code', it.item_code);
-                          setEditing(null);
-                          load();
-                          toast({ title: 'Item saved', variant: 'success' });
-                        }}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="ml-2"
-                        onClick={() => setEditing(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditing(it.item_code);
-                          setEditForm(it);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <RequireOwner>
-                        <Button
-                          variant={it.archived ? 'secondary' : 'danger'}
-                          size="sm"
-                          className="ml-2"
-                          onClick={async () => {
-                            if (!it.archived) {
-                              const ok = confirm(
-                                'Archive this item? It will be hidden from pickers and kits.',
-                              );
-                              if (!ok) return;
-                            }
-                            await supabase
-                              .from('items')
-                              .update({ archived: !it.archived })
-                              .eq('item_code', it.item_code);
-                            load();
-                            toast({
-                              title: it.archived
-                                ? 'Item unarchived'
-                                : 'Item archived',
-                              variant: 'success',
-                            });
-                          }}
-                        >
-                          {it.archived ? 'Unarchive' : 'Archive'}
-                        </Button>
-                      </RequireOwner>
-                    </div>
-                  ),
-              },
-            ] as Column<any>[]
-          }
+                          }
+                        />
+                      ) : (
+                        it.category || '—'
+                      ),
+                  },
+                  {
+                    key: 'unit',
+                    header: 'Unit',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <Input
+                          value={editForm.unit || ''}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, unit: e.target.value })
+                          }
+                        />
+                      ) : (
+                        it.unit || '—'
+                      ),
+                  },
+                  {
+                    key: 'gst_rate',
+                    header: 'GST %',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <Input
+                          type="number"
+                          value={editForm.gst_rate || 0}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              gst_rate: Number(e.target.value),
+                            })
+                          }
+                        />
+                      ) : (
+                        it.gst_rate ?? '—'
+                      ),
+                  },
+                  {
+                    key: 'mrp',
+                    header: 'MRP',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <Input
+                          type="number"
+                          value={editForm.mrp || 0}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              mrp: Number(e.target.value),
+                            })
+                          }
+                        />
+                      ) : (
+                        it.mrp ?? '—'
+                      ),
+                  },
+                  {
+                    key: 'preferred_vendor',
+                    header: 'Vendor',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <Input
+                          value={editForm.preferred_vendor || ''}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              preferred_vendor: e.target.value,
+                            })
+                          }
+                        />
+                      ) : (
+                        it.preferred_vendor || '—'
+                      ),
+                  },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    render: (it: any) =>
+                      editing === it.item_code ? (
+                        <div className="whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              const v = validateItemPayload({
+                                ...editForm,
+                                item_code: it.item_code,
+                              });
+                              if (v) {
+                                setErr(v);
+                                return;
+                              }
+                              await supabase
+                                .from('items')
+                                .update({
+                                  name: editForm.name,
+                                  category: editForm.category,
+                                  unit: editForm.unit,
+                                  gst_rate: Number(editForm.gst_rate) || 0,
+                                  mrp: Number(editForm.mrp) || 0,
+                                  preferred_vendor: editForm.preferred_vendor,
+                                })
+                                .eq('item_code', it.item_code);
+                              setEditing(null);
+                              load();
+                              toast({ title: 'Item saved', variant: 'success' });
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-2"
+                            onClick={() => setEditing(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditing(it.item_code);
+                              setEditForm(it);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <RequireOwner>
+                            <Button
+                              variant={it.archived ? 'secondary' : 'danger'}
+                              size="sm"
+                              className="ml-2"
+                              onClick={async () => {
+                                if (!it.archived) {
+                                  const ok = confirm(
+                                    'Archive this item? It will be hidden from pickers and kits.',
+                                  );
+                                  if (!ok) return;
+                                }
+                                await supabase
+                                  .from('items')
+                                  .update({ archived: !it.archived })
+                                  .eq('item_code', it.item_code);
+                                load();
+                                toast({
+                                  title: it.archived
+                                    ? 'Item unarchived'
+                                    : 'Item archived',
+                                  variant: 'success',
+                                });
+                              }}
+                            >
+                              {it.archived ? 'Unarchive' : 'Archive'}
+                            </Button>
+                          </RequireOwner>
+                        </div>
+                      ),
+                  },
+                ] as Column<any>[]
+              }
             />
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">
