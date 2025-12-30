@@ -19,6 +19,7 @@ import PageHeader from '~/components/ui/PageHeader';
 import { useBranchSelection } from '@/lib/useBranchSelection';
 import Select from '~/components/ui/Select';
 import Badge from '~/components/ui/Badge';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 function LeadsPageInner() {
   const supabase = supabaseBrowser();
@@ -306,6 +307,37 @@ function LeadsPageInner() {
       </div>
     </div>
   );
+  const renderSortHeader = (
+    value: 'score' | 'date' | 'followup',
+    label: string,
+    direction: 'asc' | 'desc',
+  ) => {
+    const active = sortBy === value;
+    const Icon = direction === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => setSortBy(value)}
+        title={`Sort by ${label.toLowerCase()}`}
+        className={
+          'inline-flex items-center gap-1 font-semibold transition-colors ' +
+          (active
+            ? 'text-[var(--primary-700)]'
+            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]')
+        }
+      >
+        <span>{label}</span>
+        <Icon
+          size={14}
+          className={
+            active
+              ? 'text-[var(--primary-600)]'
+              : 'text-[var(--text-muted)]'
+          }
+        />
+      </button>
+    );
+  };
   // Helper: fetch current user's tenant id to avoid maybeSingle errors when multiple profiles exist
   const getTenantId = useCallback(async (): Promise<string | null> => {
     // Ensure a profile exists; if not, try to create when self‑signup is on
@@ -1040,7 +1072,7 @@ function LeadsPageInner() {
                 <span>Due today</span>
               </label>
               {/* Branch filter lives in the page header now; avoid duplicate control here. */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 md:hidden">
                 <span>Sort</span>
                 <Segmented
                   options={[
@@ -1519,16 +1551,31 @@ function LeadsPageInner() {
                       }}
                     />
                   </th>
-                  <th className="p-2">Date</th>
+                  <th
+                    className="p-2"
+                    aria-sort={sortBy === 'date' ? 'descending' : 'none'}
+                  >
+                    {renderSortHeader('date', 'Date', 'desc')}
+                  </th>
                   <th className="p-2">Name</th>
                   <th className="p-2">Phone</th>
                   <th className="p-2">Address</th>
                   <th className="p-2">Source</th>
                   <th className="p-2">Capacity (kW)</th>
-                  <th className="p-2">Score</th>
+                  <th
+                    className="p-2"
+                    aria-sort={sortBy === 'score' ? 'descending' : 'none'}
+                  >
+                    {renderSortHeader('score', 'Score', 'desc')}
+                  </th>
                   <th className="p-2">Actions</th>
                   <th className="p-2">Manage</th>
-                  <th className="p-2">Next Follow-up</th>
+                  <th
+                    className="p-2"
+                    aria-sort={sortBy === 'followup' ? 'ascending' : 'none'}
+                  >
+                    {renderSortHeader('followup', 'Next Follow-up', 'asc')}
+                  </th>
                   <th className="p-2">Last Contacted</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Branch</th>
