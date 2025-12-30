@@ -88,8 +88,8 @@ export default function ConfirmProvider({
                 className={[
                   'rounded-lg px-4 py-2 text-sm font-medium text-white transition-all',
                   state.variant === 'danger'
-                    ? 'bg-[var(--danger-600)] hover:bg-[var(--danger-700)] hover:shadow-md'
-                    : 'bg-[var(--primary-600)] hover:bg-[var(--primary-700)] hover:shadow-md',
+                    ? 'bg-[var(--danger-600)] hover:bg-[var(--danger-700)] hover:shadow-[var(--shadow-md)]'
+                    : 'bg-[var(--primary-600)] hover:bg-[var(--primary-700)] hover:shadow-[var(--shadow-md)]',
                 ].join(' ')}
                 onClick={() => onClose(true)}
               >

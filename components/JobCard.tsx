@@ -9,7 +9,7 @@ export default function JobCard({
 }) {
   return (
     <a
-      className="block rounded border bg-white p-3 shadow-sm hover:shadow"
+      className="block rounded border bg-white p-3 shadow-sm hover:shadow-[var(--shadow-md)]"
       href={href}
     >
       <div className="text-sm font-semibold">{title}</div>

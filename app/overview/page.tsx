@@ -301,7 +301,7 @@ export default function OverviewPage() {
         {JOB_STATUSES.map((s) => (
           <a
             key={s}
-            className="rounded border bg-white p-3 text-center hover:bg-gray-50"
+            className="rounded border bg-white p-3 text-center hover:bg-[var(--bg-subtle)]"
             href="/jobs"
           >
             <div className="text-xs text-gray-500">{statusLabel(s as any)}</div>

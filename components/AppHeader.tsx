@@ -299,7 +299,7 @@ export default function AppHeader() {
                 aria-haspopup="menu"
                 aria-expanded={userOpen}
                 onClick={() => setUserOpen((v) => !v)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[var(--primary-500)] to-[var(--primary-700)] text-sm font-semibold uppercase text-white shadow-sm hover:shadow-md transition-all duration-150 ring-2 ring-[var(--bg-surface)] ring-offset-0"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[var(--primary-500)] to-[var(--primary-700)] text-sm font-semibold uppercase text-white shadow-sm hover:shadow-[var(--shadow-md)] transition-all duration-150 ring-2 ring-[var(--bg-surface)] ring-offset-0"
                 title={email || 'Account'}
               >
                 {String(email).charAt(0)}

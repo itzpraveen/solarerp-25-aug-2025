@@ -6,6 +6,7 @@
    ============================================ */
 
 :root {
+  color-scheme: light;
   /* Background layers */
   --bg-base: #f8fafc;          /* slate-50 - main background */
   --bg-surface: #ffffff;        /* white - cards, inputs */
@@ -74,6 +75,7 @@
 
 /* Dark mode overrides */
 .dark {
+  color-scheme: dark;
   /* Background layers - rich, deep grays with subtle blue undertone */
   --bg-base: #0f172a;           /* slate-900 - main background */
   --bg-surface: #1e293b;        /* slate-800 - cards, inputs */
@@ -151,6 +153,27 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border-default);
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']),
+  select,
+  textarea {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border-color: var(--border-default);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-muted);
+  }
 }
 
 /* Improve default focus and selection */
@@ -277,4 +300,94 @@ a:hover {
 }
 .border-gray-400 {
   border-color: var(--border-strong);
+}
+
+/* Legacy Tailwind semantic overrides */
+.bg-red-50 {
+  background-color: var(--danger-50);
+}
+.bg-red-100 {
+  background-color: var(--danger-100);
+}
+.bg-emerald-50,
+.bg-green-50 {
+  background-color: var(--success-50);
+}
+.bg-green-100 {
+  background-color: var(--success-100);
+}
+.bg-emerald-600 {
+  background-color: var(--success-600);
+}
+.bg-amber-50,
+.bg-yellow-50 {
+  background-color: var(--warning-50);
+}
+.bg-yellow-200 {
+  background-color: var(--warning-100);
+}
+
+.text-red-600 {
+  color: var(--danger-600);
+}
+.text-red-700 {
+  color: var(--danger-700);
+}
+.text-red-800 {
+  color: var(--danger-700);
+}
+.text-emerald-600,
+.text-green-600 {
+  color: var(--success-600);
+}
+.text-emerald-700,
+.text-green-700 {
+  color: var(--success-700);
+}
+.text-amber-600,
+.text-orange-600 {
+  color: var(--warning-600);
+}
+.text-amber-800 {
+  color: var(--warning-700);
+}
+
+.border-red-200,
+.border-red-300 {
+  border-color: var(--danger-100);
+}
+.border-red-500 {
+  border-color: var(--danger-500);
+}
+.border-emerald-500 {
+  border-color: var(--success-500);
+}
+.border-green-200 {
+  border-color: var(--success-100);
+}
+.border-amber-200,
+.border-yellow-200 {
+  border-color: var(--warning-100);
+}
+.border-amber-500,
+.border-orange-500 {
+  border-color: var(--warning-500);
+}
+
+/* Shadow utilities aligned with theme tokens */
+.shadow-sm {
+  --tw-shadow: var(--shadow-sm);
+  --tw-shadow-colored: var(--shadow-sm);
+}
+.shadow {
+  --tw-shadow: var(--shadow-md);
+  --tw-shadow-colored: var(--shadow-md);
+}
+.shadow-md {
+  --tw-shadow: var(--shadow-md);
+  --tw-shadow-colored: var(--shadow-md);
+}
+.shadow-lg {
+  --tw-shadow: var(--shadow-lg);
+  --tw-shadow-colored: var(--shadow-lg);
 }

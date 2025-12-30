@@ -242,7 +242,10 @@ export default function CommandPalette() {
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-start justify-center"
     >
-      <div className="absolute inset-0 bg-black/40" onClick={close} />
+      <div
+        className="absolute inset-0 bg-slate-900/50 dark:bg-slate-950/70"
+        onClick={close}
+      />
       <div className="relative mt-24 w-full max-w-2xl rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)]">
         <div className="flex items-center border-b border-[var(--border-subtle)] px-3 py-2">
           <input

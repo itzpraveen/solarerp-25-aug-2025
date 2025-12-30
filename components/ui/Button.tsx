@@ -18,14 +18,14 @@ const button = cva(
       variant: {
         primary: [
           'bg-[var(--primary-600)] text-white',
-          'hover:bg-[var(--primary-700)] hover:shadow-md',
+          'hover:bg-[var(--primary-700)] hover:shadow-[var(--shadow-md)]',
           'focus-visible:ring-[var(--primary-500)]',
           'dark:bg-[var(--primary-500)] dark:hover:bg-[var(--primary-600)]',
           'dark:focus-visible:ring-[var(--primary-600)]',
         ].join(' '),
         secondary: [
           'bg-slate-800 text-white',
-          'hover:bg-slate-900 hover:shadow-md',
+          'hover:bg-slate-900 hover:shadow-[var(--shadow-md)]',
           'focus-visible:ring-slate-600',
           'dark:bg-slate-700 dark:hover:bg-slate-600',
           'dark:focus-visible:ring-slate-500',
@@ -42,12 +42,12 @@ const button = cva(
         ].join(' '),
         danger: [
           'bg-[var(--danger-600)] text-white',
-          'hover:bg-[var(--danger-700)] hover:shadow-md',
+          'hover:bg-[var(--danger-700)] hover:shadow-[var(--shadow-md)]',
           'focus-visible:ring-[var(--danger-500)]',
         ].join(' '),
         success: [
           'bg-[var(--success-600)] text-white',
-          'hover:bg-[var(--success-700)] hover:shadow-md',
+          'hover:bg-[var(--success-700)] hover:shadow-[var(--shadow-md)]',
           'focus-visible:ring-[var(--success-500)]',
         ].join(' '),
       },
