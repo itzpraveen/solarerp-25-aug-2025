@@ -4,12 +4,14 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import Button from '~/components/ui/Button';
 import RequireOwner from '~/components/RequireOwner';
 import Input from '~/components/ui/Input';
+import Select from '~/components/ui/Select';
 import { isEmail, isPhone, required } from '@/lib/validation';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import Card from '~/components/ui/Card';
 import EmptyState from '~/components/ui/EmptyState';
 import DataTable, { type Column } from '~/components/ui/DataTable';
 import { useToast } from '~/components/ui/ToastProvider';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function CustomersPage() {
   const supabase = supabaseBrowser();
@@ -156,35 +158,38 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Customers</h1>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={showDeleted}
-              onChange={(e) => setShowDeleted(e.target.checked)}
+      <PageHeader
+        title="Customers"
+        subtitle="Search, add, and manage customer records."
+        actions={
+          <>
+            <label className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+              />
+              Show deleted
+            </label>
+            <Input
+              className="w-52 md:w-64"
+              placeholder="Search name, phone, email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            Show deleted
-          </label>
-          <input
-            className="rounded border px-3 py-2 text-sm"
-            placeholder="Search name, phone, email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="rounded border px-2 py-2 text-sm"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            title="Sort order"
-          >
-            <option value="created">Recently added</option>
-            <option value="name-asc">Name A–Z</option>
-            <option value="name-desc">Name Z–A</option>
-          </select>
-        </div>
-      </div>
+            <Select
+              className="w-44"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              title="Sort order"
+            >
+              <option value="created">Recently added</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+            </Select>
+          </>
+        }
+      />
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -217,7 +222,7 @@ export default function CustomersPage() {
               Add
             </Button>
             <a
-              className="rounded border px-3 py-2 text-sm"
+              className="inline-flex items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
               href={
                 'data:text/csv;charset=utf-8,' +
                 encodeURIComponent(csvCustomers)
@@ -249,8 +254,8 @@ export default function CustomersPage() {
             <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
               <div className="flex items-center gap-2">
                 <span>Rows:</span>
-                <select
-                  className="rounded border px-2 py-1"
+                <Select
+                  className="w-20 !px-2 !py-1 text-xs"
                   value={pageSize}
                   onChange={(e) => {
                     setPage(1);
@@ -262,7 +267,7 @@ export default function CustomersPage() {
                       {n}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="text-xs text-gray-600">
                 Page {page} of {totalPages} • {totalCount} customers

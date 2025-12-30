@@ -11,11 +11,14 @@ import EmptyState from '~/components/ui/EmptyState';
 import { isPhone, required } from '@/lib/validation';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
-import BranchSelect from '~/components/BranchSelect';
 import RequireOwner from '~/components/RequireOwner';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import Segmented from '~/components/ui/Segmented';
 import Modal from '~/components/ui/Modal';
+import PageHeader from '~/components/ui/PageHeader';
+import { useBranchSelection } from '@/lib/useBranchSelection';
+import Select from '~/components/ui/Select';
+import Badge from '~/components/ui/Badge';
 
 function LeadsPageInner() {
   const supabase = supabaseBrowser();
@@ -45,7 +48,7 @@ function LeadsPageInner() {
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [branchId, setBranchId] = useState<string | 'all'>('all');
+  const { branchId, setBranchId } = useBranchSelection();
   const [branchNames, setBranchNames] = useState<Record<string, string>>({});
   const [kpis, setKpis] = useState<any | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
@@ -327,16 +330,6 @@ function LeadsPageInner() {
     };
   }, [load, supabase]);
 
-  // Listen for global header branch changes
-  useEffect(() => {
-    const h = (e: any) => {
-      const v = e?.detail?.value as string | 'all' | undefined;
-      if (v !== undefined) setBranchId(v);
-    };
-    window.addEventListener('branch-change', h as any);
-    return () => window.removeEventListener('branch-change', h as any);
-  }, []);
-
   useEffect(() => {
     // Avoid querying before auth session is ready to prevent noisy 401 errors
     let active = true;
@@ -428,12 +421,10 @@ function LeadsPageInner() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Leads</h1>
-        <div className="min-w-[220px]">
-          <BranchSelect value={branchId} onChange={setBranchId} />
-        </div>
-      </div>
+      <PageHeader
+        title="Leads"
+        subtitle="Capture, qualify, and convert CRM leads."
+      />
       {/* Filters consolidated in the sticky toolbar below to avoid duplication. */}
       {/* KPI tiles (server-side aggregates) */}
       {!kpiLoading &&
@@ -803,8 +794,8 @@ function LeadsPageInner() {
                 Bulk actions for{' '}
                 {Object.values(selected).filter(Boolean).length} selected:
               </span>
-              <select
-                className="rounded border px-2 py-1"
+              <Select
+                className="w-56 !px-2 !py-1 text-xs"
                 onChange={async (e) => {
                   const val = e.target.value;
                   e.currentTarget.selectedIndex = 0;
@@ -854,13 +845,18 @@ function LeadsPageInner() {
                     {b.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           <div className="rounded border bg-white overflow-x-auto">
-            <div className="flex flex-wrap items-center gap-2 p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={dense} onChange={(e)=>setDense(e.target.checked)} /> Compact
+            <div className="flex flex-wrap items-center gap-2 p-2 text-xs text-gray-600 sticky top-16 bg-white z-10 border-b">
+              <label className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={dense}
+                  onChange={(e) => setDense(e.target.checked)}
+                />
+                Compact
               </label>
               {/* Primary list filters moved near the table for convenience */}
               <Segmented
@@ -872,8 +868,12 @@ function LeadsPageInner() {
                 value={filterMode}
                 onChange={(v) => setFilterMode(v as any)}
               />
-              <label className="ml-1 flex items-center gap-1">
-                <input type="checkbox" checked={dueOnly} onChange={(e)=>setDueOnly(e.target.checked)} />
+              <label className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={dueOnly}
+                  onChange={(e) => setDueOnly(e.target.checked)}
+                />
                 <span>Due today</span>
               </label>
               {/* Branch filter lives in the page header now; avoid duplicate control here. */}
@@ -890,18 +890,20 @@ function LeadsPageInner() {
                 />
               </div>
               <div className="flex-1 min-w-[220px]">
-                <input
+                <Input
                   id={searchInputId}
-                  className="w-full rounded border px-2 py-1 text-sm"
+                  className="w-full !px-2 !py-1 text-sm"
                   placeholder="Search name, phone, address, source, remarks (/)"
                   value={searchTerm}
-                  onChange={(e)=>setSearchTerm(e.target.value)}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="sm" onClick={()=>setFiltersOpen(true)}>Filters</Button>
-              <select
-                className="rounded border px-2 py-1"
-                onChange={(e)=>{
+              <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
+                Filters
+              </Button>
+              <Select
+                className="w-44 !px-2 !py-1 text-xs"
+                onChange={(e) => {
                   const v = e.target.value; e.currentTarget.selectedIndex = 0; if (!v) return;
                   if (v === '__save__') { const name = prompt('Save current search as:'); if (!name) return; const item = { name, branchId, filterMode, dueOnly, q: searchTerm, status: statusFilter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, source: sourceFilter || undefined }; const next = [...savedSearches.filter(s=>s.name!==name), item]; saveSearches(next); return; }
                   if (v.startsWith('__del__:')) { const name = v.slice('__del__:'.length); if (!window.confirm(`Delete saved search "${name}"?`)) return; saveSearches(savedSearches.filter(s=>s.name!==name)); return; }
@@ -916,35 +918,65 @@ function LeadsPageInner() {
                     {savedSearches.map(s=> <option key={`del:${s.name}`} value={`__del__:${s.name}`}>Delete: {s.name}</option>)}
                   </optgroup>
                 )}
-              </select>
+              </Select>
               <div className="flex items-center gap-2 ml-auto">
                 <span>Rows:</span>
-                <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{ setPage(1); setPageSize(Number(e.target.value)); }}>
-                  {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
-                </select>
+                <Select
+                  className="w-20 !px-2 !py-1 text-xs"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
               </div>
             </div>
             <Modal open={filtersOpen} onClose={()=>setFiltersOpen(false)} title="Filters">
               <div className="grid grid-cols-1 gap-2 text-sm">
                 <label className="grid gap-1">
                   <span className="text-xs text-gray-600">Status</span>
-                  <select className="rounded border px-2 py-1" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value as any)}>
+                  <Select
+                    className="!px-2 !py-1 text-sm"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                  >
                     {['any','New','Converted','Closed','Lost'].map(s=> <option key={s} value={s as any}>{s}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="grid gap-1">
                     <span className="text-xs text-gray-600">From</span>
-                    <input type="date" className="rounded border px-2 py-1" value={dateFrom} onChange={(e)=>setDateFrom(e.target.value)} />
+                    <Input
+                      type="date"
+                      className="!px-2 !py-1 text-sm"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                    />
                   </label>
                   <label className="grid gap-1">
                     <span className="text-xs text-gray-600">To</span>
-                    <input type="date" className="rounded border px-2 py-1" value={dateTo} onChange={(e)=>setDateTo(e.target.value)} />
+                    <Input
+                      type="date"
+                      className="!px-2 !py-1 text-sm"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
                   </label>
                 </div>
                 <label className="grid gap-1">
                   <span className="text-xs text-gray-600">Source contains</span>
-                  <input className="rounded border px-2 py-1" value={sourceFilter} onChange={(e)=>setSourceFilter(e.target.value)} placeholder="e.g. Facebook, Referral" />
+                  <Input
+                    className="!px-2 !py-1 text-sm"
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                    placeholder="e.g. Facebook, Referral"
+                  />
                 </label>
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <Button variant="outline" size="sm" onClick={()=>{ setStatusFilter('any'); setDateFrom(''); setDateTo(''); setSourceFilter(''); }}>Reset</Button>
@@ -954,7 +986,7 @@ function LeadsPageInner() {
             </Modal>
             <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
               <thead>
-                <tr className="border-b bg-gray-50 text-left sticky top-8">
+                <tr className="border-b bg-gray-50 text-left">
                   <th className="p-2">
                     <input
                       type="checkbox"
@@ -976,7 +1008,7 @@ function LeadsPageInner() {
                   <th className="p-2">Capacity (kW)</th>
                   <th className="p-2">Score</th>
                   <th className="p-2">Actions</th>
-                  <th className="p-2">Score</th>
+                  <th className="p-2">Manage</th>
                   <th className="p-2">Next Follow-up</th>
                   <th className="p-2">Last Contacted</th>
                   <th className="p-2">Status</th>
@@ -1183,15 +1215,17 @@ function LeadsPageInner() {
                           </td>
                           {/* Score right after Capacity */}
                           <td className="p-2">
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${
-                              (l.score || 0) >= 40
-                                ? 'bg-red-50 border-red-200 text-red-800'
-                                : (l.score || 0) >= 25
-                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
-                                  : 'bg-gray-50 border-gray-200 text-gray-700'
-                            }`}>
+                            <Badge
+                              variant={
+                                (l.score || 0) >= 40
+                                  ? 'danger'
+                                  : (l.score || 0) >= 25
+                                    ? 'warning'
+                                    : 'default'
+                              }
+                            >
                               {l.score ?? 0}
-                            </span>
+                            </Badge>
                           </td>
                           {/* Quick actions near capacity */}
                           <td className="p-2 whitespace-nowrap">

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Menu, X, Sun, Moon, Search, Plus, Bell, ChevronDown } from 'lucide-react';
 import BranchSelect from '~/components/BranchSelect';
 import { useProfile } from '@/lib/useProfile';
+import { useBranchSelection } from '@/lib/useBranchSelection';
 
 type NavLink = {
   href: string;
@@ -75,7 +76,6 @@ export default function AppHeader() {
   const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [branchValue, setBranchValue] = useState<string | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -90,9 +90,9 @@ export default function AppHeader() {
   const [logoLoading, setLogoLoading] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const { profile } = useProfile();
+  const { branchId, setBranchId } = useBranchSelection();
   const role = profile?.role ?? null;
   const tenantId = profile?.tenant_id ?? null;
-  const branchInitForTenant = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -114,18 +114,6 @@ export default function AppHeader() {
     };
   }, [supabase]);
 
-  // Initialize saved branch once we know the tenant
-  useEffect(() => {
-    if (!tenantId || branchInitForTenant.current === tenantId) return;
-    branchInitForTenant.current = tenantId;
-    try {
-      const saved = localStorage.getItem(`pref:branch:${tenantId}`) as
-        | string
-        | null;
-      if (saved) setBranchValue(saved as any);
-    } catch {}
-  }, [tenantId]);
-
   // Lightweight notifications: leads due today + overdue invoices
   useEffect(() => {
     (async () => {
@@ -140,7 +128,7 @@ export default function AppHeader() {
             .neq('status', 'Closed')
             .neq('status', 'Converted')
             .neq('status', 'Lost');
-          if (branchValue !== 'all') q = q.eq('branch_id', branchValue as string);
+          if (branchId !== 'all') q = q.eq('branch_id', branchId as string);
           return q;
         })();
         const invoicesQ = (() => {
@@ -150,7 +138,7 @@ export default function AppHeader() {
             .select('id, jobs!inner(branch_id)', { count: 'exact', head: true })
             .lt('due_date', today)
             .neq('status', 'Paid');
-          if (branchValue !== 'all') q = q.eq('jobs.branch_id', branchValue as string);
+          if (branchId !== 'all') q = q.eq('jobs.branch_id', branchId as string);
           return q;
         })();
         const [{ count: c1 }, { count: c2 }] = await Promise.all([leadsQ, invoicesQ]);
@@ -158,7 +146,7 @@ export default function AppHeader() {
         setOverdueInvCount(c2 || 0);
       } catch {}
     })();
-  }, [branchValue, authed, supabase]);
+  }, [branchId, authed, supabase]);
 
   useEffect(() => {
     let alive = true;
@@ -416,6 +404,19 @@ export default function AppHeader() {
           )}
         </nav>
         <div className="flex items-center gap-2 text-sm">
+          {email && (
+            <div className="hidden items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-muted)] shadow-sm lg:flex">
+              <span>Branch</span>
+              <BranchSelect
+                value={branchId}
+                onChange={setBranchId}
+                includeAll
+                allLabel="All branches"
+                className="!w-auto min-w-[150px] !px-2 !py-1.5 text-sm"
+                persist={false}
+              />
+            </div>
+          )}
           <button
             type="button"
             aria-label="Open search"
@@ -553,34 +554,6 @@ export default function AppHeader() {
                   role="menu"
                   className="absolute right-0 mt-2 w-60 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-lg)]"
                 >
-                  {tenantId && (
-                    <div className="mb-1 px-2 py-2">
-                      <div className="pb-1.5 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
-                        Branch
-                      </div>
-                      <BranchSelect
-                        value={branchValue}
-                        onChange={(v) => {
-                          setBranchValue(v);
-                          try {
-                            if (tenantId)
-                              localStorage.setItem(
-                                `pref:branch:${tenantId}`,
-                                String(v),
-                              );
-                          } catch {}
-                          window.dispatchEvent(
-                            new CustomEvent('branch-change', {
-                              detail: { value: v },
-                            }),
-                          );
-                        }}
-                        includeAll
-                        allLabel="All"
-                        persist={false}
-                      />
-                    </div>
-                  )}
                   <div className="border-t border-[var(--border-subtle)] px-3 py-2">
                     <div className="text-xs font-medium text-[var(--text-muted)]">
                       Signed in as
@@ -667,6 +640,21 @@ export default function AppHeader() {
                   );
                 })}
               </div>
+              {email && (
+                <div className="mt-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-3">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Branch
+                  </div>
+                  <BranchSelect
+                    value={branchId}
+                    onChange={setBranchId}
+                    includeAll
+                    allLabel="All branches"
+                    className="w-full"
+                    persist={false}
+                  />
+                </div>
+              )}
               {/* Quick actions */}
               <div className="mt-4">
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2 px-1">Quick Actions</div>

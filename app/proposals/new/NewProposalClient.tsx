@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import type { LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
 import PdfProposalImport, { type ParsedProposalHint } from 'components/PdfProposalImport';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function NewProposalClient() {
   const params = useSearchParams();
@@ -493,7 +494,10 @@ export default function NewProposalClient() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">New Proposal</h1>
+      <PageHeader
+        title="New Proposal"
+        subtitle="Build a quote and generate a PDF."
+      />
       <div className="rounded border bg-white p-4 space-y-3">
         {errorMsg && (
           <div className="rounded border bg-red-50 p-2 text-sm text-red-700">

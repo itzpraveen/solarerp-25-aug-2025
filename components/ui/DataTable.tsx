@@ -1,5 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
+import Input from '~/components/ui/Input';
 
 export type Column<T> = {
   key: string;
@@ -37,8 +38,8 @@ export default function DataTable<T extends { id?: string | number }>({
     <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden shadow-[var(--shadow-sm)]">
       {(onSearch || searchPlaceholder) && (
         <div className="flex items-center justify-between gap-2 p-3 border-b border-[var(--border-subtle)]">
-          <input
-            className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]/20 transition-all"
+          <Input
+            className="!py-1.5"
             placeholder={searchPlaceholder || 'Search...'}
             value={term}
             onChange={(e) => {

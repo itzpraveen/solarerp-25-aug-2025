@@ -15,8 +15,9 @@ import CustomerQuickCreate from '~/components/CustomerQuickCreate';
 import CustomerTypeahead from '~/components/CustomerTypeahead';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
-import BranchSelect from '~/components/BranchSelect';
+import PageHeader from '~/components/ui/PageHeader';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
+import { useBranchSelection } from '@/lib/useBranchSelection';
 
 export default function JobsPage() {
   const supabase = supabaseBrowser();
@@ -29,7 +30,7 @@ export default function JobsPage() {
   const [roof, setRoof] = useState('');
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [branchId, setBranchId] = useState<string | 'all'>('all');
+  const { branchId } = useBranchSelection();
   const { toast } = useToast();
   const [showMore, setShowMore] = useState(false);
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
@@ -86,16 +87,6 @@ export default function JobsPage() {
       localStorage.setItem('pref:job:capacity', String(capacity));
     } catch {}
   }, [capacity]);
-
-  // Listen for global header branch changes
-  useEffect(() => {
-    const h = (e: any) => {
-      const v = e?.detail?.value as string | 'all' | undefined;
-      if (v !== undefined) setBranchId(v);
-    };
-    window.addEventListener('branch-change', h as any);
-    return () => window.removeEventListener('branch-change', h as any);
-  }, []);
 
   const canCreate = custId && (Number(capacity) || 0) > 0;
 
@@ -233,34 +224,33 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Jobs</h1>
-        <div className="flex items-center gap-2">
-          <div className="hidden text-xs text-gray-600 md:block">Branch</div>
-          <div className="min-w-[220px]">
-            <BranchSelect value={branchId} onChange={setBranchId} />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/customers')}
-            title="Manage customers"
-          >
-            Customers
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/leads')}
-            title="Manage leads"
-          >
-            Leads
-          </Button>
-          <Button size="sm" onClick={() => setShowQuickCreate((v) => !v)}>
-            {showQuickCreate ? 'Hide New Job' : 'New Job'}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Jobs"
+        subtitle="Track the pipeline, assign tasks, and move work forward."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/customers')}
+              title="Manage customers"
+            >
+              Customers
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/leads')}
+              title="Manage leads"
+            >
+              Leads
+            </Button>
+            <Button size="sm" onClick={() => setShowQuickCreate((v) => !v)}>
+              {showQuickCreate ? 'Hide New Job' : 'New Job'}
+            </Button>
+          </>
+        }
+      />
       {showQuickCreate && (
         <Card
           title="Quick Create Job"

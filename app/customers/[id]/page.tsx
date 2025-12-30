@@ -7,6 +7,10 @@ import RequirePermission from '~/components/RequirePermission';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import { isEmail, isPhone, required } from '@/lib/validation';
+import Card from '~/components/ui/Card';
+import Select from '~/components/ui/Select';
+import Badge from '~/components/ui/Badge';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function CustomerDetail() {
   const params = useParams<{ id: string }>();
@@ -97,72 +101,76 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
-          {customer?.name}
-          {customer?.deleted_at && (
-            <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-700">Deleted</span>
-          )}
-        </h1>
-        <div className="flex items-center gap-2">
-          <RequirePermission perm="jobs.edit">
-            <button
-              onClick={() => setJobOpen((v) => !v)}
-              className="rounded bg-[var(--primary-600)] px-3 py-2 text-white"
-            >
-              {jobOpen ? 'Close' : 'New Job'}
-            </button>
-          </RequirePermission>
-          <RequirePermission perm="leads.edit">
-            {customer?.deleted_at ? (
-              <button
-                onClick={async () => {
-                  await supabase.from('customers').update({ deleted_at: null }).eq('id', params.id);
-                  const { data: c } = await supabase
-                    .from('customers')
-                    .select('*')
-                    .eq('id', params.id)
-                    .single();
-                  setCustomer(c || null);
-                }}
-                className="rounded border px-3 py-2"
-              >
-                Restore
-              </button>
-            ) : (
-              <button
-                onClick={async () => {
-                  if (!confirm('Soft-delete this customer? Jobs remain.')) return;
-                  await supabase
-                    .from('customers')
-                    .update({ deleted_at: new Date().toISOString() })
-                    .eq('id', params.id);
-                  const { data: c } = await supabase
-                    .from('customers')
-                    .select('*')
-                    .eq('id', params.id)
-                    .single();
-                  setCustomer(c || null);
-                }}
-                className="rounded border px-3 py-2"
-              >
-                Delete
-              </button>
-            )}
-          </RequirePermission>
-        </div>
-      </div>
+      <PageHeader
+        title={customer?.name || 'Customer'}
+        subtitle="Customer profile and linked jobs."
+        actions={
+          <>
+            {customer?.deleted_at && <Badge variant="danger">Deleted</Badge>}
+            <RequirePermission perm="jobs.edit">
+              <Button size="sm" onClick={() => setJobOpen((v) => !v)}>
+                {jobOpen ? 'Close' : 'New Job'}
+              </Button>
+            </RequirePermission>
+            <RequirePermission perm="leads.edit">
+              {customer?.deleted_at ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await supabase
+                      .from('customers')
+                      .update({ deleted_at: null })
+                      .eq('id', params.id);
+                    const { data: c } = await supabase
+                      .from('customers')
+                      .select('*')
+                      .eq('id', params.id)
+                      .single();
+                    setCustomer(c || null);
+                  }}
+                >
+                  Restore
+                </Button>
+              ) : (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={async () => {
+                    if (!confirm('Soft-delete this customer? Jobs remain.'))
+                      return;
+                    await supabase
+                      .from('customers')
+                      .update({ deleted_at: new Date().toISOString() })
+                      .eq('id', params.id);
+                    const { data: c } = await supabase
+                      .from('customers')
+                      .select('*')
+                      .eq('id', params.id)
+                      .single();
+                    setCustomer(c || null);
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
+            </RequirePermission>
+          </>
+        }
+      />
       <Breadcrumbs
         items={[
           { href: '/customers', label: 'Customers' },
           { label: customer?.name || 'Customer' },
         ]}
       />
-      <div className="rounded border bg-white p-4">
+      <Card title="Customer details">
         {!editing ? (
           <div className="space-y-1">
             {err && (
-              <div className="rounded border bg-red-50 p-2 text-xs text-red-700">{err}</div>
+              <div className="rounded border bg-red-50 p-2 text-xs text-red-700">
+                {err}
+              </div>
             )}
             <div className="text-sm">Phone: {customer?.phone || '—'}</div>
             <div className="text-sm">Email: {customer?.email || '—'}</div>
@@ -178,7 +186,9 @@ export default function CustomerDetail() {
         ) : (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
             {err && (
-              <div className="md:col-span-4 rounded border bg-red-50 p-2 text-xs text-red-700">{err}</div>
+              <div className="md:col-span-4 rounded border bg-red-50 p-2 text-xs text-red-700">
+                {err}
+              </div>
             )}
             <Input
               placeholder="Name"
@@ -210,23 +220,24 @@ export default function CustomerDetail() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
       {jobOpen && (
-        <div className="rounded border bg-white p-4">
+        <Card title="Quick Job">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
             <div>
               <div className="text-xs text-gray-600">System type</div>
-              <select
-                className="w-full rounded border px-3 py-2"
+              <Select
                 value={jobForm.system_type}
-                onChange={(e) => setJobForm({ ...jobForm, system_type: e.target.value })}
+                onChange={(e) =>
+                  setJobForm({ ...jobForm, system_type: e.target.value })
+                }
               >
                 {['On-grid', 'Hybrid', 'Off-grid'].map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <div className="text-xs text-gray-600">Capacity (kW)</div>
@@ -235,29 +246,35 @@ export default function CustomerDetail() {
                 min={0}
                 step={0.1}
                 value={jobForm.capacity_kw}
-                onChange={(e) => setJobForm({ ...jobForm, capacity_kw: Number(e.target.value) })}
+                onChange={(e) =>
+                  setJobForm({
+                    ...jobForm,
+                    capacity_kw: Number(e.target.value),
+                  })
+                }
               />
             </div>
             <div className="md:col-span-3">
               <div className="text-xs text-gray-600">Location</div>
               <Input
                 value={jobForm.location}
-                onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
+                onChange={(e) =>
+                  setJobForm({ ...jobForm, location: e.target.value })
+                }
                 placeholder="Place / Address"
               />
             </div>
-            <div className="md:col-span-6">
+            <div className="md:col-span-6 flex flex-wrap items-center gap-2">
               <Button onClick={createJob}>Create Job</Button>
-              <Button variant="outline" className="ml-2" onClick={() => setJobOpen(false)}>
+              <Button variant="outline" onClick={() => setJobOpen(false)}>
                 Cancel
               </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
-      <div className="rounded border bg-white p-4">
-        <h3 className="font-semibold">Jobs</h3>
-        <ul className="mt-2 space-y-2 text-sm">
+      <Card title="Jobs">
+        <ul className="space-y-2 text-sm">
           {jobs.map((j) => (
             <li key={j.id} className="flex items-center justify-between">
               <span>
@@ -269,7 +286,7 @@ export default function CustomerDetail() {
             </li>
           ))}
         </ul>
-      </div>
+      </Card>
     </div>
   );
 }

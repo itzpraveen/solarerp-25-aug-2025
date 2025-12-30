@@ -1,6 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import Button from '~/components/ui/Button';
+import Select from '~/components/ui/Select';
+import PageHeader from '~/components/ui/PageHeader';
 
 type Task = {
   id: string;
@@ -140,28 +143,47 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Technician Calendar</h1>
-        <div className="flex items-center gap-2">
-          <button
-            className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
-            onClick={() => setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth()-1); return startOfMonth(d); })}
-          >
-            Prev
-          </button>
-          <div className="min-w-[160px] text-center text-sm">{monthLabel}</div>
-          <button
-            className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
-            onClick={() => setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth()+1); return startOfMonth(d); })}
-          >
-            Next
-          </button>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <label className="text-sm">Assignee</label>
-        <select
-          className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-sm text-[var(--text-primary)] shadow-sm transition-colors hover:border-[var(--border-strong)] focus:border-[var(--border-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]/20"
+      <PageHeader
+        title="Technician Calendar"
+        subtitle="Plan daily tasks and assignments."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setMonth((m) => {
+                  const d = new Date(m);
+                  d.setMonth(d.getMonth() - 1);
+                  return startOfMonth(d);
+                })
+              }
+            >
+              Prev
+            </Button>
+            <div className="min-w-[160px] text-center text-sm text-[var(--text-secondary)]">
+              {monthLabel}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setMonth((m) => {
+                  const d = new Date(m);
+                  d.setMonth(d.getMonth() + 1);
+                  return startOfMonth(d);
+                })
+              }
+            >
+              Next
+            </Button>
+          </div>
+        }
+      />
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm shadow-[var(--shadow-sm)]">
+        <span className="text-xs text-[var(--text-muted)]">Assignee</span>
+        <Select
+          className="w-48"
           value={assignee}
           onChange={(e) => setAssignee(e.target.value as any)}
         >
@@ -172,7 +194,7 @@ export default function CalendarPage() {
               {p.display_name || p.user_id.slice(0, 6)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="grid grid-cols-7 gap-2 text-sm">
         {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => (
@@ -182,8 +204,14 @@ export default function CalendarPage() {
           const key = d.toISOString().slice(0, 10);
           const list = byDate.get(key) || [];
           const isCurMonth = d.getMonth() === month.getMonth();
+          const isToday = key === new Date().toISOString().slice(0, 10);
           return (
-            <div key={key} className={`min-h-[120px] rounded border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${isCurMonth ? '' : 'opacity-50'}`}>
+            <div
+              key={key}
+              className={`min-h-[120px] rounded border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${
+                isCurMonth ? '' : 'opacity-50'
+              } ${isToday ? 'border-[var(--primary-500)] shadow-[var(--shadow-sm)]' : ''}`}
+            >
               <div className="flex items-center justify-between">
                 <div className="text-xs text-[var(--text-tertiary)]">{d.getDate()}</div>
                 {list.length > 0 && (
@@ -196,18 +224,18 @@ export default function CalendarPage() {
                     <a className="truncate text-[var(--primary-600)]" href={t.job_id ? `/jobs/${t.job_id}?tab=tasks` : '#'}>
                       {t.title || 'Task'}
                     </a>
-                    <select
-                      className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[11px] text-[var(--text-primary)]"
+                    <Select
+                      className="!px-1 !py-0.5 text-[11px]"
                       value={t.assigned_to || ''}
                       onChange={(e) => assignTask(t.id, e.target.value || null)}
                     >
                       <option value="">Unassigned</option>
                       {profiles.map((p) => (
                         <option key={p.user_id} value={p.user_id}>
-                          {p.display_name || p.user_id.slice(0,6)}
+                          {p.display_name || p.user_id.slice(0, 6)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </li>
                 ))}
                 {list.length > 4 && (

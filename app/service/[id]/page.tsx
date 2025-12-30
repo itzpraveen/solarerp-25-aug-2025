@@ -9,6 +9,7 @@ import Select from '~/components/ui/Select';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function ServiceTicketDetail() {
   const params = useParams<{ id: string }>();
@@ -87,12 +88,19 @@ export default function ServiceTicketDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Service Ticket</h1>
-        <a className="text-[var(--primary-600)] text-sm" href="/service">
-          Back
-        </a>
-      </div>
+      <PageHeader
+        title="Service Ticket"
+        subtitle={`Customer: ${customerName}`}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => (window.location.href = '/service')}
+          >
+            Back
+          </Button>
+        }
+      />
       <Breadcrumbs
         items={[{ href: '/service', label: 'Service' }, { label: 'Ticket' }]}
       />

@@ -15,6 +15,7 @@ import MilestoneTimeline from '~/components/MilestoneTimeline';
 import RequiredDocs from '~/components/RequiredDocs';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import QuickContact from 'components/QuickContact';
+import PageHeader from '~/components/ui/PageHeader';
 
 type Job = any;
 
@@ -73,23 +74,27 @@ function JobDetailPageInner() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Job Details</h1>
-        <button
-          onClick={() => {
-            if (history.length > 1) history.back();
-            else window.location.href = '/jobs';
-          }}
-          className="text-sm text-[var(--primary-600)]"
-        >
-          Back
-        </button>
-      </div>
+      <PageHeader
+        title="Job Details"
+        subtitle="Track progress, tasks, and documents."
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (history.length > 1) history.back();
+              else window.location.href = '/jobs';
+            }}
+          >
+            Back
+          </Button>
+        }
+      />
       {/* toasts used instead of inline flash */}
       <Breadcrumbs
         items={[{ href: '/jobs', label: 'Jobs' }, { label: 'Job Details' }]}
       />
-      <div className="sticky top-16 z-10 flex gap-2 overflow-x-auto whitespace-nowrap bg-[var(--bg-subtle)] py-2 no-scrollbar border-b border-[var(--border-subtle)]">
+      <div className="sticky top-16 z-10 flex flex-wrap gap-2 bg-[var(--bg-subtle)] py-2 border-b border-[var(--border-subtle)]">
         {(
           [
             'overview',

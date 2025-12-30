@@ -7,6 +7,8 @@ import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
 import RequireOwner from '~/components/RequireOwner';
 import KitItemsEditor from '~/components/KitItemsEditor';
+import PageHeader from '~/components/ui/PageHeader';
+import Badge from '~/components/ui/Badge';
 
 export default function KitsPage() {
   const supabase = supabaseBrowser();
@@ -70,15 +72,18 @@ export default function KitsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Kits</h1>
-        <input
-          className="rounded border px-3 py-2 text-sm"
-          placeholder="Search…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      <PageHeader
+        title="Kits"
+        subtitle="Standard kit templates for faster proposals."
+        actions={
+          <Input
+            className="w-52 md:w-64"
+            placeholder="Search kits…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        }
+      />
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -220,11 +225,23 @@ export default function KitsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-3">
-                    <span>
-                      {k.kit_name} • {k.capacity_kw ?? '—'} kW • ₹
-                      {k.selling_price ?? '—'}
-                    </span>
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-[var(--text-primary)]">
+                          {k.kit_name}
+                        </span>
+                        <Badge variant="info">
+                          {k.capacity_kw ?? '—'} kW
+                        </Badge>
+                        <Badge>{`₹${k.selling_price ?? '—'}`}</Badge>
+                      </div>
+                      {k.description && (
+                        <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                          {k.description}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"

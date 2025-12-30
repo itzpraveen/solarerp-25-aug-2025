@@ -4,12 +4,13 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import QuickContact from 'components/QuickContact';
 import Button from '~/components/ui/Button';
-import BranchSelect from '~/components/BranchSelect';
+import PageHeader from '~/components/ui/PageHeader';
 import { JOB_STATUSES, statusLabel } from '@/lib/status';
+import { useBranchSelection } from '@/lib/useBranchSelection';
 
 export default function OverviewPage() {
   const supabase = supabaseBrowser();
-  const [branchId, setBranchId] = useState<string | 'all'>('all');
+  const { branchId } = useBranchSelection();
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<any[]>([]);
   const [leadsDue, setLeadsDue] = useState<any[]>([]);
@@ -289,12 +290,15 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Overview</h1>
-        <div className="min-w-[220px]">
-          <BranchSelect value={branchId} onChange={setBranchId} />
+      <PageHeader
+        title="Overview"
+        subtitle="Pipeline, follow-ups, and cashflow at a glance."
+      />
+      {loading && (
+        <div className="text-xs text-[var(--text-muted)]">
+          Updating metrics…
         </div>
-      </div>
+      )}
 
       {/* Pipeline summary */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { normalizeLoginIdentifier } from '@/lib/authUsername';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
+import Card from '~/components/ui/Card';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function SignIn() {
   const [identifier, setIdentifier] = useState('');
@@ -95,8 +97,12 @@ export default function SignIn() {
 
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-      <div className="space-y-4">
+      <PageHeader
+        title="Sign in"
+        subtitle="Access your SolarERP workspace."
+      />
+      <Card>
+        <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium">Username</label>
           <Input
@@ -129,7 +135,8 @@ export default function SignIn() {
           Sign in
         </Button>
         {message && <p className="text-sm text-gray-600">{message}</p>}
-      </div>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
 import TaskTemplatesManager from '~/components/TaskTemplatesManager';
 import { useRef } from 'react';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
@@ -402,21 +403,19 @@ export default function SettingsPage() {
       )}
       {!loading && !errorMsg && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h1 className="text-xl font-semibold">Settings</h1>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Company profile, billing defaults, and team access.
-              </p>
-            </div>
-            {myRole && (
-              <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
-                Your role:{' '}
-                {String(myRole).charAt(0).toUpperCase() +
-                  String(myRole).slice(1)}
-              </span>
-            )}
-          </div>
+          <PageHeader
+            title="Settings"
+            subtitle="Company profile, billing defaults, and team access."
+            actions={
+              myRole ? (
+                <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                  Your role:{' '}
+                  {String(myRole).charAt(0).toUpperCase() +
+                    String(myRole).slice(1)}
+                </span>
+              ) : null
+            }
+          />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className={panelClass}>
               <div>

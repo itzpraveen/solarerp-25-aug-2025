@@ -6,6 +6,8 @@ import Input from '~/components/ui/Input';
 import Select from '~/components/ui/Select';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
+import Badge from '~/components/ui/Badge';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function ServiceTickets() {
   const supabase = supabaseBrowser();
@@ -90,16 +92,37 @@ export default function ServiceTickets() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Service Tickets</h1>
-      <div className="flex items-center justify-between text-sm">
-        <input className="rounded border px-3 py-2" placeholder="Search summary…" value={search} onChange={(e)=>setSearch(e.target.value)} />
-        <div className="flex items-center gap-2">
-          <span>Rows:</span>
-          <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{setPage(1); setPageSize(Number(e.target.value));}}>
-            {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
-      </div>
+      <PageHeader
+        title="Service Tickets"
+        subtitle="Log and track post-install issues."
+        actions={
+          <>
+            <Input
+              className="w-52 md:w-64"
+              placeholder="Search summary…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+              <span>Rows</span>
+              <Select
+                className="w-20 !px-2 !py-1 text-sm"
+                value={pageSize}
+                onChange={(e) => {
+                  setPage(1);
+                  setPageSize(Number(e.target.value));
+                }}
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </>
+        }
+      />
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -143,6 +166,15 @@ export default function ServiceTickets() {
             const cname = Array.isArray(t.customers)
               ? t.customers?.[0]?.name || '—'
               : (t as any)?.customers?.name || '—';
+            const status = String(t.status || '').toLowerCase();
+            const statusVariant =
+              status.includes('done') || status.includes('closed')
+                ? 'success'
+                : status.includes('progress') || status.includes('working')
+                  ? 'warning'
+                  : status
+                    ? 'info'
+                    : 'muted';
             return (
               <li
                 key={t.id}
@@ -158,7 +190,9 @@ export default function ServiceTickets() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-600">{t.status}</span>
+                  <Badge variant={statusVariant as any}>
+                    {t.status || 'New'}
+                  </Badge>
                   <a
                     className="text-[var(--primary-600)] text-sm"
                     href={`/service/${t.id}`}

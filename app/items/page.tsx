@@ -3,12 +3,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
+import Select from '~/components/ui/Select';
 import Button from '~/components/ui/Button';
 import EmptyState from '~/components/ui/EmptyState';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import RequireOwner from '~/components/RequireOwner';
 import DataTable, { type Column } from '~/components/ui/DataTable';
 import { useToast } from '~/components/ui/ToastProvider';
+import PageHeader from '~/components/ui/PageHeader';
 
 export default function ItemsPage() {
   const supabase = supabaseBrowser();
@@ -139,35 +141,38 @@ export default function ItemsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Items</h1>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(e) => setShowArchived(e.target.checked)}
+      <PageHeader
+        title="Items"
+        subtitle="Manage inventory items for proposals and kits."
+        actions={
+          <>
+            <label className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Show archived
+            </label>
+            <Input
+              className="w-52 md:w-64"
+              placeholder="Search code, name, vendor…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            Show archived
-          </label>
-          <input
-            className="rounded border px-3 py-2 text-sm"
-            placeholder="Search code, name, vendor…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="rounded border px-2 py-2 text-sm"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-          >
-            <option value="name-asc">Name A–Z</option>
-            <option value="name-desc">Name Z–A</option>
-            <option value="code-asc">Code A–Z</option>
-            <option value="code-desc">Code Z–A</option>
-          </select>
-        </div>
-      </div>
+            <Select
+              className="w-44"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+            >
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+              <option value="code-asc">Code A–Z</option>
+              <option value="code-desc">Code Z–A</option>
+            </Select>
+          </>
+        }
+      />
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -249,8 +254,8 @@ export default function ItemsPage() {
             <div className="flex items-center justify-between p-2 text-xs text-gray-600 sticky top-0 bg-white z-10 border-b">
               <div className="flex items-center gap-2">
                 <span>Rows:</span>
-                <select
-                  className="rounded border px-2 py-1"
+                <Select
+                  className="w-20 !px-2 !py-1 text-xs"
                   value={pageSize}
                   onChange={(e) => {
                     setPage(1);
@@ -262,7 +267,7 @@ export default function ItemsPage() {
                       {n}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="text-xs text-gray-600">
                 Page {page} of {totalPages} • {totalCount} items

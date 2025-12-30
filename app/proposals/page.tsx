@@ -4,6 +4,10 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Button from '~/components/ui/Button';
 import RequireOwner from '~/components/RequireOwner';
+import Input from '~/components/ui/Input';
+import Select from '~/components/ui/Select';
+import PageHeader from '~/components/ui/PageHeader';
+import Badge from '~/components/ui/Badge';
 
 export default function ProposalsListPage() {
   const supabase = supabaseBrowser();
@@ -84,31 +88,34 @@ export default function ProposalsListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Proposals</h1>
-        <div className="flex items-center gap-2">
-          <input
-            className="rounded border px-3 py-2 text-sm"
-            placeholder="Search by date or kit name…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <label className="flex items-center gap-1 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={showVoided}
-              onChange={(e) => setShowVoided(e.target.checked)}
+      <PageHeader
+        title="Proposals"
+        subtitle="Review generated proposals and PDFs."
+        actions={
+          <>
+            <Input
+              className="w-52 md:w-64"
+              placeholder="Search by date or kit name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            Show voided
-          </label>
-          <a
-            href="/proposals/new"
-            className="rounded bg-[var(--primary-600)] px-3 py-2 text-white text-sm"
-          >
-            New Proposal
-          </a>
-        </div>
-      </div>
+            <label className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={showVoided}
+                onChange={(e) => setShowVoided(e.target.checked)}
+              />
+              Show voided
+            </label>
+            <Button
+              size="sm"
+              onClick={() => (window.location.href = '/proposals/new')}
+            >
+              New Proposal
+            </Button>
+          </>
+        }
+      />
       {err && (
         <div className="rounded border bg-red-50 p-2 text-sm text-red-700">
           {err}
@@ -125,9 +132,20 @@ export default function ProposalsListPage() {
               <div>Page {page} of {totalPages} • {totalCount} proposals</div>
               <div className="flex items-center gap-2">
                 <span>Rows:</span>
-                <select className="rounded border px-2 py-1" value={pageSize} onChange={(e)=>{ setPage(1); setPageSize(Number(e.target.value)); }}>
-                  {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
-                </select>
+                <Select
+                  className="w-20 !px-2 !py-1 text-xs"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
               </div>
             </div>
             <ul className="space-y-2">
@@ -148,9 +166,7 @@ export default function ProposalsListPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {r.voided_at && (
-                    <span className="rounded-full border px-2 py-0.5 text-xs text-red-700 border-red-300">
-                      Voided
-                    </span>
+                    <Badge variant="danger">Voided</Badge>
                   )}
                   {r.pdf_url ? (
                     <Button
