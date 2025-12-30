@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { Menu, X, Sun, Moon, Search, Plus, Bell, ChevronDown } from 'lucide-react';
 import BranchSelect from '~/components/BranchSelect';
 import { useProfile } from '@/lib/useProfile';
@@ -252,10 +253,18 @@ export default function AppHeader() {
     if (companyLogoUrl) setLogoLoaded(false);
   }, [companyLogoUrl]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     window.location.href = '/auth/signin';
-  };
+  }, [supabase]);
+
+  const toggleMenu = useCallback(() => setOpen((v) => !v), []);
+  const closeMenu = useCallback(() => setOpen(false), []);
+  const toggleMore = useCallback(() => setMoreOpen((v) => !v), []);
+  const toggleNotif = useCallback(() => setNotifOpen((v) => !v), []);
+  const toggleCreate = useCallback(() => setCreateOpen((v) => !v), []);
+  const toggleUser = useCallback(() => setUserOpen((v) => !v), []);
+  const openSearch = useCallback(() => window.dispatchEvent(new Event('open-cmdk')), []);
 
   useEffect(() => {
     // Initialize theme from storage or system
@@ -273,19 +282,28 @@ export default function AppHeader() {
     } catch {}
   }, []);
 
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    try {
-      localStorage.setItem('theme', next);
-    } catch {}
-    document.documentElement.classList.toggle('dark', next === 'dark');
-  };
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('theme', next);
+      } catch {}
+      document.documentElement.classList.toggle('dark', next === 'dark');
+      return next;
+    });
+  }, []);
 
   const brandLabel = companyName || 'SolarERP';
   const showLogo = !!companyLogoUrl && !logoError;
   const moreActive = overflowLinks.some((l) => pathname.startsWith(l.href));
-  const renderBrand = (size: 'default' | 'compact') => {
+
+  const handleLogoLoad = useCallback(() => setLogoLoaded(true), []);
+  const handleLogoError = useCallback(() => {
+    setLogoError(true);
+    setLogoLoaded(true);
+  }, []);
+
+  const renderBrand = useCallback((size: 'default' | 'compact') => {
     const heightClass = size === 'compact' ? 'h-7' : 'h-8';
     const skeletonWidthClass = size === 'compact' ? 'w-24' : 'w-28';
     const maxWidthClass = size === 'compact' ? 'max-w-[120px]' : 'max-w-[140px]';
@@ -300,15 +318,13 @@ export default function AppHeader() {
       return (
         <span className="relative flex items-center">
           {!logoLoaded && skeleton}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={companyLogoUrl as string}
             alt={brandLabel}
             className={`${heightClass} w-auto ${maxWidthClass} object-contain ${!logoLoaded ? 'absolute opacity-0' : ''}`}
-            onLoad={() => setLogoLoaded(true)}
-            onError={() => {
-              setLogoError(true);
-              setLogoLoaded(true);
-            }}
+            onLoad={handleLogoLoad}
+            onError={handleLogoError}
             loading="eager"
             decoding="async"
           />
@@ -319,7 +335,7 @@ export default function AppHeader() {
     if (logoLoading) return skeleton;
 
     return <span>{brandLabel}</span>;
-  };
+  }, [showLogo, logoLoaded, companyLogoUrl, brandLabel, logoLoading, handleLogoLoad, handleLogoError]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg-surface)]/80">
@@ -328,7 +344,7 @@ export default function AppHeader() {
           <button
             className="md:hidden p-1 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors"
             aria-label="Toggle Menu"
-            onClick={() => setOpen((v) => !v)}
+            onClick={toggleMenu}
           >
             {open ? <X size={20} className="text-[var(--text-primary)]" /> : <Menu size={20} className="text-[var(--text-primary)]" />}
           </button>
@@ -363,7 +379,7 @@ export default function AppHeader() {
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={moreOpen}
-                onClick={() => setMoreOpen((v) => !v)}
+                onClick={toggleMore}
                 className={
                   'text-sm rounded-lg px-3 py-1.5 transition-all duration-150 whitespace-nowrap font-medium flex items-center gap-1 ' +
                   (moreActive
@@ -420,7 +436,7 @@ export default function AppHeader() {
           <button
             type="button"
             aria-label="Open search"
-            onClick={() => window.dispatchEvent(new Event('open-cmdk'))}
+            onClick={openSearch}
             className="hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150 sm:flex items-center gap-1.5"
             title="Search (Ctrl/Cmd+K)"
           >
@@ -435,7 +451,7 @@ export default function AppHeader() {
               type="button"
               aria-haspopup="menu"
               aria-expanded={notifOpen}
-              onClick={() => setNotifOpen((v) => !v)}
+              onClick={toggleNotif}
               className="relative rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150"
               title="Notifications"
             >
@@ -497,7 +513,7 @@ export default function AppHeader() {
               type="button"
               aria-haspopup="menu"
               aria-expanded={createOpen}
-              onClick={() => setCreateOpen((v) => !v)}
+              onClick={toggleCreate}
               className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-500)] transition-all duration-150 flex items-center gap-1.5"
               title="Create"
             >
@@ -543,7 +559,7 @@ export default function AppHeader() {
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={userOpen}
-                onClick={() => setUserOpen((v) => !v)}
+                onClick={toggleUser}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[var(--primary-500)] to-[var(--primary-700)] text-sm font-semibold uppercase text-white shadow-sm hover:shadow-[var(--shadow-md)] transition-all duration-150 ring-2 ring-[var(--bg-surface)] ring-offset-0"
                 title={email || 'Account'}
               >

@@ -5,10 +5,14 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
 
+  // Enable React Compiler for automatic memoization (React 19+)
+  reactCompiler: true,
+
   turbopack: {
     // Pin workspace root to avoid lockfile root ambiguity.
     root: process.cwd(),
   },
+
   // Reduce dev cache flakiness by using in-memory cache for webpack
   webpack: (config, { dev }) => {
     if (dev) {
@@ -16,6 +20,7 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+
   // Ensure serverless Chromium binaries/assets are included in the Vercel
   // Serverless Function bundle. We avoid externalizing these packages so the
   // traced files are packaged with the function.
@@ -25,6 +30,13 @@ const nextConfig: NextConfig = {
     // Match the API route handler for PDF generation
     'app/api/pdf/invoice/route': ['./node_modules/@sparticuz/**'],
     'app/api/pdf/invoice/route.ts': ['./node_modules/@sparticuz/**'],
+  },
+
+  // Optimize images
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
   },
 };
 

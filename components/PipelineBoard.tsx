@@ -1,8 +1,7 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
-import Spinner from '~/components/ui/Spinner';
 import Skeleton from '~/components/ui/Skeleton';
 import Input from '~/components/ui/Input';
 import Segmented from '~/components/ui/Segmented';
@@ -17,10 +16,111 @@ type Job = {
   capacity_kw: string | null;
   system_type: string;
   location: string | null;
-  customers?: { name: string }[];
+  customers?: { name: string; phone?: string | null }[];
 };
 
 const CARD_LIMIT = 6;
+
+// Memoized JobCard component to prevent unnecessary re-renders
+const JobCard = memo(function JobCard({
+  job,
+  taskCount,
+  cardPadding,
+  titleClass,
+  metaClass,
+  actionClass,
+  actionMargin,
+  selectClass,
+  taskBadgeClass,
+  onStatusChange,
+}: {
+  job: Job;
+  taskCount?: { open: number; total: number };
+  cardPadding: string;
+  titleClass: string;
+  metaClass: string;
+  actionClass: string;
+  actionMargin: string;
+  selectClass: string;
+  taskBadgeClass: string;
+  onStatusChange: (jobId: string, newStatus: JobStatus) => void;
+}) {
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      e.dataTransfer.setData('text/plain', job.id);
+    },
+    [job.id]
+  );
+
+  const handleStatusChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const next = e.target.value as JobStatus;
+      onStatusChange(job.id, next);
+    },
+    [job.id, onStatusChange]
+  );
+
+  const customerName = job.customers?.[0]?.name || '—';
+  const customerPhone = job.customers?.[0]?.phone;
+
+  return (
+    <div
+      className={`cursor-move rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)] ${cardPadding}`}
+      draggable
+      onDragStart={handleDragStart}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className={`truncate font-semibold ${titleClass}`}>
+            {customerName}
+          </div>
+          <div className={`text-[var(--text-secondary)] ${metaClass}`}>
+            {job.system_type} • {job.capacity_kw ?? '—'} kW
+          </div>
+        </div>
+        {taskCount && (
+          <span
+            className={`shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] ${taskBadgeClass}`}
+            title="Open tasks / Total"
+          >
+            {taskCount.open}/{taskCount.total}
+          </span>
+        )}
+      </div>
+      <div className={`${actionMargin} flex items-center justify-between gap-2`}>
+        <div className="flex items-center gap-2">
+          <a
+            className={`inline-block text-[var(--primary-600)] dark:text-[var(--primary-600)] ${actionClass}`}
+            href={`/jobs/${job.id}`}
+          >
+            Open
+          </a>
+          {customerPhone && (
+            <a
+              href={`tel:${customerPhone}`}
+              className={`inline-block text-[var(--text-secondary)] ${actionClass}`}
+              title="Call customer"
+            >
+              Call
+            </a>
+          )}
+        </div>
+        <select
+          aria-label="Change status"
+          className={`rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[var(--text-primary)] ${selectClass}`}
+          value={job.status}
+          onChange={handleStatusChange}
+        >
+          {JOB_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+});
 
 export default function PipelineBoard({
   branchId,
@@ -150,7 +250,7 @@ export default function PipelineBoard({
     };
   }, [load, supabase]);
 
-  const onDrop = async (jobId: string, newStatus: JobStatus) => {
+  const onDrop = useCallback(async (jobId: string, newStatus: JobStatus) => {
     const ok = await confirm({
       title: 'Move job',
       description: `Move job to "${statusLabel(newStatus)}"?`,
@@ -187,7 +287,17 @@ export default function PipelineBoard({
     } else {
       toast({ title: `Moved to ${statusLabel(newStatus)}` });
     }
-  };
+  }, [confirm, supabase, jobs, load, toast]);
+
+  // Memoized status change handler for JobCard
+  const handleCardStatusChange = useCallback(async (jobId: string, newStatus: JobStatus) => {
+    const ok = await confirm({
+      title: 'Move job',
+      description: `Move job to "${statusLabel(newStatus)}"?`,
+    });
+    if (!ok) return;
+    onDrop(jobId, newStatus);
+  }, [confirm, onDrop]);
 
   const filteredJobs = useMemo(() => {
     const lc = term.trim().toLowerCase();
@@ -334,73 +444,19 @@ export default function PipelineBoard({
                   </div>
                 )}
                 {visibleJobs.map((j) => (
-                  <div
+                  <JobCard
                     key={j.id}
-                    className={`cursor-move rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)] ${cardPadding}`}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', j.id);
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className={`truncate font-semibold ${titleClass}`}>
-                          {j.customers?.[0]?.name || '—'}
-                        </div>
-                        <div className={`text-[var(--text-secondary)] ${metaClass}`}>
-                          {j.system_type} • {j.capacity_kw ?? '—'} kW
-                        </div>
-                      </div>
-                      {taskCounts[j.id] && (
-                        <span
-                          className={`shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] ${taskBadgeClass}`}
-                          title="Open tasks / Total"
-                        >
-                          {taskCounts[j.id].open}/{taskCounts[j.id].total}
-                        </span>
-                      )}
-                    </div>
-                    <div className={`${actionMargin} flex items-center justify-between gap-2`}>
-                      <div className="flex items-center gap-2">
-                        <a
-                          className={`inline-block text-[var(--primary-600)] dark:text-[var(--primary-600)] ${actionClass}`}
-                          href={`/jobs/${j.id}`}
-                        >
-                          Open
-                        </a>
-                        {((j as any).customers?.[0]?.phone as string | null) && (
-                          <a
-                            href={`tel:${(j as any).customers?.[0]?.phone}`}
-                            className={`inline-block text-[var(--text-secondary)] ${actionClass}`}
-                            title="Call customer"
-                          >
-                            Call
-                          </a>
-                        )}
-                      </div>
-                      {/* Accessible status change */}
-                      <select
-                        aria-label="Change status"
-                        className={`rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[var(--text-primary)] ${selectClass}`}
-                        value={j.status}
-                        onChange={async (e) => {
-                          const next = e.target.value as JobStatus;
-                          const ok = await confirm({
-                            title: 'Move job',
-                            description: `Move job to "${statusLabel(next)}"?`,
-                          });
-                          if (!ok) return;
-                          onDrop(j.id, next);
-                        }}
-                      >
-                        {JOB_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {statusLabel(s)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                    job={j}
+                    taskCount={taskCounts[j.id]}
+                    cardPadding={cardPadding}
+                    titleClass={titleClass}
+                    metaClass={metaClass}
+                    actionClass={actionClass}
+                    actionMargin={actionMargin}
+                    selectClass={selectClass}
+                    taskBadgeClass={taskBadgeClass}
+                    onStatusChange={handleCardStatusChange}
+                  />
                 ))}
                 {!loading && colJobs.length === 0 && (
                   <div className="rounded border border-dashed border-[var(--border-default)] p-3 text-center text-xs text-[var(--text-muted)]">
