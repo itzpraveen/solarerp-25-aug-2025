@@ -21,6 +21,17 @@ const links = [
   { href: '/settings', label: 'Settings' },
 ];
 
+const SIGNED_LOGO_TTL_MS = 6 * 24 * 60 * 60 * 1000;
+
+type BrandCache = {
+  cachedAt: number;
+  name: string | null;
+  rawLogo: string | null;
+  resolvedLogo: string | null;
+  resolvedAt: number | null;
+  usesSigned: boolean;
+};
+
 export default function AppHeader() {
   const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
@@ -39,6 +50,8 @@ export default function AppHeader() {
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logoLoaded, setLogoLoaded] = useState(false);
   const { profile } = useProfile();
   const role = profile?.role ?? null;
   const tenantId = profile?.tenant_id ?? null;
@@ -116,8 +129,34 @@ export default function AppHeader() {
       setCompanyLogoUrl(null);
       setCompanyName(null);
       setLogoError(false);
+      setLogoLoading(false);
+      setLogoLoaded(false);
       return;
     }
+    setLogoLoading(true);
+    const cacheKey = `settings:brand:${tenantId}`;
+    const now = Date.now();
+    let cache: BrandCache | null = null;
+
+    try {
+      const cachedRaw = localStorage.getItem(cacheKey);
+      if (cachedRaw) cache = JSON.parse(cachedRaw) as BrandCache;
+    } catch {}
+
+    if (cache) {
+      if (cache.name) setCompanyName(cache.name);
+      if (cache.resolvedLogo) {
+        const signedValid =
+          !cache.usesSigned ||
+          (cache.resolvedAt && now - cache.resolvedAt < SIGNED_LOGO_TTL_MS);
+        if (signedValid) {
+          setCompanyLogoUrl(cache.resolvedLogo);
+          setLogoError(false);
+        }
+      }
+      if (cache.name || cache.resolvedLogo) setLogoLoading(false);
+    }
+
     (async () => {
       try {
         const { data } = await supabase
@@ -126,30 +165,66 @@ export default function AppHeader() {
           .eq('tenant_id', tenantId)
           .maybeSingle();
         if (!alive) return;
-        let logoUrl = (data?.company_logo_url || '').trim();
-        const name = (data?.company_name || '').trim();
-        if (
-          logoUrl &&
-          !/^https?:\/\//i.test(logoUrl) &&
-          !/^data:/i.test(logoUrl)
-        ) {
-          try {
-            const { data: signed } = await supabase.storage
-              .from('documents')
-              .createSignedUrl(logoUrl, 60 * 60 * 24 * 7);
-            if ((signed as any)?.signedUrl)
-              logoUrl = (signed as any).signedUrl as string;
-          } catch {}
+        const name = (data?.company_name || '').trim() || null;
+        const rawLogo = (data?.company_logo_url || '').trim() || null;
+        let resolvedLogo: string | null = null;
+        let usesSigned = false;
+
+        if (rawLogo) {
+          if (/^https?:\/\//i.test(rawLogo) || /^data:/i.test(rawLogo)) {
+            resolvedLogo = rawLogo;
+          } else {
+            const cacheValid =
+              cache?.rawLogo === rawLogo &&
+              cache?.resolvedLogo &&
+              cache?.usesSigned &&
+              cache?.resolvedAt &&
+              now - cache.resolvedAt < SIGNED_LOGO_TTL_MS;
+            if (cacheValid) {
+              resolvedLogo = cache.resolvedLogo as string;
+              usesSigned = true;
+            } else {
+              try {
+                const { data: signed } = await supabase.storage
+                  .from('documents')
+                  .createSignedUrl(rawLogo, 60 * 60 * 24 * 7);
+                if ((signed as any)?.signedUrl) {
+                  resolvedLogo = (signed as any).signedUrl as string;
+                  usesSigned = true;
+                }
+              } catch {}
+            }
+          }
         }
-        setCompanyLogoUrl(logoUrl || null);
-        setCompanyName(name || null);
+
+        setCompanyName(name);
+        setCompanyLogoUrl(resolvedLogo);
         setLogoError(false);
-      } catch {}
+        setLogoLoading(false);
+
+        try {
+          const nextCache: BrandCache = {
+            cachedAt: Date.now(),
+            name,
+            rawLogo,
+            resolvedLogo,
+            resolvedAt: resolvedLogo ? Date.now() : null,
+            usesSigned,
+          };
+          localStorage.setItem(cacheKey, JSON.stringify(nextCache));
+        } catch {}
+      } catch {
+        if (alive) setLogoLoading(false);
+      }
     })();
     return () => {
       alive = false;
     };
   }, [tenantId, supabase]);
+
+  useEffect(() => {
+    if (companyLogoUrl) setLogoLoaded(false);
+  }, [companyLogoUrl]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -181,6 +256,44 @@ export default function AppHeader() {
     document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
+  const brandLabel = companyName || 'SolarERP';
+  const showLogo = !!companyLogoUrl && !logoError;
+  const renderBrand = (size: 'default' | 'compact') => {
+    const heightClass = size === 'compact' ? 'h-7' : 'h-8';
+    const skeletonWidthClass = size === 'compact' ? 'w-24' : 'w-28';
+    const maxWidthClass = size === 'compact' ? 'max-w-[120px]' : 'max-w-[140px]';
+    const skeleton = (
+      <span
+        className={`${heightClass} ${skeletonWidthClass} rounded-md bg-[var(--bg-subtle)] animate-pulse`}
+        aria-hidden
+      />
+    );
+
+    if (showLogo) {
+      return (
+        <span className="relative flex items-center">
+          {!logoLoaded && skeleton}
+          <img
+            src={companyLogoUrl as string}
+            alt={brandLabel}
+            className={`${heightClass} w-auto ${maxWidthClass} object-contain ${!logoLoaded ? 'absolute opacity-0' : ''}`}
+            onLoad={() => setLogoLoaded(true)}
+            onError={() => {
+              setLogoError(true);
+              setLogoLoaded(true);
+            }}
+            loading="eager"
+            decoding="async"
+          />
+        </span>
+      );
+    }
+
+    if (logoLoading) return skeleton;
+
+    return <span>{brandLabel}</span>;
+  };
+
   return (
     <header className="sticky top-0 z-20 border-b border-[var(--border-default)] bg-[var(--bg-surface)]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[var(--bg-surface)]/80">
       <div className="mx-auto max-w-7xl px-4 py-2.5 flex items-center justify-between">
@@ -196,16 +309,7 @@ export default function AppHeader() {
             href="/overview"
             className="flex items-center gap-2 font-semibold text-[var(--text-primary)] hover:text-[var(--primary-600)] transition-colors"
           >
-            {companyLogoUrl && !logoError ? (
-              <img
-                src={companyLogoUrl}
-                alt={companyName || 'Company logo'}
-                className="h-8 w-auto max-w-[140px] object-contain"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <span>{companyName || 'SolarERP'}</span>
-            )}
+            {renderBrand('default')}
           </Link>
         </div>
         <nav className="hidden gap-1 md:flex overflow-x-auto">
@@ -437,7 +541,9 @@ export default function AppHeader() {
           <div className="absolute inset-x-0 top-0 max-h-[90vh] overflow-y-auto rounded-b-2xl border-b border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-lg)]">
             <div className="mx-auto max-w-7xl p-4">
               <div className="flex items-center justify-between">
-                <div className="font-semibold text-[var(--text-primary)]">Menu</div>
+                <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                  {renderBrand('compact')}
+                </div>
                 <button
                   className="rounded-lg border border-[var(--border-default)] p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
                   onClick={() => setOpen(false)}
