@@ -180,8 +180,9 @@ export default function AppHeader() {
               cache?.usesSigned &&
               cache?.resolvedAt &&
               now - cache.resolvedAt < SIGNED_LOGO_TTL_MS;
-            if (cacheValid) {
-              resolvedLogo = cache.resolvedLogo as string;
+            const cachedResolved = cache?.resolvedLogo || null;
+            if (cacheValid && cachedResolved) {
+              resolvedLogo = cachedResolved;
               usesSigned = true;
             } else {
               try {
