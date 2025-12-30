@@ -351,7 +351,7 @@ export default function AppHeader() {
             {renderBrand('default')}
           </Link>
         </div>
-        <nav className="hidden gap-1 md:flex overflow-x-auto">
+        <nav className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-1 md:flex">
           {primaryLinks.map((l) => {
             const active = pathname.startsWith(l.href);
             return (
