@@ -5,6 +5,7 @@ import { JOB_STATUSES, statusLabel, type JobStatus } from '@/lib/status';
 import Spinner from '~/components/ui/Spinner';
 import Skeleton from '~/components/ui/Skeleton';
 import Input from '~/components/ui/Input';
+import Segmented from '~/components/ui/Segmented';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
 
@@ -19,6 +20,8 @@ type Job = {
   customers?: { name: string }[];
 };
 
+const CARD_LIMIT = 6;
+
 export default function PipelineBoard({
   branchId,
   showToolbar = true,
@@ -26,10 +29,30 @@ export default function PipelineBoard({
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [term, setTerm] = useState('');
+  const [activeStatus, setActiveStatus] = useState<JobStatus | 'all'>('all');
+  const [expandedCols, setExpandedCols] = useState<Record<JobStatus, boolean>>(
+    {} as Record<JobStatus, boolean>,
+  );
+  const [density, setDensity] = useState<'comfortable' | 'compact'>(
+    'comfortable',
+  );
   const [taskCounts, setTaskCounts] = useState<Record<string, { open: number; total: number }>>({});
   const supabase = supabaseBrowser();
   const { confirm } = useConfirm();
   const { toast } = useToast();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pref:jobs:pipelineDensity');
+      if (saved === 'compact' || saved === 'comfortable') setDensity(saved);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pref:jobs:pipelineDensity', density);
+    } catch {}
+  }, [density]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -179,55 +202,141 @@ export default function PipelineBoard({
     });
   }, [jobs, term]);
 
+  const statusCounts = useMemo(() => {
+    const counts = {} as Record<JobStatus, number>;
+    for (const s of JOB_STATUSES) counts[s] = 0;
+    for (const j of filteredJobs) counts[j.status] += 1;
+    return counts;
+  }, [filteredJobs]);
+
+  const visibleStatuses =
+    activeStatus === 'all' ? JOB_STATUSES : [activeStatus];
+  const isCompact = density === 'compact';
+  const listSpacing = isCompact ? 'space-y-1.5' : 'space-y-2';
+  const listPadding = isCompact ? 'p-2' : 'p-2.5';
+  const cardPadding = isCompact ? 'p-2' : 'p-2.5';
+  const titleClass = isCompact ? 'text-[13px]' : 'text-sm';
+  const metaClass = isCompact ? 'text-[11px]' : 'text-xs';
+  const actionClass = isCompact ? 'text-[11px]' : 'text-xs';
+  const actionMargin = isCompact ? 'mt-1.5' : 'mt-2';
+  const selectClass = isCompact ? 'text-[10px]' : 'text-[11px]';
+  const taskBadgeClass = isCompact
+    ? 'px-1.5 py-0.5 text-[10px]'
+    : 'px-2 py-0.5 text-[10px]';
+  const listMaxHeight = showToolbar
+    ? 'calc(100vh - 320px)'
+    : 'calc(100vh - 240px)';
+
   return (
     <div className="overflow-x-auto no-scrollbar">
       {showToolbar && (
-        <div className="mb-2 flex items-center gap-2">
-          <Input
-            className="h-8 px-2 py-1 text-sm"
-            placeholder="Search by customer or location"
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-          />
-          <button
-            className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
-            onClick={() => setTerm('')}
-          >
-            Clear
-          </button>
+        <div className="mb-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="h-8 px-2 py-1 text-sm w-full sm:w-64"
+              placeholder="Search by customer or location"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+            />
+            <button
+              className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-secondary)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
+              onClick={() => setTerm('')}
+            >
+              Clear
+            </button>
+            <span className="text-xs text-[var(--text-muted)]">
+              {term
+                ? `Showing ${filteredJobs.length} of ${jobs.length}`
+                : `${jobs.length} jobs`}
+            </span>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <span className="text-xs text-[var(--text-muted)]">Density</span>
+              <Segmented
+                value={density}
+                onChange={setDensity}
+                options={[
+                  { label: 'Comfort', value: 'comfortable' },
+                  { label: 'Compact', value: 'compact' },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveStatus('all')}
+              className={
+                'rounded-full border px-3 py-1 transition-colors ' +
+                (activeStatus === 'all'
+                  ? 'border-[var(--primary-500)] bg-[var(--primary-100)] text-[var(--primary-700)]'
+                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]')
+              }
+            >
+              All ({filteredJobs.length})
+            </button>
+            {JOB_STATUSES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setActiveStatus(s)}
+                className={
+                  'rounded-full border px-3 py-1 transition-colors ' +
+                  (activeStatus === s
+                    ? 'border-[var(--primary-500)] bg-[var(--primary-100)] text-[var(--primary-700)]'
+                    : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]')
+                }
+              >
+                {statusLabel(s)} ({statusCounts[s]})
+              </button>
+            ))}
+          </div>
         </div>
       )}
-      <div className="grid min-w-[900px] grid-cols-[repeat(5,280px)] gap-4 md:grid-cols-3 md:[grid-auto-columns:unset] md:[grid-template-columns:repeat(3,minmax(0,1fr))] lg:grid-cols-5 snap-x snap-mandatory pb-2">
-        {JOB_STATUSES.map((col: JobStatus) => (
-          <div
-            key={col}
-            className="snap-start rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)]"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              const jobId = e.dataTransfer.getData('text/plain');
-              onDrop(jobId, col);
-            }}
-          >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-sm font-medium">
-              <span>{statusLabel(col)}</span>
-              <span className="text-xs text-[var(--text-tertiary)]">
-                {filteredJobs.filter((j) => j.status === col).length}
-              </span>
-            </div>
-            <div className="space-y-2 p-2 min-h-[260px]">
-              {loading && (
-                <div className="space-y-2">
-                  <Skeleton className="h-16" />
-                  <Skeleton className="h-16" />
-                  <Skeleton className="h-16" />
-                </div>
-              )}
-              {filteredJobs
-                .filter((j) => j.status === col)
-                .map((j) => (
+      <div
+        className={
+          'grid gap-4 snap-x snap-mandatory pb-2 ' +
+          (activeStatus === 'all'
+            ? 'min-w-[900px] grid-cols-[repeat(5,280px)] md:grid-cols-3 md:[grid-auto-columns:unset] md:[grid-template-columns:repeat(3,minmax(0,1fr))] lg:grid-cols-5'
+            : 'min-w-[280px] grid-cols-1')
+        }
+      >
+        {visibleStatuses.map((col: JobStatus) => {
+          const colJobs = filteredJobs.filter((j) => j.status === col);
+          const isExpanded = expandedCols[col] || false;
+          const visibleJobs = isExpanded
+            ? colJobs
+            : colJobs.slice(0, CARD_LIMIT);
+          return (
+            <div
+              key={col}
+              className="snap-start rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)]"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                const jobId = e.dataTransfer.getData('text/plain');
+                onDrop(jobId, col);
+              }}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-sm font-medium">
+                <span>{statusLabel(col)}</span>
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  {colJobs.length}
+                </span>
+              </div>
+              <div
+                className={`${listSpacing} ${listPadding} min-h-[260px] overflow-y-auto`}
+                style={{ maxHeight: listMaxHeight }}
+              >
+                {loading && (
+                  <div className="space-y-2">
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-16" />
+                  </div>
+                )}
+                {visibleJobs.map((j) => (
                   <div
                     key={j.id}
-                    className="cursor-move rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)]"
+                    className={`cursor-move rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)] ${cardPadding}`}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', j.id);
@@ -235,26 +344,26 @@ export default function PipelineBoard({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold">
+                        <div className={`truncate font-semibold ${titleClass}`}>
                           {j.customers?.[0]?.name || '—'}
                         </div>
-                        <div className="text-xs text-[var(--text-secondary)]">
+                        <div className={`text-[var(--text-secondary)] ${metaClass}`}>
                           {j.system_type} • {j.capacity_kw ?? '—'} kW
                         </div>
                       </div>
                       {taskCounts[j.id] && (
                         <span
-                          className="shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]"
+                          className={`shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] ${taskBadgeClass}`}
                           title="Open tasks / Total"
                         >
                           {taskCounts[j.id].open}/{taskCounts[j.id].total}
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className={`${actionMargin} flex items-center justify-between gap-2`}>
                       <div className="flex items-center gap-2">
                         <a
-                          className="inline-block text-xs text-[var(--primary-600)] dark:text-[var(--primary-600)]"
+                          className={`inline-block text-[var(--primary-600)] dark:text-[var(--primary-600)] ${actionClass}`}
                           href={`/jobs/${j.id}`}
                         >
                           Open
@@ -262,7 +371,7 @@ export default function PipelineBoard({
                         {((j as any).customers?.[0]?.phone as string | null) && (
                           <a
                             href={`tel:${(j as any).customers?.[0]?.phone}`}
-                            className="inline-block text-xs text-[var(--text-secondary)]"
+                            className={`inline-block text-[var(--text-secondary)] ${actionClass}`}
                             title="Call customer"
                           >
                             Call
@@ -272,7 +381,7 @@ export default function PipelineBoard({
                       {/* Accessible status change */}
                       <select
                         aria-label="Change status"
-                        className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[11px] text-[var(--text-primary)]"
+                        className={`rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-1 py-0.5 text-[var(--text-primary)] ${selectClass}`}
                         value={j.status}
                         onChange={async (e) => {
                           const next = e.target.value as JobStatus;
@@ -293,15 +402,31 @@ export default function PipelineBoard({
                     </div>
                   </div>
                 ))}
-              {!loading &&
-                jobs.filter((j) => j.status === col).length === 0 && (
+                {!loading && colJobs.length === 0 && (
                   <div className="rounded border border-dashed border-[var(--border-default)] p-3 text-center text-xs text-[var(--text-muted)]">
-                    No cards
+                    {term ? 'No matches' : 'No cards'}
                   </div>
                 )}
+                {!loading && colJobs.length > CARD_LIMIT && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedCols((prev) => ({
+                        ...prev,
+                        [col]: !prev[col],
+                      }))
+                    }
+                    className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
+                  >
+                    {isExpanded
+                      ? 'Show less'
+                      : `Show ${colJobs.length - CARD_LIMIT} more`}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -3,23 +3,33 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useEffect, useRef, useState } from 'react';
-import { Menu, X, Sun, Moon, Search, Plus, Bell } from 'lucide-react';
+import { Menu, X, Sun, Moon, Search, Plus, Bell, ChevronDown } from 'lucide-react';
 import BranchSelect from '~/components/BranchSelect';
 import { useProfile } from '@/lib/useProfile';
 
-const links = [
+type NavLink = {
+  href: string;
+  label: string;
+  tag?: string;
+};
+
+const primaryLinks: NavLink[] = [
   { href: '/overview', label: 'Overview' },
   { href: '/jobs', label: 'Jobs' },
-  { href: '/calendar', label: 'Calendar' },
   { href: '/customers', label: 'Customers' },
   { href: '/proposals', label: 'Proposals' },
   // Clarify that this page lists CRM leads (not pipeline status)
-  { href: '/leads', label: 'Leads (CRM)' },
+  { href: '/leads', label: 'Leads', tag: 'CRM' },
+];
+
+const overflowLinks: NavLink[] = [
+  { href: '/calendar', label: 'Calendar' },
   { href: '/kits', label: 'Kits' },
   { href: '/items', label: 'Items' },
   { href: '/service', label: 'Service' },
-  { href: '/settings', label: 'Settings' },
 ];
+
+const mobileLinks = [...primaryLinks, ...overflowLinks];
 
 const SIGNED_LOGO_TTL_MS = 6 * 24 * 60 * 60 * 1000;
 
@@ -32,6 +42,32 @@ type BrandCache = {
   usesSigned: boolean;
 };
 
+function NavLabel({
+  label,
+  tag,
+  compact = false,
+}: {
+  label: string;
+  tag?: string;
+  compact?: boolean;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span>{label}</span>
+      {tag && (
+        <span
+          className={
+            'rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] px-1.5 py-0.5 font-semibold uppercase tracking-wide ' +
+            (compact ? 'text-[9px] text-[var(--text-tertiary)]' : 'text-[10px] text-[var(--text-tertiary)]')
+          }
+        >
+          {tag}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function AppHeader() {
   const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
@@ -42,6 +78,7 @@ export default function AppHeader() {
   const [branchValue, setBranchValue] = useState<string | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [dueLeadsCount, setDueLeadsCount] = useState(0);
@@ -259,6 +296,7 @@ export default function AppHeader() {
 
   const brandLabel = companyName || 'SolarERP';
   const showLogo = !!companyLogoUrl && !logoError;
+  const moreActive = overflowLinks.some((l) => pathname.startsWith(l.href));
   const renderBrand = (size: 'default' | 'compact') => {
     const heightClass = size === 'compact' ? 'h-7' : 'h-8';
     const skeletonWidthClass = size === 'compact' ? 'w-24' : 'w-28';
@@ -314,7 +352,7 @@ export default function AppHeader() {
           </Link>
         </div>
         <nav className="hidden gap-1 md:flex overflow-x-auto">
-          {links.map((l) => {
+          {primaryLinks.map((l) => {
             const active = pathname.startsWith(l.href);
             return (
               <Link
@@ -327,10 +365,55 @@ export default function AppHeader() {
                     : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]')
                 }
               >
-                {l.label}
+                <NavLabel label={l.label} tag={l.tag} />
               </Link>
             );
           })}
+          {overflowLinks.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((v) => !v)}
+                className={
+                  'text-sm rounded-lg px-3 py-1.5 transition-all duration-150 whitespace-nowrap font-medium flex items-center gap-1 ' +
+                  (moreActive
+                    ? 'bg-[var(--primary-100)] text-[var(--primary-700)] dark:bg-[var(--primary-100)]/20 dark:text-[var(--primary-600)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]')
+                }
+              >
+                More
+                <ChevronDown size={14} className={moreOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
+              {moreOpen && (
+                <div
+                  role="menu"
+                  className="absolute left-0 mt-2 w-44 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-lg)]"
+                >
+                  {overflowLinks.map((l) => {
+                    const active = pathname.startsWith(l.href);
+                    return (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        role="menuitem"
+                        onClick={() => setMoreOpen(false)}
+                        className={
+                          'block rounded-lg px-3 py-2 text-sm transition-colors ' +
+                          (active
+                            ? 'bg-[var(--primary-100)] text-[var(--primary-700)] dark:bg-[var(--primary-100)]/20 dark:text-[var(--primary-600)]'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]')
+                        }
+                      >
+                        <NavLabel label={l.label} tag={l.tag} compact />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
         <div className="flex items-center gap-2 text-sm">
           <button
@@ -511,7 +594,17 @@ export default function AppHeader() {
                       </span>
                     )}
                   </div>
-                  <div className="border-t border-[var(--border-subtle)] pt-1 mt-1">
+                  <div className="border-t border-[var(--border-subtle)] pt-2 mt-1">
+                    <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                      Account
+                    </div>
+                    <Link
+                      href="/settings"
+                      onClick={() => setUserOpen(false)}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      Settings & Preferences
+                    </Link>
                     <button
                       onClick={signOut}
                       className="w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--danger-600)] transition-colors"
@@ -555,7 +648,7 @@ export default function AppHeader() {
               </div>
               {/* Primary navigation */}
               <div className="mt-4 grid grid-cols-2 gap-2">
-                {links.map((l) => {
+                {mobileLinks.map((l) => {
                   const active = pathname.startsWith(l.href);
                   return (
                     <Link
@@ -569,7 +662,7 @@ export default function AppHeader() {
                       }
                       onClick={() => setOpen(false)}
                     >
-                      {l.label}
+                      <NavLabel label={l.label} tag={l.tag} compact />
                     </Link>
                   );
                 })}
