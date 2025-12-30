@@ -36,6 +36,9 @@ export default function AppHeader() {
   const [dueLeadsCount, setDueLeadsCount] = useState(0);
   const [overdueInvCount, setOverdueInvCount] = useState(0);
   const [authed, setAuthed] = useState(false);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState(false);
   const { profile } = useProfile();
   const role = profile?.role ?? null;
   const tenantId = profile?.tenant_id ?? null;
@@ -107,6 +110,47 @@ export default function AppHeader() {
     })();
   }, [branchValue, authed, supabase]);
 
+  useEffect(() => {
+    let alive = true;
+    if (!tenantId) {
+      setCompanyLogoUrl(null);
+      setCompanyName(null);
+      setLogoError(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('settings')
+          .select('company_logo_url, company_name')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        if (!alive) return;
+        let logoUrl = (data?.company_logo_url || '').trim();
+        const name = (data?.company_name || '').trim();
+        if (
+          logoUrl &&
+          !/^https?:\/\//i.test(logoUrl) &&
+          !/^data:/i.test(logoUrl)
+        ) {
+          try {
+            const { data: signed } = await supabase.storage
+              .from('documents')
+              .createSignedUrl(logoUrl, 60 * 60 * 24 * 7);
+            if ((signed as any)?.signedUrl)
+              logoUrl = (signed as any).signedUrl as string;
+          } catch {}
+        }
+        setCompanyLogoUrl(logoUrl || null);
+        setCompanyName(name || null);
+        setLogoError(false);
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, supabase]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     window.location.href = '/auth/signin';
@@ -148,8 +192,20 @@ export default function AppHeader() {
           >
             {open ? <X size={20} className="text-[var(--text-primary)]" /> : <Menu size={20} className="text-[var(--text-primary)]" />}
           </button>
-          <Link href="/overview" className="font-semibold text-[var(--text-primary)] hover:text-[var(--primary-600)] transition-colors">
-            SolarERP
+          <Link
+            href="/overview"
+            className="flex items-center gap-2 font-semibold text-[var(--text-primary)] hover:text-[var(--primary-600)] transition-colors"
+          >
+            {companyLogoUrl && !logoError ? (
+              <img
+                src={companyLogoUrl}
+                alt={companyName || 'Company logo'}
+                className="h-8 w-auto max-w-[140px] object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <span>{companyName || 'SolarERP'}</span>
+            )}
           </Link>
         </div>
         <nav className="hidden gap-1 md:flex overflow-x-auto">
