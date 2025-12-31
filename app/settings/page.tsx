@@ -248,7 +248,7 @@ export default function SettingsPage() {
               ) : null
             }
           />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <div className={panelClass}>
               <div>
                 <h2 className="text-lg font-medium">Company & Billing</h2>
