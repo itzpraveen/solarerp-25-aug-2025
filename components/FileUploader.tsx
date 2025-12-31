@@ -16,7 +16,7 @@ export default function FileUploader({
     const tenantId = await ensureProfileIfMissing(supabase as any);
     if (!tenantId)
       return alert(
-        'Profile not ready — ask an admin to invite you from Settings → Team, then sign out and sign in again.',
+        'Profile not ready - ask an admin to invite you from Team & Roles, then sign out and sign in again.',
       );
     const key = `${tenantId}/${crypto.randomUUID()}-${file.name}`;
     const { error } = await supabase.storage

@@ -8,6 +8,7 @@ import { Menu, X, Sun, Moon, Search, Plus, Bell, ChevronDown } from 'lucide-reac
 import BranchSelect from '~/components/BranchSelect';
 import { useProfile } from '@/lib/useProfile';
 import { useBranchSelection } from '@/lib/useBranchSelection';
+import { can } from '@/lib/authz';
 
 type NavLink = {
   href: string;
@@ -94,6 +95,7 @@ export default function AppHeader() {
   const { branchId, setBranchId } = useBranchSelection();
   const role = profile?.role ?? null;
   const tenantId = profile?.tenant_id ?? null;
+  const canManageTeam = can(role, 'team.manage');
 
   useEffect(() => {
     let alive = true;
@@ -587,6 +589,15 @@ export default function AppHeader() {
                     <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                       Account
                     </div>
+                    {canManageTeam && (
+                      <Link
+                        href="/team"
+                        onClick={() => setUserOpen(false)}
+                        className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        Team & Roles
+                      </Link>
+                    )}
                     <Link
                       href="/settings"
                       onClick={() => setUserOpen(false)}

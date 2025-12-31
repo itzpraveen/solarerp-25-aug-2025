@@ -1486,7 +1486,7 @@ function Docs({ jobId }: { jobId: string }) {
     const tenantId2 = await ensureProfileIfMissing(supabase as any);
     if (!tenantId2) {
       setMsg(
-        'Profile not ready — ask an admin to invite you from Settings → Team, then sign out/in.',
+        'Profile not ready - ask an admin to invite you from Team & Roles, then sign out/in.',
       );
       setUploading(false);
       return;
