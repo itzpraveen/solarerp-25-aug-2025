@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import RequireOwner from '~/components/RequireOwner';
 import Button from '~/components/ui/Button';
@@ -14,7 +13,6 @@ import PageHeader from '~/components/ui/PageHeader';
 
 export default function SettingsPage() {
   const supabase = supabaseBrowser();
-  const router = useRouter();
   const { confirm } = useConfirm();
   const { toast } = useToast();
   const [form, setForm] = useState<any>({
@@ -490,22 +488,6 @@ export default function SettingsPage() {
                 <Button onClick={save} loading={saving}>
                   Save
                 </Button>
-              </div>
-            </div>
-            <div className={panelClass}>
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-lg font-medium">Team & Roles</h2>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Manage roles, profiles, and credentials in a dedicated workspace.
-                  </p>
-                </div>
-                <Button variant="outline" onClick={() => router.push('/team')}>
-                  Open Team & Roles
-                </Button>
-              </div>
-              <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]">
-                Invite teammates, update roles, and reset passwords from the Team & Roles page.
               </div>
             </div>
           </div>
