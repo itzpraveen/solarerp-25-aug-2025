@@ -34,10 +34,20 @@ export async function POST(req: NextRequest) {
 
     const isMock =
       process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
-    const { data: me } = await sb
-      .from('profiles')
-      .select('user_id, tenant_id, role')
-      .maybeSingle();
+    const { data: authUser } = await (sb as any).auth.getUser();
+    const uid = (authUser?.user as any)?.id as string | undefined;
+    if (!uid && !isMock)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    const { data: me } = uid
+      ? await sb
+          .from('profiles')
+          .select('user_id, tenant_id, role')
+          .eq('user_id', uid as any)
+          .maybeSingle()
+      : { data: null };
     if (!isMock) {
       if (!me?.tenant_id || !['owner', 'admin'].includes((me as any).role))
         return NextResponse.json(

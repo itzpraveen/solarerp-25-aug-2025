@@ -35,9 +35,17 @@ export async function POST(req: NextRequest) {
       );
 
     const { userId, password, useDefault } = parsed.data;
+    const { data: authUser } = await (sb as any).auth.getUser();
+    const uid = (authUser?.user as any)?.id as string | undefined;
+    if (!uid)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
     const { data: me } = await sb
       .from('profiles')
       .select('tenant_id, role, user_id')
+      .eq('user_id', uid as any)
       .maybeSingle();
     if (!me?.tenant_id)
       return NextResponse.json(
@@ -63,6 +71,18 @@ export async function POST(req: NextRequest) {
       );
     }
     const nextPassword = useDefault ? env.defaultUserPassword : password;
+
+    const { data: target } = await sb
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('tenant_id', (me as any).tenant_id)
+      .maybeSingle();
+    if (!target)
+      return NextResponse.json(
+        { ok: false, error: 'User not found' },
+        { status: 404 },
+      );
 
     const admin = supabaseAdmin();
     const { error } = await (admin as any).auth.admin.updateUserById(userId, {

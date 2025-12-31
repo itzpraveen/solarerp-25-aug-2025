@@ -32,9 +32,17 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     const { userId, displayName, phone } = parsed.data;
+    const { data: authUser } = await (sb as any).auth.getUser();
+    const uid = (authUser?.user as any)?.id as string | undefined;
+    if (!uid)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
     const { data: me } = await sb
       .from('profiles')
       .select('tenant_id, role')
+      .eq('user_id', uid as any)
       .maybeSingle();
     if (!me?.tenant_id)
       return NextResponse.json(
