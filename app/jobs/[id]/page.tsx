@@ -288,7 +288,7 @@ function JobDetailPageInner() {
                     editPatch.date_handover = patch.date_handover;
                   }
 
-                  setJob((prevJob) =>
+                  setJob((prevJob: Job | null) =>
                     prevJob
                       ? { ...prevJob, status: newStatus, ...patch }
                       : prevJob,
