@@ -29,6 +29,7 @@ function JobDetailPageInner() {
   const search = useSearchParams();
   const [edit, setEdit] = useState<any | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
@@ -241,27 +242,21 @@ function JobDetailPageInner() {
             <div className="text-sm flex items-center gap-2">
               <span>Status:</span>
               <select
-                className="rounded border px-2 py-1 text-sm"
+                className="rounded border px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 value={job?.status}
+                disabled={statusSaving}
                 onChange={async (e) => {
+                  if (!job) return;
                   const newStatus = e.target.value as JobStatus;
+                  if (newStatus === job.status) return;
                   const ok = await confirm({
                     title: 'Change status',
                     description: `Change status to ${statusLabel(newStatus)}?`,
                   });
                   if (!ok) return;
+                  const prevJob = job;
+                  const prevEdit = edit;
                   const prev = job?.status as JobStatus | undefined;
-                  const { data: session } = await supabase.auth.getSession();
-                  const token = session.session?.access_token;
-                  await fetch('/api/jobs/updateStatus', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    body: JSON.stringify({ jobId: params.id, newStatus }),
-                  });
-                  // Auto-fill milestone date
                   const today = new Date().toISOString().slice(0, 10);
                   const patch: any = {};
                   if (newStatus === 'Quoted' && !job?.date_quote)
@@ -276,45 +271,110 @@ function JobDetailPageInner() {
                     patch.date_meter = today;
                   if (newStatus === 'Handover' && !job?.date_handover)
                     patch.date_handover = today;
-                  if (Object.keys(patch).length) {
-                    await supabase
-                      .from('jobs')
-                      .update(patch)
-                      .eq('id', params.id);
+                  const editPatch: any = {};
+                  if (
+                    patch.date_kseb_submit &&
+                    !edit?.date_kseb_submit
+                  ) {
+                    editPatch.date_kseb_submit = patch.date_kseb_submit;
                   }
-                  const { data: refreshed } = await supabase
-                    .from('jobs')
-                    .select('*, customers(name, phone, email, address)')
-                    .eq('id', params.id)
-                    .single();
-                  setJob(refreshed as any);
-                  toast({
-                    title: `Status: ${statusLabel(newStatus)}`,
-                    actionLabel: prev ? 'Undo' : undefined,
-                    onAction: prev
-                      ? async () => {
-                          await fetch('/api/jobs/updateStatus', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              ...(token
-                                ? { Authorization: `Bearer ${token}` }
-                                : {}),
-                            },
-                            body: JSON.stringify({
-                              jobId: params.id,
-                              newStatus: prev,
-                            }),
-                          });
-                          const { data: again } = await supabase
-                            .from('jobs')
-                            .select('*, customers(name, phone, email, address)')
-                            .eq('id', params.id)
-                            .single();
-                          setJob(again as any);
-                        }
-                      : undefined,
-                  });
+                  if (patch.date_install && !edit?.date_install) {
+                    editPatch.date_install = patch.date_install;
+                  }
+                  if (patch.date_meter && !edit?.date_meter) {
+                    editPatch.date_meter = patch.date_meter;
+                  }
+                  if (patch.date_handover && !edit?.date_handover) {
+                    editPatch.date_handover = patch.date_handover;
+                  }
+
+                  setJob((prevJob) =>
+                    prevJob
+                      ? { ...prevJob, status: newStatus, ...patch }
+                      : prevJob,
+                  );
+                  if (Object.keys(editPatch).length) {
+                    setEdit((prevEditState: any) =>
+                      prevEditState
+                        ? { ...prevEditState, ...editPatch }
+                        : prevEditState,
+                    );
+                  }
+
+                  setStatusSaving(true);
+                  try {
+                    const { data: session } = await supabase.auth.getSession();
+                    const token = session.session?.access_token;
+                    let datePatchFailed = false;
+                    const res = await fetch('/api/jobs/updateStatus', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
+                      body: JSON.stringify({ jobId: params.id, newStatus }),
+                    });
+                    const out = await res.json();
+                    if (!res.ok || !out.ok)
+                      throw new Error(out?.error || 'Update failed');
+                    if (Object.keys(patch).length) {
+                      const { error } = await supabase
+                        .from('jobs')
+                        .update(patch)
+                        .eq('id', params.id);
+                      if (error) datePatchFailed = true;
+                    }
+                    void supabase
+                      .from('jobs')
+                      .select('*, customers(name, phone, email, address)')
+                      .eq('id', params.id)
+                      .single()
+                      .then(({ data }) => {
+                        if (data) setJob(data as any);
+                      })
+                      .catch(() => {});
+                    toast({
+                      title: `Status: ${statusLabel(newStatus)}`,
+                      description: datePatchFailed
+                        ? 'Date update failed. Update dates manually if needed.'
+                        : undefined,
+                      variant: datePatchFailed ? 'error' : 'success',
+                      actionLabel: prev ? 'Undo' : undefined,
+                      onAction: prev
+                        ? async () => {
+                            await fetch('/api/jobs/updateStatus', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                ...(token
+                                  ? { Authorization: `Bearer ${token}` }
+                                  : {}),
+                              },
+                              body: JSON.stringify({
+                                jobId: params.id,
+                                newStatus: prev,
+                              }),
+                            });
+                            const { data: again } = await supabase
+                              .from('jobs')
+                              .select('*, customers(name, phone, email, address)')
+                              .eq('id', params.id)
+                              .single();
+                            setJob(again as any);
+                          }
+                        : undefined,
+                    });
+                  } catch (err: any) {
+                    setJob(prevJob as any);
+                    setEdit(prevEdit as any);
+                    toast({
+                      title: 'Status update failed',
+                      description: String(err?.message || err),
+                      variant: 'error',
+                    });
+                  } finally {
+                    setStatusSaving(false);
+                  }
                 }}
               >
                 {JOB_STATUSES.map((s: JobStatus) => (
