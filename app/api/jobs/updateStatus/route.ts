@@ -69,9 +69,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+    const datePatch: Record<string, string> = {};
+    if (newStatus === 'Quoted' && !(job as any)?.date_quote) {
+      datePatch.date_quote = today;
+    }
+    if (newStatus === 'Won' && !(job as any)?.date_won) {
+      datePatch.date_won = today;
+    }
+    if (newStatus === 'KSEB_Submitted' && !(job as any)?.date_kseb_submit) {
+      datePatch.date_kseb_submit = today;
+    }
+    if (newStatus === 'Installed' && !(job as any)?.date_install) {
+      datePatch.date_install = today;
+    }
+    if (newStatus === 'Net_Metered' && !(job as any)?.date_meter) {
+      datePatch.date_meter = today;
+    }
+    if (newStatus === 'Handover' && !(job as any)?.date_handover) {
+      datePatch.date_handover = today;
+    }
+    const updatePayload = { status: newStatus, ...datePatch };
     const { error: upErr } = await sb
       .from('jobs')
-      .update({ status: newStatus })
+      .update(updatePayload)
       .eq('id', jobId);
     if (upErr) throw upErr;
 

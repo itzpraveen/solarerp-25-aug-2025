@@ -249,11 +249,6 @@ function JobDetailPageInner() {
                   if (!job) return;
                   const newStatus = e.target.value as JobStatus;
                   if (newStatus === job.status) return;
-                  const ok = await confirm({
-                    title: 'Change status',
-                    description: `Change status to ${statusLabel(newStatus)}?`,
-                  });
-                  if (!ok) return;
                   const prevJob = job;
                   const prevEdit = edit;
                   const prev = job?.status as JobStatus | undefined;
@@ -305,7 +300,6 @@ function JobDetailPageInner() {
                   try {
                     const { data: session } = await supabase.auth.getSession();
                     const token = session.session?.access_token;
-                    let datePatchFailed = false;
                     const res = await fetch('/api/jobs/updateStatus', {
                       method: 'POST',
                       headers: {
@@ -317,13 +311,6 @@ function JobDetailPageInner() {
                     const out = await res.json();
                     if (!res.ok || !out.ok)
                       throw new Error(out?.error || 'Update failed');
-                    if (Object.keys(patch).length) {
-                      const { error } = await supabase
-                        .from('jobs')
-                        .update(patch)
-                        .eq('id', params.id);
-                      if (error) datePatchFailed = true;
-                    }
                     void (async () => {
                       try {
                         const { data } = await supabase
@@ -336,10 +323,7 @@ function JobDetailPageInner() {
                     })();
                     toast({
                       title: `Status: ${statusLabel(newStatus)}`,
-                      description: datePatchFailed
-                        ? 'Date update failed. Update dates manually if needed.'
-                        : undefined,
-                      variant: datePatchFailed ? 'error' : 'success',
+                      variant: 'success',
                       actionLabel: prev ? 'Undo' : undefined,
                       onAction: prev
                         ? async () => {
@@ -384,6 +368,11 @@ function JobDetailPageInner() {
                   </option>
                 ))}
               </select>
+              {statusSaving ? (
+                <Badge variant="muted" className="ml-1">
+                  Saving...
+                </Badge>
+              ) : null}
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
