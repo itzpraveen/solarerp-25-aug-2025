@@ -324,15 +324,16 @@ function JobDetailPageInner() {
                         .eq('id', params.id);
                       if (error) datePatchFailed = true;
                     }
-                    void supabase
-                      .from('jobs')
-                      .select('*, customers(name, phone, email, address)')
-                      .eq('id', params.id)
-                      .single()
-                      .then(({ data }) => {
+                    void (async () => {
+                      try {
+                        const { data } = await supabase
+                          .from('jobs')
+                          .select('*, customers(name, phone, email, address)')
+                          .eq('id', params.id)
+                          .single();
                         if (data) setJob(data as any);
-                      })
-                      .catch(() => {});
+                      } catch {}
+                    })();
                     toast({
                       title: `Status: ${statusLabel(newStatus)}`,
                       description: datePatchFailed
