@@ -64,6 +64,10 @@ function LeadsPageInner() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [dense, setDense] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>(
+    {},
+  );
   const [totalCount, setTotalCount] = useState(0);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   // Search
@@ -123,6 +127,7 @@ function LeadsPageInner() {
     branch: 'branch_id',
     remarks: 'notes',
   };
+  const tableColumnsCount = 10;
   const initialDue =
     (search.get('due') || '').toLowerCase() === 'today' ||
     (search.get('due') || '') === '1';
@@ -355,6 +360,125 @@ function LeadsPageInner() {
       </div>
     </div>
   );
+  const renderEditForm = (l: any, layout: 'mobile' | 'table') => {
+    const gridClass =
+      layout === 'table'
+        ? 'grid grid-cols-1 gap-2 md:grid-cols-6'
+        : 'grid grid-cols-1 gap-2';
+    const actionClass =
+      layout === 'table'
+        ? 'flex flex-wrap items-center gap-2 md:col-span-6'
+        : 'flex flex-wrap items-center gap-2';
+    const wideInputClass = layout === 'table' ? 'md:col-span-2' : undefined;
+    const notesClass = layout === 'table' ? 'md:col-span-3' : undefined;
+    return (
+      <div className={gridClass}>
+        <Input
+          className={wideInputClass}
+          value={editForm.name}
+          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+          placeholder="Name"
+        />
+        <Input
+          className={wideInputClass}
+          value={editForm.phone}
+          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+          placeholder="Phone"
+        />
+        <Input
+          className={wideInputClass}
+          value={editForm.address || ''}
+          onChange={(e) =>
+            setEditForm({ ...editForm, address: e.target.value })
+          }
+          placeholder="Address"
+        />
+        <Select
+          value={editForm.source || ''}
+          onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+        >
+          <option value="">Source…</option>
+          <option>Phone</option>
+          <option>Walk-in</option>
+          <option>Referral</option>
+          <option>Website</option>
+          <option>WhatsApp</option>
+          <option>Facebook</option>
+          <option>Other</option>
+        </Select>
+        <Input
+          type="number"
+          value={editForm.interested_capacity_kw || 0}
+          onChange={(e) =>
+            setEditForm({
+              ...editForm,
+              interested_capacity_kw: Number(e.target.value),
+            })
+          }
+          placeholder="Capacity kW"
+        />
+        <Input
+          type="date"
+          value={editForm.next_follow_up_date || ''}
+          onChange={(e) =>
+            setEditForm({
+              ...editForm,
+              next_follow_up_date: e.target.value,
+            })
+          }
+        />
+        <Select
+          value={editForm.branch_id || 'none'}
+          onChange={(e) =>
+            setEditForm({
+              ...editForm,
+              branch_id: e.target.value === 'none' ? null : e.target.value,
+            })
+          }
+        >
+          <option value="none">Unassigned</option>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name || '—'}
+            </option>
+          ))}
+        </Select>
+        <Input
+          className={notesClass}
+          value={editForm.notes || ''}
+          onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+          placeholder="Remarks"
+        />
+        <div className={actionClass}>
+          <Button
+            size="sm"
+            onClick={async () => {
+              await supabase
+                .from('leads')
+                .update({
+                  name: editForm.name,
+                  phone: editForm.phone,
+                  source: editForm.source || null,
+                  interested_capacity_kw: editForm.interested_capacity_kw,
+                  address: editForm.address || null,
+                  notes: editForm.notes || null,
+                  next_follow_up_date: editForm.next_follow_up_date || null,
+                  branch_id: editForm.branch_id || null,
+                })
+                .eq('id', l.id);
+              setEditing(null);
+              load();
+            }}
+          >
+            Save
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditing(null)}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  };
   const renderSortHeader = (value: SortKey, label: string) => {
     const active = sortBy.key === value;
     const direction = active ? sortBy.dir : sortDefaults[value];
@@ -1111,6 +1235,17 @@ function LeadsPageInner() {
                 />
                 Compact
               </label>
+              <div className="hidden md:flex items-center gap-2">
+                <span>View</span>
+                <Segmented
+                  options={[
+                    { label: 'Cards', value: 'cards' },
+                    { label: 'Table', value: 'table' },
+                  ]}
+                  value={viewMode}
+                  onChange={(v) => setViewMode(v as any)}
+                />
+              </div>
               {/* Primary list filters moved near the table for convenience */}
               <Segmented
                 options={[
@@ -1130,7 +1265,9 @@ function LeadsPageInner() {
                 <span>Due today</span>
               </label>
               {/* Branch filter lives in the page header now; avoid duplicate control here. */}
-              <div className="flex items-center gap-1 md:hidden">
+              <div
+                className={`flex items-center gap-1 ${viewMode === 'table' ? 'md:hidden' : ''}`}
+              >
                 <span>Sort</span>
                 <Segmented
                   options={[
@@ -1242,7 +1379,9 @@ function LeadsPageInner() {
                 </div>
               </div>
             </Modal>
-            <div className="md:hidden space-y-2 border-t border-[var(--border-subtle)] p-2">
+            <div
+              className={`border-t border-[var(--border-subtle)] p-2 md:grid md:grid-cols-2 md:space-y-0 xl:grid-cols-3 ${viewMode === 'table' ? 'md:hidden' : ''} ${dense ? 'space-y-2 md:gap-2' : 'space-y-3 md:gap-3'}`}
+            >
               {leads.map((l) => {
                 const jobOnly = (l as any)._jobOnly;
                 const scoreValue = l.score ?? 0;
@@ -1250,126 +1389,12 @@ function LeadsPageInner() {
                   l.next_follow_up_date &&
                   l.next_follow_up_date <= todayStr;
                 return (
-                  <div key={l.id} className="rounded-lg border bg-white p-3 text-sm">
+                  <div
+                    key={l.id}
+                    className={`rounded-lg border bg-white text-sm ${dense ? 'p-2' : 'p-3'}`}
+                  >
                     {editing === l.id ? (
-                      <div className="grid grid-cols-1 gap-2">
-                        <Input
-                          value={editForm.name}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, name: e.target.value })
-                          }
-                          placeholder="Name"
-                        />
-                        <Input
-                          value={editForm.phone}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, phone: e.target.value })
-                          }
-                          placeholder="Phone"
-                        />
-                        <Input
-                          value={editForm.address || ''}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, address: e.target.value })
-                          }
-                          placeholder="Address"
-                        />
-                        <Select
-                          value={editForm.source || ''}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, source: e.target.value })
-                          }
-                        >
-                          <option value="">Source…</option>
-                          <option>Phone</option>
-                          <option>Walk-in</option>
-                          <option>Referral</option>
-                          <option>Website</option>
-                          <option>WhatsApp</option>
-                          <option>Facebook</option>
-                          <option>Other</option>
-                        </Select>
-                        <Input
-                          type="number"
-                          value={editForm.interested_capacity_kw || 0}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              interested_capacity_kw: Number(e.target.value),
-                            })
-                          }
-                          placeholder="Capacity kW"
-                        />
-                        <Input
-                          type="date"
-                          value={editForm.next_follow_up_date || ''}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              next_follow_up_date: e.target.value,
-                            })
-                          }
-                        />
-                        <Select
-                          value={editForm.branch_id || 'none'}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              branch_id:
-                                e.target.value === 'none'
-                                  ? null
-                                  : e.target.value,
-                            })
-                          }
-                        >
-                          <option value="none">Unassigned</option>
-                          {branches.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.name || '—'}
-                            </option>
-                          ))}
-                        </Select>
-                        <Input
-                          value={editForm.notes || ''}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, notes: e.target.value })
-                          }
-                          placeholder="Remarks"
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            size="sm"
-                            onClick={async () => {
-                              await supabase
-                                .from('leads')
-                                .update({
-                                  name: editForm.name,
-                                  phone: editForm.phone,
-                                  source: editForm.source || null,
-                                  interested_capacity_kw:
-                                    editForm.interested_capacity_kw,
-                                  address: editForm.address || null,
-                                  notes: editForm.notes || null,
-                                  next_follow_up_date:
-                                    editForm.next_follow_up_date || null,
-                                  branch_id: editForm.branch_id || null,
-                                })
-                                .eq('id', l.id);
-                              setEditing(null);
-                              load();
-                            }}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditing(null)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
+                      renderEditForm(l, 'mobile')
                     ) : (
                       <>
                         <div className="flex items-start justify-between gap-2">
@@ -1445,20 +1470,27 @@ function LeadsPageInner() {
                         <div className="mt-2 text-xs text-gray-600">
                           {renderHL(l.address || '—')}
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                          <span>Source: {renderHL(l.source || '—')}</span>
-                          <span>
+                        <div
+                          className={`mt-2 flex flex-nowrap overflow-x-auto pb-1 text-xs text-gray-600 ${dense ? 'gap-2' : 'gap-3'}`}
+                        >
+                          <span className="whitespace-nowrap">
+                            Date: {l.date || '—'}
+                          </span>
+                          <span className="whitespace-nowrap">
+                            Source: {renderHL(l.source || '—')}
+                          </span>
+                          <span className="whitespace-nowrap">
                             Capacity: {l.interested_capacity_kw ?? '—'} kW
                           </span>
                           <span
-                            className={
-                              isDue ? 'text-red-600 font-medium' : undefined
-                            }
+                            className={`whitespace-nowrap ${isDue ? 'text-red-600 font-medium' : ''}`}
                           >
                             Next: {l.next_follow_up_date || '—'}
                           </span>
-                          <span>Last: {l.last_contacted_at || '—'}</span>
-                          <span>
+                          <span className="whitespace-nowrap">
+                            Last: {l.last_contacted_at || '—'}
+                          </span>
+                          <span className="whitespace-nowrap">
                             Branch:{' '}
                             {l.branch_id
                               ? branchNames[l.branch_id] || '—'
@@ -1597,6 +1629,7 @@ function LeadsPageInner() {
                 );
               })}
             </div>
+            {viewMode === 'table' && (
             <div className="hidden md:block overflow-x-auto">
               <table className={`w-full text-sm ${dense ? 'table-dense' : ''}`}>
                 <thead>
@@ -1623,376 +1656,87 @@ function LeadsPageInner() {
                     <th className="p-2" aria-sort={getAriaSort('phone')}>
                       {renderSortHeader('phone', 'Phone')}
                     </th>
-                    <th className="p-2" aria-sort={getAriaSort('address')}>
-                      {renderSortHeader('address', 'Address')}
-                    </th>
-                    <th className="p-2" aria-sort={getAriaSort('source')}>
-                      {renderSortHeader('source', 'Source')}
-                    </th>
-                    <th className="p-2" aria-sort={getAriaSort('capacity')}>
-                      {renderSortHeader('capacity', 'Capacity (kW)')}
-                    </th>
                     <th className="p-2" aria-sort={getAriaSort('score')}>
                       {renderSortHeader('score', 'Score')}
                     </th>
-                    <th className="p-2">Actions</th>
-                    <th className="p-2">Manage</th>
                     <th className="p-2" aria-sort={getAriaSort('followup')}>
                       {renderSortHeader('followup', 'Next Follow-up')}
-                    </th>
-                    <th
-                      className="p-2"
-                      aria-sort={getAriaSort('last_contacted')}
-                    >
-                      {renderSortHeader('last_contacted', 'Last Contacted')}
                     </th>
                     <th className="p-2" aria-sort={getAriaSort('status')}>
                       {renderSortHeader('status', 'Status')}
                     </th>
-                    <th className="p-2" aria-sort={getAriaSort('branch')}>
-                      {renderSortHeader('branch', 'Branch')}
-                    </th>
-                    <th className="p-2" aria-sort={getAriaSort('remarks')}>
-                      {renderSortHeader('remarks', 'Remarks')}
-                    </th>
+                    <th className="p-2">Actions</th>
+                    <th className="p-2">Manage</th>
+                    <th className="p-2">Details</th>
                   </tr>
                 </thead>
                 <tbody>
-                {leads.map((l) => (
-                  <React.Fragment key={l.id}>
-                    <tr className="border-b">
-                      <td className="p-2">
-                        {(l as any)._jobOnly ? (
-                          <input
-                            type="checkbox"
-                            disabled
-                            title="Job card (read-only)"
-                          />
-                        ) : (
-                          <input
-                            type="checkbox"
-                            checked={!!selected[l.id]}
-                            onChange={(e) =>
-                              setSelected({
-                                ...selected,
-                                [l.id]: e.target.checked,
-                              })
-                            }
-                          />
-                        )}
-                      </td>
-                      <td className="p-2">{l.date || '—'}</td>
-                      {editing === l.id ? (
-                        <>
+                  {leads.map((l) => {
+                    const jobOnly = (l as any)._jobOnly;
+                    const isExpanded = !!expandedRows[l.id];
+                    const detailsId = `lead-details-${l.id}`;
+                    const scoreValue = l.score ?? 0;
+                    return (
+                      <React.Fragment key={l.id}>
+                        <tr className="border-b">
                           <td className="p-2">
-                            <Input
-                              value={editForm.name}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  name: e.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              value={editForm.phone}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  phone: e.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              value={editForm.address || ''}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  address: e.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Select
-                              value={editForm.source || ''}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  source: e.target.value,
-                                })
-                              }
-                            >
-                              <option value="">Source…</option>
-                              <option>Phone</option>
-                              <option>Walk-in</option>
-                              <option>Referral</option>
-                              <option>Website</option>
-                              <option>WhatsApp</option>
-                              <option>Facebook</option>
-                              <option>Other</option>
-                            </Select>
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              type="number"
-                              value={editForm.interested_capacity_kw || 0}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  interested_capacity_kw: Number(
-                                    e.target.value,
-                                  ),
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="p-2 text-xs text-gray-600">{l.score ?? 0}</td>
-                          <td className="p-2">
-                            <Input
-                              type="date"
-                              value={editForm.next_follow_up_date || ''}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  next_follow_up_date: e.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="p-2 text-xs text-gray-600">
-                            {l.last_contacted_at || '—'}
-                          </td>
-                          <td className="p-2 text-xs">
-                            <Badge variant={leadStatusVariant(l.status) as any}>
-                              {l.status || '—'}
-                            </Badge>
-                          </td>
-                          <td className="p-2">
-                            <Select
-                              value={editForm.branch_id || 'none'}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  branch_id:
-                                    e.target.value === 'none'
-                                      ? null
-                                      : e.target.value,
-                                })
-                              }
-                            >
-                              <option value="none">Unassigned</option>
-                              {branches.map((b) => (
-                                <option key={b.id} value={b.id}>
-                                  {b.name || '—'}
-                                </option>
-                              ))}
-                            </Select>
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              value={editForm.notes || ''}
-                              onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  notes: e.target.value,
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="p-2 whitespace-nowrap">
-                            <Button
-                              size="sm"
-                              onClick={async () => {
-                                await supabase
-                                  .from('leads')
-                                  .update({
-                                    name: editForm.name,
-                                    phone: editForm.phone,
-                                    source: editForm.source || null,
-                                    interested_capacity_kw:
-                                      editForm.interested_capacity_kw,
-                                    address: editForm.address || null,
-                                    notes: editForm.notes || null,
-                                    next_follow_up_date:
-                                      editForm.next_follow_up_date || null,
-                                    branch_id: editForm.branch_id || null,
+                            {jobOnly ? (
+                              <input
+                                type="checkbox"
+                                disabled
+                                title="Job card (read-only)"
+                              />
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={!!selected[l.id]}
+                                onChange={(e) =>
+                                  setSelected({
+                                    ...selected,
+                                    [l.id]: e.target.checked,
                                   })
-                                  .eq('id', l.id);
-                                setEditing(null);
-                                load();
-                              }}
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="ml-2"
-                              onClick={() => setEditing(null)}
-                            >
-                              Cancel
-                            </Button>
+                                }
+                              />
+                            )}
                           </td>
-                        </>
-                      ) : (
-                        <>
+                          <td className="p-2">{l.date || '—'}</td>
                           <td className="p-2">{renderHL(l.name || '—')}</td>
-                          <td className="p-2">{renderHL(l.phone || '—')}{l.phone && (
-                            <span className="ml-2 whitespace-nowrap">
-                              <a className="underline text-[var(--primary-600)]" href={`tel:${String(l.phone).replace(/\\D+/g, '')}`} title="Call">📞</a>
-                              <a className="ml-1 underline text-green-600" href={`https://wa.me/${String(l.phone).replace(/\\D+/g, '')}`} target="_blank" rel="noreferrer" title="WhatsApp">🟢</a>
-                            </span>
-                          )}
-                          </td>
-                          <td className="p-2">{renderHL(l.address || '—')}</td>
-                          <td className="p-2">{renderHL(l.source || '—')}</td>
                           <td className="p-2">
-                            {l.interested_capacity_kw ?? '—'}
+                            {renderHL(l.phone || '—')}
+                            {l.phone && (
+                              <span className="ml-2 whitespace-nowrap">
+                                <a
+                                  className="underline text-[var(--primary-600)]"
+                                  href={`tel:${String(l.phone).replace(/\D+/g, '')}`}
+                                  title="Call"
+                                >
+                                  📞
+                                </a>
+                                <a
+                                  className="ml-1 underline text-green-600"
+                                  href={`https://wa.me/${String(l.phone).replace(/\D+/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="WhatsApp"
+                                >
+                                  🟢
+                                </a>
+                              </span>
+                            )}
                           </td>
-                          {/* Score right after Capacity */}
                           <td className="p-2">
                             <Badge
                               variant={
-                                (l.score || 0) >= 40
+                                scoreValue >= 40
                                   ? 'danger'
-                                  : (l.score || 0) >= 25
+                                  : scoreValue >= 25
                                     ? 'warning'
                                     : 'default'
                               }
                             >
-                              {l.score ?? 0}
+                              {scoreValue}
                             </Badge>
                           </td>
-                          {/* Quick actions near capacity */}
-                          <td className="p-2 whitespace-nowrap">
-                            {(l as any)._jobOnly ? (
-                              <a
-                                href={`/jobs/${(l as any)._jobId}`}
-                                className="text-[var(--primary-600)] text-sm"
-                                title="Open job"
-                              >
-                                Open
-                              </a>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  confirm({
-                                    title: 'Convert lead',
-                                    description: 'Convert this lead to a Job?',
-                                    confirmText: 'Convert',
-                                  }).then((ok) => {
-                                    if (!ok) return;
-                                    setConvertingId(l.id);
-                                    setConvertForm({
-                                      address: (l as any)?.address || '',
-                                      program_type: 'PM_Surya',
-                                      system_type: 'On-grid',
-                                      capacity_kw: l.interested_capacity_kw || 1,
-                                      location: '',
-                                      roof_type: '',
-                                    });
-                                  });
-                                }}
-                              >
-                                Convert
-                              </Button>
-                            )}
-                          </td>
-                          {/* More actions next to Actions for quick access */}
-                          <td className="p-2 whitespace-nowrap">
-                            {(l as any)._jobOnly ? (
-                              <span className="text-xs text-gray-500">—</span>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditing(l.id);
-                                    setEditForm(l);
-                                  }}
-                                >
-                                  Edit
-                                </Button>
-                                <RequireOwner>
-                                  <Button
-                                    variant="danger"
-                                    size="sm"
-                                    className="ml-2"
-                                    onClick={async () => {
-                                      const ok = await confirm({
-                                        title: 'Delete lead',
-                                        description:
-                                          'Are you sure you want to permanently delete this lead?',
-                                        confirmText: 'Delete',
-                                      });
-                                      if (!ok) return;
-                                      await supabase
-                                        .from('leads')
-                                        .delete()
-                                        .eq('id', l.id);
-                                      load();
-                                    }}
-                                  >
-                                    Delete
-                                  </Button>
-                                </RequireOwner>
-                                {l.phone && (
-                                  <a
-                                    href={`https://wa.me/${String(l.phone).replace(/\D+/g, '')}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="ml-2 rounded border px-2 py-1 text-sm"
-                                  >
-                                    WhatsApp
-                                  </a>
-                                )}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="ml-2"
-                                  onClick={async () => {
-                                    const d = prompt(
-                                      'Set next follow-up (YYYY-MM-DD):',
-                                      l.next_follow_up_date || todayStr,
-                                    );
-                                    if (!d) return;
-                                    await supabase
-                                      .from('leads')
-                                      .update({ next_follow_up_date: d })
-                                      .eq('id', l.id);
-                                    load();
-                                  }}
-                                >
-                                  Set Next
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="ml-2"
-                                  onClick={async () => {
-                                    await supabase
-                                      .from('leads')
-                                      .update({
-                                        last_contacted_at: todayStr,
-                                        status: 'Contacted',
-                                      })
-                                      .eq('id', l.id);
-                                    load();
-                                  }}
-                                >
-                                  Mark contacted
-                                </Button>
-                              </>
-                            )}
-                          </td>
-                          
                           <td className="p-2">
                             <span
                               className={
@@ -2033,42 +1777,215 @@ function LeadsPageInner() {
                               ))}
                             </div>
                           </td>
-                          <td className="p-2 text-xs text-gray-600">
-                            {l.last_contacted_at || '—'}
-                          </td>
                           <td className="p-2 text-xs">
                             <Badge variant={leadStatusVariant(l.status) as any}>
                               {l.status || '—'}
                             </Badge>
                           </td>
-                          <td className="p-2 text-xs">
-                            {l.branch_id ? (
-                              <span className="inline-block rounded-full border px-2 py-0.5 text-gray-700">
-                                {branchNames[l.branch_id] || '—'}
-                              </span>
+                          <td className="p-2">
+                            {jobOnly ? (
+                              <a
+                                href={`/jobs/${(l as any)._jobId}`}
+                                className="text-[var(--primary-600)] text-sm"
+                                title="Open job"
+                              >
+                                Open
+                              </a>
                             ) : (
-                              '—'
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  confirm({
+                                    title: 'Convert lead',
+                                    description: 'Convert this lead to a Job?',
+                                    confirmText: 'Convert',
+                                  }).then((ok) => {
+                                    if (!ok) return;
+                                    setConvertingId(l.id);
+                                    setConvertForm({
+                                      address: (l as any)?.address || '',
+                                      program_type: 'PM_Surya',
+                                      system_type: 'On-grid',
+                                      capacity_kw: l.interested_capacity_kw || 1,
+                                      location: '',
+                                      roof_type: '',
+                                    });
+                                  });
+                                }}
+                              >
+                                Convert
+                              </Button>
                             )}
                           </td>
-                          <td className="p-2 truncate max-w-[240px]">
-                            <span title={l.notes || ''}>{renderHL(l.notes || '—')}</span>
+                          <td className="p-2">
+                            {jobOnly ? (
+                              <span className="text-xs text-gray-500">—</span>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditing(l.id);
+                                    setEditForm(l);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <RequireOwner>
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={async () => {
+                                      const ok = await confirm({
+                                        title: 'Delete lead',
+                                        description:
+                                          'Are you sure you want to permanently delete this lead?',
+                                        confirmText: 'Delete',
+                                      });
+                                      if (!ok) return;
+                                      await supabase
+                                        .from('leads')
+                                        .delete()
+                                        .eq('id', l.id);
+                                      load();
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                </RequireOwner>
+                                {l.phone && (
+                                  <a
+                                    href={`https://wa.me/${String(l.phone).replace(/\D+/g, '')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded border px-2 py-1 text-sm"
+                                  >
+                                    WhatsApp
+                                  </a>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const d = prompt(
+                                      'Set next follow-up (YYYY-MM-DD):',
+                                      l.next_follow_up_date || todayStr,
+                                    );
+                                    if (!d) return;
+                                    await supabase
+                                      .from('leads')
+                                      .update({ next_follow_up_date: d })
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  Set Next
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    await supabase
+                                      .from('leads')
+                                      .update({
+                                        last_contacted_at: todayStr,
+                                        status: 'Contacted',
+                                      })
+                                      .eq('id', l.id);
+                                    load();
+                                  }}
+                                >
+                                  Mark contacted
+                                </Button>
+                              </div>
+                            )}
                           </td>
-                          {/* More actions moved earlier next to Actions column */}
-                        </>
-                      )}
-                    </tr>
-                    {convertingId === l.id && (
-                      <tr className="bg-gray-50" key={`${l.id}-convert`}>
-                        <td className="p-2" colSpan={8}>
-                          {renderConvertForm(l)}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
+                          <td className="p-2 text-xs">
+                            <button
+                              type="button"
+                              className="text-[var(--primary-600)] underline"
+                              aria-expanded={isExpanded}
+                              aria-controls={detailsId}
+                              onClick={() =>
+                                setExpandedRows((prev) => ({
+                                  ...prev,
+                                  [l.id]: !prev[l.id],
+                                }))
+                              }
+                            >
+                              {isExpanded ? 'Hide' : 'Details'}
+                            </button>
+                          </td>
+                        </tr>
+                        {editing === l.id && (
+                          <tr className="bg-gray-50">
+                            <td className="p-2" colSpan={tableColumnsCount}>
+                              {renderEditForm(l, 'table')}
+                            </td>
+                          </tr>
+                        )}
+                        {editing !== l.id && isExpanded && (
+                          <tr id={detailsId} className="bg-gray-50">
+                            <td className="p-2" colSpan={tableColumnsCount}>
+                              <div className="grid grid-cols-1 gap-2 text-xs text-gray-700 md:grid-cols-3">
+                                <div>
+                                  <span className="text-gray-500">
+                                    Address:
+                                  </span>{' '}
+                                  {renderHL(l.address || '—')}
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Source:</span>{' '}
+                                  {renderHL(l.source || '—')}
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">
+                                    Capacity:
+                                  </span>{' '}
+                                  {l.interested_capacity_kw != null
+                                    ? `${l.interested_capacity_kw} kW`
+                                    : '—'}
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">
+                                    Last contacted:
+                                  </span>{' '}
+                                  {l.last_contacted_at || '—'}
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Branch:</span>{' '}
+                                  {l.branch_id
+                                    ? branchNames[l.branch_id] || '—'
+                                    : '—'}
+                                </div>
+                                <div
+                                  className="md:col-span-3"
+                                  title={l.notes || ''}
+                                >
+                                  <span className="text-gray-500">
+                                    Remarks:
+                                  </span>{' '}
+                                  {renderHL(l.notes || '—')}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {convertingId === l.id && (
+                          <tr className="bg-gray-50">
+                            <td className="p-2" colSpan={tableColumnsCount}>
+                              {renderConvertForm(l)}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
             </table>
             </div>
+            )}
           </div>
           {/* Bottom pager */}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2 text-sm">
