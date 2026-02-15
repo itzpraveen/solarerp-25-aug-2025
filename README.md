@@ -97,6 +97,15 @@ What this sets up: tables, RLS, private Storage bucket `documents` with tenantâ€
 
 Health check: `GET /api/health` â†’ `{ ok: true }`.
 
+## Flutter Android App
+
+- A native Flutter Android app is available under `mobile/`.
+- It connects directly to Supabase (Auth + Postgres with RLS) and uses the existing backend route `POST /api/auth/ensureProfile` for invite/self-signup checks.
+- Setup/build instructions: `mobile/README.md`.
+- Run locally:
+  - `cd mobile`
+  - `flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=... --dart-define=API_BASE_URL=...`
+
 ## Deploy to Vercel
 
 - Import repo into Vercel
