@@ -484,6 +484,138 @@ export default function SettingsPage() {
                   </span>
                 </div>
               </div>
+              <div className="border-t border-[var(--border-subtle)] pt-4 space-y-3">
+                <div>
+                  <h3 className={sectionTitleClass}>Tax &amp; Compliance</h3>
+                  <p className={sectionHintClass}>
+                    Required for legal invoicing in India. GSTIN appears on invoices and proposals.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div>
+                    <label className="block text-sm font-medium">GSTIN</label>
+                    <Input
+                      className="mt-1"
+                      value={form.gstin || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, gstin: e.target.value.toUpperCase() })
+                      }
+                      placeholder="e.g. 32AABCU9603R1ZZ"
+                      maxLength={15}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">PAN Number</label>
+                    <Input
+                      className="mt-1"
+                      value={form.pan_number || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, pan_number: e.target.value.toUpperCase() })
+                      }
+                      placeholder="e.g. AABCU9603R"
+                      maxLength={10}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">State Code</label>
+                    <Input
+                      className="mt-1"
+                      value={form.state_code || '32'}
+                      onChange={(e) =>
+                        setForm({ ...form, state_code: e.target.value })
+                      }
+                      placeholder="32 (Kerala)"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-[var(--border-subtle)] pt-4 space-y-3">
+                <div>
+                  <h3 className={sectionTitleClass}>Bank Details</h3>
+                  <p className={sectionHintClass}>
+                    Shown on invoices for payment. Customers use this to make NEFT/RTGS transfers.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium">Bank Name</label>
+                    <Input
+                      className="mt-1"
+                      value={form.bank_name || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, bank_name: e.target.value })
+                      }
+                      placeholder="e.g. State Bank of India"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Account Number</label>
+                    <Input
+                      className="mt-1"
+                      value={form.bank_account_no || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, bank_account_no: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">IFSC Code</label>
+                    <Input
+                      className="mt-1"
+                      value={form.bank_ifsc || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, bank_ifsc: e.target.value.toUpperCase() })
+                      }
+                      placeholder="e.g. SBIN0001234"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Branch</label>
+                    <Input
+                      className="mt-1"
+                      value={form.bank_branch || ''}
+                      onChange={(e) =>
+                        setForm({ ...form, bank_branch: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-[var(--border-subtle)] pt-4 space-y-3">
+                <div>
+                  <h3 className={sectionTitleClass}>Invoice Numbering</h3>
+                  <p className={sectionHintClass}>
+                    Sequential invoice numbers are auto-generated when invoices are created.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium">Invoice Prefix</label>
+                    <Input
+                      className="mt-1"
+                      value={form.invoice_prefix || 'INV'}
+                      onChange={(e) =>
+                        setForm({ ...form, invoice_prefix: e.target.value })
+                      }
+                      placeholder="INV"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Next Invoice Number</label>
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      value={form.next_invoice_number || 1}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          next_invoice_number: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="flex items-center justify-end pt-2">
                 <Button onClick={save} loading={saving}>
                   Save

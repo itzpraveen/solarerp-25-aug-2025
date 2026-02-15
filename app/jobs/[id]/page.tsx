@@ -52,6 +52,28 @@ function JobDetailPageInner() {
         date_meter: data?.date_meter || '',
         date_handover: data?.date_handover || '',
         is_loan: Boolean((data as any)?.is_loan) || false,
+        capacity_kw: (data as any)?.capacity_kw ?? '',
+        system_type: (data as any)?.system_type || 'On-grid',
+        quoted_price: (data as any)?.quoted_price ?? '',
+        discount: (data as any)?.discount ?? 0,
+        tax_rate: (data as any)?.tax_rate ?? 0,
+        roof_type: (data as any)?.roof_type || '',
+        roof_area_sqft: (data as any)?.roof_area_sqft ?? '',
+        roof_condition: (data as any)?.roof_condition || '',
+        num_floors: (data as any)?.num_floors ?? '',
+        building_height_m: (data as any)?.building_height_m ?? '',
+        mounting_type: (data as any)?.mounting_type || '',
+        azimuth_deg: (data as any)?.azimuth_deg ?? '',
+        tilt_deg: (data as any)?.tilt_deg ?? '',
+        recommended_capacity_kw: (data as any)?.recommended_capacity_kw ?? '',
+        recommended_panel_count: (data as any)?.recommended_panel_count ?? '',
+        recommended_inverter: (data as any)?.recommended_inverter || '',
+        shading: (data as any)?.shading || '',
+        obstruction_notes: (data as any)?.obstruction_notes || '',
+        cable_run_m: (data as any)?.cable_run_m ?? '',
+        earthing_type: (data as any)?.earthing_type || '',
+        meter_location: (data as any)?.meter_location || '',
+        wiring_condition: (data as any)?.wiring_condition || '',
       });
     })();
   }, [params.id, supabase]);
@@ -237,7 +259,7 @@ function JobDetailPageInner() {
                 : (job as any)?.customers?.name) || '—'}
             </div>
             <div className="text-sm">
-              System: {job?.system_type} • {job?.capacity_kw} kW
+              Program: {(job as any)?.program_type === 'Commercial' ? 'Commercial' : 'PM Surya'}
             </div>
             <div className="text-sm flex items-center gap-2">
               <span>Status:</span>
@@ -377,6 +399,70 @@ function JobDetailPageInner() {
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm">
+              <div className="text-gray-700">System Type</div>
+              <select
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.system_type || 'On-grid'}
+                onChange={(e) => setEdit({ ...edit, system_type: e.target.value })}
+              >
+                {['On-grid', 'Hybrid', 'Off-grid', 'Inverter & Battery', 'Solar Water Heater'].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Capacity (kW)</div>
+              <input
+                type="number"
+                step="0.01"
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.capacity_kw ?? ''}
+                onChange={(e) => setEdit({ ...edit, capacity_kw: e.target.value })}
+              />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Quoted Price (INR)</div>
+              <input
+                type="number"
+                step="0.01"
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.quoted_price ?? ''}
+                onChange={(e) => setEdit({ ...edit, quoted_price: e.target.value })}
+              />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Discount (INR)</div>
+              <input
+                type="number"
+                step="0.01"
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.discount ?? 0}
+                onChange={(e) => setEdit({ ...edit, discount: Number(e.target.value) })}
+              />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Tax Rate (%)</div>
+              <input
+                type="number"
+                step="0.01"
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.tax_rate ?? 0}
+                onChange={(e) => setEdit({ ...edit, tax_rate: Number(e.target.value) })}
+              />
+            </label>
+            <div className="text-sm rounded bg-[var(--bg-subtle)] p-3 flex items-center">
+              <span className="text-gray-700">Total:&nbsp;</span>
+              <span className="font-semibold">
+                {(() => {
+                  const price = Number(edit?.quoted_price || 0);
+                  const disc = Number(edit?.discount || 0);
+                  const tax = Number(edit?.tax_rate || 0);
+                  const t = Math.round((price - disc) * (1 + tax / 100) * 100) / 100;
+                  return t > 0 ? `INR ${t.toLocaleString('en-IN')}` : '—';
+                })()}
+              </span>
+            </div>
+            <label className="text-sm">
               <div className="text-gray-700">Location</div>
               <input
                 className="mt-1 w-full rounded border px-3 py-2"
@@ -478,11 +564,149 @@ function JobDetailPageInner() {
               />
             </label>
           </div>
+
+          {/* ── Site Survey ── */}
+          <h3 className="mt-6 text-sm font-semibold text-gray-600">Site Survey — Roof &amp; Structure</h3>
+          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="text-sm">
+              <div className="text-gray-700">Roof Type</div>
+              <select
+                className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.roof_type || ''}
+                onChange={(e) => setEdit({ ...edit, roof_type: e.target.value })}
+              >
+                <option value="">— Select —</option>
+                {['Flat', 'Tiled', 'Metal Sheet', 'RCC', 'Ground'].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Roof Area (sq ft)</div>
+              <input type="number" step="1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.roof_area_sqft ?? ''} onChange={(e) => setEdit({ ...edit, roof_area_sqft: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Roof Condition</div>
+              <select className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.roof_condition || ''} onChange={(e) => setEdit({ ...edit, roof_condition: e.target.value })}>
+                <option value="">— Select —</option>
+                {['Good', 'Fair', 'Poor'].map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Number of Floors</div>
+              <input type="number" step="1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.num_floors ?? ''} onChange={(e) => setEdit({ ...edit, num_floors: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Building Height (m)</div>
+              <input type="number" step="0.1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.building_height_m ?? ''} onChange={(e) => setEdit({ ...edit, building_height_m: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Mounting Type</div>
+              <select className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.mounting_type || ''} onChange={(e) => setEdit({ ...edit, mounting_type: e.target.value })}>
+                <option value="">— Select —</option>
+                {['Flush', 'Tilt', 'Ground'].map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold text-gray-600">Site Survey — Solar Parameters</h3>
+          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="text-sm">
+              <div className="text-gray-700">Azimuth (0–360°)</div>
+              <input type="number" min="0" max="360" step="1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.azimuth_deg ?? ''} onChange={(e) => setEdit({ ...edit, azimuth_deg: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Tilt (0–90°)</div>
+              <input type="number" min="0" max="90" step="1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.tilt_deg ?? ''} onChange={(e) => setEdit({ ...edit, tilt_deg: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Recommended Capacity (kW)</div>
+              <input type="number" step="0.01" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.recommended_capacity_kw ?? ''} onChange={(e) => setEdit({ ...edit, recommended_capacity_kw: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Recommended Panel Count</div>
+              <input type="number" step="1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.recommended_panel_count ?? ''} onChange={(e) => setEdit({ ...edit, recommended_panel_count: e.target.value })} />
+            </label>
+            <label className="text-sm md:col-span-2">
+              <div className="text-gray-700">Recommended Inverter</div>
+              <input className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.recommended_inverter || ''} onChange={(e) => setEdit({ ...edit, recommended_inverter: e.target.value })} />
+            </label>
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold text-gray-600">Site Survey — Shading</h3>
+          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="text-sm">
+              <div className="text-gray-700">Shading</div>
+              <select className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.shading || ''} onChange={(e) => setEdit({ ...edit, shading: e.target.value })}>
+                <option value="">— Select —</option>
+                {['None', 'Partial', 'Significant'].map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Cable Run (m)</div>
+              <input type="number" step="0.1" className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.cable_run_m ?? ''} onChange={(e) => setEdit({ ...edit, cable_run_m: e.target.value })} />
+            </label>
+            <label className="text-sm md:col-span-2">
+              <div className="text-gray-700">Obstruction Notes</div>
+              <textarea className="mt-1 w-full rounded border px-3 py-2" rows={2}
+                value={edit?.obstruction_notes || ''} onChange={(e) => setEdit({ ...edit, obstruction_notes: e.target.value })} />
+            </label>
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold text-gray-600">Site Survey — Electrical</h3>
+          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="text-sm">
+              <div className="text-gray-700">Earthing Type</div>
+              <select className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.earthing_type || ''} onChange={(e) => setEdit({ ...edit, earthing_type: e.target.value })}>
+                <option value="">— Select —</option>
+                {['Pipe', 'Plate', 'Strip', 'None'].map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Meter Location</div>
+              <input className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.meter_location || ''} onChange={(e) => setEdit({ ...edit, meter_location: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              <div className="text-gray-700">Wiring Condition</div>
+              <select className="mt-1 w-full rounded border px-3 py-2"
+                value={edit?.wiring_condition || ''} onChange={(e) => setEdit({ ...edit, wiring_condition: e.target.value })}>
+                <option value="">— Select —</option>
+                {['Good', 'Fair', 'Poor'].map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+          </div>
+
           <div className="mt-4">
             <Button
               onClick={async () => {
                 // Persist and return the updated row in one round-trip
+                const calcTotal = edit.quoted_price
+                  ? Math.round(
+                      (Number(edit.quoted_price) - Number(edit.discount || 0)) *
+                        (1 + Number(edit.tax_rate || 0) / 100) * 100,
+                    ) / 100
+                  : null;
                 const payload = {
+                  capacity_kw: edit.capacity_kw ? Number(edit.capacity_kw) : null,
+                  system_type: edit.system_type || null,
+                  quoted_price: edit.quoted_price ? Number(edit.quoted_price) : null,
+                  discount: Number(edit.discount || 0),
+                  tax_rate: Number(edit.tax_rate || 0),
+                  total_amount: calcTotal,
                   location: edit.location || null,
                   kseb_application_no: edit.kseb_application_no || null,
                   subsidy_portal_ref: edit.subsidy_portal_ref || null,
@@ -493,6 +717,23 @@ function JobDetailPageInner() {
                   date_meter: edit.date_meter || null,
                   date_handover: edit.date_handover || null,
                   is_loan: !!edit.is_loan,
+                  roof_type: edit.roof_type || null,
+                  roof_area_sqft: edit.roof_area_sqft ? Number(edit.roof_area_sqft) : null,
+                  roof_condition: edit.roof_condition || null,
+                  num_floors: edit.num_floors ? Number(edit.num_floors) : null,
+                  building_height_m: edit.building_height_m ? Number(edit.building_height_m) : null,
+                  mounting_type: edit.mounting_type || null,
+                  azimuth_deg: edit.azimuth_deg ? Number(edit.azimuth_deg) : null,
+                  tilt_deg: edit.tilt_deg ? Number(edit.tilt_deg) : null,
+                  recommended_capacity_kw: edit.recommended_capacity_kw ? Number(edit.recommended_capacity_kw) : null,
+                  recommended_panel_count: edit.recommended_panel_count ? Number(edit.recommended_panel_count) : null,
+                  recommended_inverter: edit.recommended_inverter || null,
+                  shading: edit.shading || null,
+                  obstruction_notes: (edit.obstruction_notes || '').trim() ? edit.obstruction_notes : null,
+                  cable_run_m: edit.cable_run_m ? Number(edit.cable_run_m) : null,
+                  earthing_type: edit.earthing_type || null,
+                  meter_location: edit.meter_location || null,
+                  wiring_condition: edit.wiring_condition || null,
                 };
                 const { data, error } = await supabase
                   .from('jobs')
@@ -518,6 +759,28 @@ function JobDetailPageInner() {
                   date_meter: (data as any)?.date_meter || '',
                   date_handover: (data as any)?.date_handover || '',
                   is_loan: Boolean((data as any)?.is_loan) || false,
+                  capacity_kw: (data as any)?.capacity_kw ?? '',
+                  system_type: (data as any)?.system_type || 'On-grid',
+                  quoted_price: (data as any)?.quoted_price ?? '',
+                  discount: (data as any)?.discount ?? 0,
+                  tax_rate: (data as any)?.tax_rate ?? 0,
+                  roof_type: (data as any)?.roof_type || '',
+                  roof_area_sqft: (data as any)?.roof_area_sqft ?? '',
+                  roof_condition: (data as any)?.roof_condition || '',
+                  num_floors: (data as any)?.num_floors ?? '',
+                  building_height_m: (data as any)?.building_height_m ?? '',
+                  mounting_type: (data as any)?.mounting_type || '',
+                  azimuth_deg: (data as any)?.azimuth_deg ?? '',
+                  tilt_deg: (data as any)?.tilt_deg ?? '',
+                  recommended_capacity_kw: (data as any)?.recommended_capacity_kw ?? '',
+                  recommended_panel_count: (data as any)?.recommended_panel_count ?? '',
+                  recommended_inverter: (data as any)?.recommended_inverter || '',
+                  shading: (data as any)?.shading || '',
+                  obstruction_notes: (data as any)?.obstruction_notes || '',
+                  cable_run_m: (data as any)?.cable_run_m ?? '',
+                  earthing_type: (data as any)?.earthing_type || '',
+                  meter_location: (data as any)?.meter_location || '',
+                  wiring_condition: (data as any)?.wiring_condition || '',
                 });
                 toast({ title: 'Saved', variant: 'success' });
               }}
@@ -652,6 +915,7 @@ function ServiceForJob({ jobId }: { jobId: string }) {
 
 function Finance({ jobId }: { jobId: string }) {
   const supabase = supabaseBrowser();
+  const { toast } = useToast();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [showInv, setShowInv] = useState(false);
@@ -731,29 +995,25 @@ function Finance({ jobId }: { jobId: string }) {
                 value={i.status || 'Draft'}
                 onChange={async (e) => {
                   const newStatus = e.target.value as any;
-                  await supabase
-                    .from('invoices')
-                    .update({ status: newStatus })
-                    .eq('id', i.id);
-                  // Audit: invoice status update
-                  const { data: user } = await supabase.auth.getUser();
-                  const uid = (user?.user as any)?.id as string | undefined;
-                  const { data: prof } = uid
-                    ? await supabase
-                        .from('profiles')
-                        .select('tenant_id')
-                        .eq('user_id', uid)
-                        .maybeSingle()
-                    : ({ data: null } as any);
-                  if (prof?.tenant_id) {
-                    await supabase.from('audit_logs').insert({
-                      tenant_id: (prof as any).tenant_id,
-                      user_id: (user?.user as any)?.id || null,
-                      action: 'invoices.update_status',
-                      entity: 'jobs',
-                      entity_id: jobId,
-                      metadata: { invoiceId: i.id, newStatus },
+                  try {
+                    const { data: session } = await supabase.auth.getSession();
+                    const token = session.session?.access_token;
+                    const res = await fetch('/api/invoices/updateStatus', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
+                      body: JSON.stringify({ invoiceId: i.id, newStatus }),
                     });
+                    const json = await res.json();
+                    if (!res.ok) {
+                      toast({ title: 'Invalid transition', description: json.error, variant: 'error' });
+                      return;
+                    }
+                  } catch (err: any) {
+                    toast({ title: 'Error', description: String(err?.message || err), variant: 'error' });
+                    return;
                   }
                   const { data: inv } = await supabase
                     .from('invoices')

@@ -1,6 +1,7 @@
 'use client';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { z } from 'zod';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import Card from '~/components/ui/Card';
 import Input from '~/components/ui/Input';
@@ -20,6 +21,16 @@ import { useBranchSelection } from '@/lib/useBranchSelection';
 import Select from '~/components/ui/Select';
 import Badge from '~/components/ui/Badge';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+
+const LeadCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().min(10, 'Enter a valid phone number (10+ digits)'),
+  source: z.string().optional(),
+  capacity: z.number().min(0).optional(),
+  address: z.string().optional(),
+  remarks: z.string().optional(),
+  nextFollowUp: z.string().optional(),
+});
 
 function LeadsPageInner() {
   const supabase = supabaseBrowser();
@@ -736,8 +747,10 @@ function LeadsPageInner() {
 
   const add = async () => {
     setErr(null);
-    if (!required(name)) return setErr('Name is required');
-    if (!isPhone(phone)) return setErr('Valid phone required');
+    const parsed = LeadCreateSchema.safeParse({ name, phone, source, capacity, address: addressInput, remarks, nextFollowUp });
+    if (!parsed.success) {
+      return setErr(parsed.error.issues.map(i => i.message).join(', '));
+    }
     setAdding(true);
     const tenantId = await getTenantId();
     if (!tenantId) {

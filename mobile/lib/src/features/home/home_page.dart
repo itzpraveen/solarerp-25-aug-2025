@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../app.dart' show themeNotifier;
 import '../../config/app_config.dart';
 import '../../data/models.dart';
 import '../../data/solarerp_repository.dart';
+import '../jobs/create_job_page.dart';
+import '../jobs/jobs_tab.dart';
+import '../leads/create_lead_page.dart';
+import '../leads/lead_detail_page.dart';
 
 const String _allBranchesValue = '__all__';
 
@@ -41,6 +46,9 @@ class _HomePageState extends State<HomePage> {
   LeadsFilterMode _leadsFilterMode = LeadsFilterMode.all;
   LeadsSortMode _leadsSortMode = LeadsSortMode.followUp;
 
+  List<TaskItem> _myTasks = const [];
+  final GlobalKey<JobsTabState> _jobsTabKey = GlobalKey<JobsTabState>();
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +84,7 @@ class _HomePageState extends State<HomePage> {
       final results = await Future.wait<dynamic>([
         widget.repository.fetchOverview(branchId: _selectedBranchId),
         widget.repository.fetchLeads(branchId: _selectedBranchId),
+        widget.repository.fetchMyTasks(),
       ]);
 
       if (!mounted) return;
@@ -84,6 +93,7 @@ class _HomePageState extends State<HomePage> {
         _branches = branches;
         _overview = results[0] as OverviewKpi;
         _leads = results[1] as List<LeadSummary>;
+        _myTasks = results[2] as List<TaskItem>;
         _lastSyncedAt = DateTime.now();
       });
     } catch (e) {
@@ -111,11 +121,13 @@ class _HomePageState extends State<HomePage> {
       final results = await Future.wait<dynamic>([
         widget.repository.fetchOverview(branchId: _selectedBranchId),
         widget.repository.fetchLeads(branchId: _selectedBranchId),
+        widget.repository.fetchMyTasks(),
       ]);
       if (!mounted) return;
       setState(() {
         _overview = results[0] as OverviewKpi;
         _leads = results[1] as List<LeadSummary>;
+        _myTasks = results[2] as List<TaskItem>;
         _lastSyncedAt = DateTime.now();
       });
     } catch (e) {
@@ -247,15 +259,8 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
+              _PulseLoader(color: theme.colorScheme.primary),
+              const SizedBox(height: 20),
               Text(
                 'Loading workspace...',
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -453,7 +458,20 @@ class _HomePageState extends State<HomePage> {
                     _DashboardTab(
                       overview: _overview,
                       profile: _profile,
+                      myTasks: _myTasks,
+                      repository: widget.repository,
                       onRefresh: _refreshBranchData,
+                      onNavigateToLeads: (filter) {
+                        setState(() {
+                          _leadsFilterMode = filter;
+                          _tabIndex = 1;
+                        });
+                      },
+                      onNavigateToJobs: () {
+                        setState(() {
+                          _tabIndex = 2;
+                        });
+                      },
                     ),
                     _LeadsTab(
                       allLeads: _leads,
@@ -475,6 +493,13 @@ class _HomePageState extends State<HomePage> {
                       countByFilter: _countByFilter,
                       onRefresh: _refreshBranchData,
                       branchNameById: _branchNameById(),
+                      repository: widget.repository,
+                    ),
+                    JobsTab(
+                      key: _jobsTabKey,
+                      repository: widget.repository,
+                      branchId: _selectedBranchId,
+                      config: widget.config,
                     ),
                     _AccountTab(
                       profile: _profile,
@@ -488,6 +513,38 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+      floatingActionButton: _tabIndex == 1
+          ? FloatingActionButton(
+              heroTag: 'createLead',
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateLeadPage(repository: widget.repository),
+                  ),
+                );
+                if (created == true) _refreshBranchData();
+              },
+              child: const Icon(Icons.person_add),
+            )
+          : _tabIndex == 2
+              ? FloatingActionButton(
+                  heroTag: 'createJob',
+                  onPressed: () async {
+                    final created = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CreateJobPage(
+                          repository: widget.repository,
+                          config: widget.config,
+                        ),
+                      ),
+                    );
+                    if (created == true) _jobsTabKey.currentState?.loadJobs();
+                  },
+                  child: const Icon(Icons.add),
+                )
+              : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,
         onDestinationSelected: (index) {
@@ -505,6 +562,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
             label: 'Leads',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.work_outline),
+            selectedIcon: Icon(Icons.work),
+            label: 'Jobs',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -525,12 +587,20 @@ class _DashboardTab extends StatelessWidget {
   const _DashboardTab({
     required this.overview,
     required this.profile,
+    required this.myTasks,
+    required this.repository,
     required this.onRefresh,
+    required this.onNavigateToLeads,
+    required this.onNavigateToJobs,
   });
 
   final OverviewKpi? overview;
   final UserProfile? profile;
+  final List<TaskItem> myTasks;
+  final SolarErpRepository repository;
   final Future<void> Function() onRefresh;
+  final void Function(LeadsFilterMode filter) onNavigateToLeads;
+  final VoidCallback onNavigateToJobs;
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -617,6 +687,7 @@ class _DashboardTab extends StatelessWidget {
                   value: conversionRate,
                   icon: Icons.trending_up_rounded,
                   gradient: const [Color(0xFF00A650), Color(0xFF4ADE80)],
+                  onTap: () => onNavigateToLeads(LeadsFilterMode.converted),
                 ),
               ),
               const SizedBox(width: 12),
@@ -628,34 +699,39 @@ class _DashboardTab extends StatelessWidget {
                   gradient: kpi.overdue > 0
                       ? const [Color(0xFFD84315), Color(0xFFF4511E)]
                       : const [Color(0xFF546E7A), Color(0xFF78909C)],
+                  onTap: () => onNavigateToLeads(LeadsFilterMode.overdue),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Quick stats row
+          // Quick stats row (tappable)
           Row(
             children: [
               _QuickStat(
                 label: 'Total',
                 value: kpi.total.toString(),
                 color: theme.colorScheme.primary,
+                onTap: () => onNavigateToLeads(LeadsFilterMode.all),
               ),
               _QuickStat(
                 label: 'Open',
                 value: kpi.open.toString(),
                 color: Colors.blue.shade600,
+                onTap: () => onNavigateToLeads(LeadsFilterMode.open),
               ),
               _QuickStat(
                 label: 'Due Today',
                 value: kpi.dueToday.toString(),
                 color: Colors.orange.shade700,
+                onTap: () => onNavigateToLeads(LeadsFilterMode.dueToday),
               ),
               _QuickStat(
                 label: 'Overdue',
                 value: kpi.overdue.toString(),
                 color: Colors.red.shade700,
+                onTap: () => onNavigateToLeads(LeadsFilterMode.overdue),
               ),
             ],
           ),
@@ -672,6 +748,7 @@ class _DashboardTab extends StatelessWidget {
                   value: kpi.newWeek.toString(),
                   icon: Icons.fiber_new_rounded,
                   color: Colors.blue,
+                  onTap: () => onNavigateToLeads(LeadsFilterMode.all),
                 ),
               ),
               const SizedBox(width: 10),
@@ -681,6 +758,7 @@ class _DashboardTab extends StatelessWidget {
                   value: kpi.converted.toString(),
                   icon: Icons.check_circle_outline_rounded,
                   color: Colors.green,
+                  onTap: () => onNavigateToLeads(LeadsFilterMode.converted),
                 ),
               ),
               const SizedBox(width: 10),
@@ -690,6 +768,7 @@ class _DashboardTab extends StatelessWidget {
                   value: kpi.proposalsWeek.toString(),
                   icon: Icons.request_quote_outlined,
                   color: Colors.deepPurple,
+                  onTap: onNavigateToJobs,
                 ),
               ),
             ],
@@ -707,6 +786,7 @@ class _DashboardTab extends StatelessWidget {
                   value: kpi.leadsNewMonth.toString(),
                   icon: Icons.person_add_outlined,
                   color: Colors.teal,
+                  onTap: () => onNavigateToLeads(LeadsFilterMode.all),
                 ),
               ),
               const SizedBox(width: 10),
@@ -716,6 +796,7 @@ class _DashboardTab extends StatelessWidget {
                   value: kpi.leadsConvertedMonth.toString(),
                   icon: Icons.auto_graph_rounded,
                   color: Colors.green,
+                  onTap: () => onNavigateToLeads(LeadsFilterMode.converted),
                 ),
               ),
               const SizedBox(width: 10),
@@ -725,10 +806,44 @@ class _DashboardTab extends StatelessWidget {
                   value: kpi.proposalsMonth.toString(),
                   icon: Icons.summarize_outlined,
                   color: Colors.indigo,
+                  onTap: onNavigateToJobs,
                 ),
               ),
             ],
           ),
+
+          // My Tasks section
+          if (myTasks.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _SectionHeader(title: 'My Tasks'),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  for (int i = 0; i < myTasks.length && i < 5; i++) ...[
+                    if (i > 0) const Divider(height: 1),
+                    _MyTaskRow(
+                      task: myTasks[i],
+                      repository: repository,
+                      onChanged: onRefresh,
+                    ),
+                  ],
+                  if (myTasks.length > 5) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        '+${myTasks.length - 5} more tasks',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -752,6 +867,7 @@ class _LeadsTab extends StatelessWidget {
     required this.countByFilter,
     required this.onRefresh,
     required this.branchNameById,
+    required this.repository,
   });
 
   final List<LeadSummary> allLeads;
@@ -765,6 +881,7 @@ class _LeadsTab extends StatelessWidget {
   final int Function(LeadsFilterMode mode) countByFilter;
   final Future<void> Function() onRefresh;
   final Map<String, String> branchNameById;
+  final SolarErpRepository repository;
 
   @override
   Widget build(BuildContext context) {
@@ -921,6 +1038,8 @@ class _LeadsTab extends StatelessWidget {
                       return _LeadCard(
                         lead: lead,
                         branchName: branchNameById[lead.branchId ?? ''],
+                        repository: repository,
+                        onChanged: onRefresh,
                       );
                     },
                   ),
@@ -1047,6 +1166,65 @@ class _AccountTab extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+
+        // Theme toggle
+        Card(
+          child: ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeNotifier,
+            builder: (context, mode, _) {
+              return Column(
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      mode == ThemeMode.dark
+                          ? Icons.dark_mode_rounded
+                          : mode == ThemeMode.light
+                              ? Icons.light_mode_rounded
+                              : Icons.brightness_auto_rounded,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    title: const Text('Appearance'),
+                    subtitle: Text(
+                      mode == ThemeMode.dark
+                          ? 'Dark'
+                          : mode == ThemeMode.light
+                              ? 'Light'
+                              : 'System default',
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: SegmentedButton<ThemeMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ThemeMode.system,
+                          icon: Icon(Icons.brightness_auto_rounded, size: 18),
+                          label: Text('Auto'),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          icon: Icon(Icons.light_mode_rounded, size: 18),
+                          label: Text('Light'),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          icon: Icon(Icons.dark_mode_rounded, size: 18),
+                          label: Text('Dark'),
+                        ),
+                      ],
+                      selected: {mode},
+                      onSelectionChanged: (selected) {
+                        themeNotifier.value = selected.first;
+                      },
+                      showSelectedIcon: false,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
         const SizedBox(height: 24),
 
         // Sign out
@@ -1085,16 +1263,20 @@ class _HeroCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.gradient,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final List<Color> gradient;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1134,6 +1316,7 @@ class _HeroCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -1143,42 +1326,47 @@ class _QuickStat extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
-          border: Border(
-            top: BorderSide(color: color, width: 2.5),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border(
+              top: BorderSide(color: color, width: 2.5),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+          child: Column(
+            children: [
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1209,44 +1397,50 @@ class _KpiTile extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final MaterialColor color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: color.shade700),
               ),
-              child: Icon(icon, size: 20, color: color.shade700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1254,10 +1448,17 @@ class _KpiTile extends StatelessWidget {
 }
 
 class _LeadCard extends StatelessWidget {
-  const _LeadCard({required this.lead, required this.branchName});
+  const _LeadCard({
+    required this.lead,
+    required this.branchName,
+    required this.repository,
+    required this.onChanged,
+  });
 
   final LeadSummary lead;
   final String? branchName;
+  final SolarErpRepository repository;
+  final Future<void> Function() onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1279,7 +1480,21 @@ class _LeadCard extends StatelessWidget {
     }
 
     return Card(
-      child: IntrinsicHeight(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LeadDetailPage(
+                leadId: lead.id,
+                repository: repository,
+              ),
+            ),
+          );
+          onChanged();
+        },
+        child: IntrinsicHeight(
         child: Row(
           children: [
             // Left colored stripe
@@ -1435,6 +1650,7 @@ class _LeadCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -1495,6 +1711,131 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
+class _MyTaskRow extends StatelessWidget {
+  const _MyTaskRow({
+    required this.task,
+    required this.repository,
+    required this.onChanged,
+  });
+
+  final TaskItem task;
+  final SolarErpRepository repository;
+  final Future<void> Function() onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      dense: true,
+      leading: Checkbox(
+        value: task.isDone,
+        onChanged: (_) async {
+          await repository.updateTaskStatus(
+            task.id,
+            task.isDone ? 'Open' : 'Done',
+          );
+          onChanged();
+        },
+        activeColor: theme.colorScheme.primary,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+      title: Text(
+        task.title ?? 'Untitled Task',
+        style: theme.textTheme.bodyMedium,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: task.dueDate != null
+          ? Text(
+              DateFormat('dd MMM').format(task.dueDate!),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: task.isOverdue
+                    ? Colors.red.shade600
+                    : theme.colorScheme.onSurfaceVariant,
+                fontWeight: task.isOverdue ? FontWeight.w600 : null,
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pulse Loader
+// ---------------------------------------------------------------------------
+
+class _PulseLoader extends StatefulWidget {
+  const _PulseLoader({required this.color});
+
+  final Color color;
+
+  @override
+  State<_PulseLoader> createState() => _PulseLoaderState();
+}
+
+class _PulseLoaderState extends State<_PulseLoader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, _) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(3, (i) {
+              final delay = i * 0.15;
+              final t = ((_ctrl.value - delay) % 1.0).clamp(0.0, 1.0);
+              final scale = 0.4 + 0.6 * _bounce(t);
+              final opacity = 0.3 + 0.7 * _bounce(t);
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(alpha: opacity),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          );
+        },
+      ),
+    );
+  }
+
+  double _bounce(double t) {
+    // Quick up then settle
+    if (t < 0.4) return t / 0.4;
+    return 1.0 - ((t - 0.4) / 0.6);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1544,11 +1885,11 @@ String _leadsFilterLabel(LeadsFilterMode mode) {
 Color? _filterChipColor(LeadsFilterMode mode) {
   switch (mode) {
     case LeadsFilterMode.overdue:
-      return Colors.red.shade50;
+      return Colors.red.shade100;
     case LeadsFilterMode.dueToday:
-      return Colors.orange.shade50;
+      return Colors.orange.shade100;
     case LeadsFilterMode.converted:
-      return Colors.green.shade50;
+      return Colors.green.shade100;
     case LeadsFilterMode.lost:
       return Colors.grey.shade200;
     default:

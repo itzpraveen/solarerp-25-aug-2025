@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 import PipelineBoard from 'components/PipelineBoard';
 import Button from '~/components/ui/Button';
 import Card from '~/components/ui/Card';
@@ -18,6 +19,12 @@ import { PROGRAM_ALLOWED_SYSTEMS, type ProgramType } from '@/lib/program';
 import PageHeader from '~/components/ui/PageHeader';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import { useBranchSelection } from '@/lib/useBranchSelection';
+
+const JobCreateSchema = z.object({
+  custId: z.string().min(1, 'Customer is required'),
+  capacity: z.number().positive('Capacity must be greater than 0'),
+  systemType: z.string().min(1, 'System type is required'),
+});
 
 export default function JobsPage() {
   const supabase = supabaseBrowser();
@@ -98,12 +105,9 @@ export default function JobsPage() {
 
   const createJob = async () => {
     setMsg(null);
-    if (!custId) {
-      setMsg('Select a customer');
-      return;
-    }
-    if ((Number(capacity) || 0) <= 0) {
-      setMsg('Capacity must be > 0');
+    const parsed = JobCreateSchema.safeParse({ custId, capacity: Number(capacity) || 0, systemType });
+    if (!parsed.success) {
+      setMsg(parsed.error.issues.map(i => i.message).join(', '));
       return;
     }
     if (!allowedSystems.includes(systemType)) {

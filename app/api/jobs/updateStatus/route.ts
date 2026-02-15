@@ -120,18 +120,37 @@ export async function POST(req: NextRequest) {
         if (!existing || existing.length === 0) {
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + Number(env.depositDueDays || 7));
+
+          // Use tenant's default tax rate instead of hardcoded 0
+          const taxRate = Number((settings as any)?.default_tax_rate || 0);
+          const taxAmount = Math.round((deposit * taxRate / 100) * 100) / 100;
+          const invoiceTotal = Math.round((deposit + taxAmount) * 100) / 100;
+
+          // Generate sequential invoice number
+          const nextNum = Number((settings as any)?.next_invoice_number || 1);
+          const prefix = (settings as any)?.invoice_prefix || 'INV';
+          const invoiceNumber = `${prefix}-${String(nextNum).padStart(5, '0')}`;
+
           await sb.from('invoices').insert({
             tenant_id: job.tenant_id,
             job_id: job.id,
             date: new Date().toISOString().slice(0, 10),
             invoice_type: 'Deposit',
             amount_before_tax: deposit,
-            tax: 0,
-            total: deposit,
+            tax: taxAmount,
+            total: invoiceTotal,
             due_date: dueDate.toISOString().slice(0, 10),
             status: 'Draft',
+            invoice_number: invoiceNumber,
           });
-          const balance = Math.round((total - deposit) * 100) / 100;
+
+          // Increment the invoice counter
+          await sb
+            .from('settings')
+            .update({ next_invoice_number: nextNum + 1 })
+            .eq('tenant_id', job.tenant_id);
+
+          const balance = Math.round((total - invoiceTotal) * 100) / 100;
           await sb
             .from('jobs')
             .update({ deposit_amount: deposit, balance_due: balance })

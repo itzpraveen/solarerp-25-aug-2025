@@ -7,6 +7,17 @@ import { env } from '@/lib/env';
 type Bucket = { count: number; resetAt: number };
 const store = new Map<string, Bucket>();
 
+// Periodic cleanup of expired buckets to prevent unbounded memory growth.
+if (typeof setInterval !== 'undefined') {
+  const _cleanup = setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of store) {
+      if (bucket.resetAt <= now) store.delete(key);
+    }
+  }, 60 * 60 * 1000); // every 60 minutes
+  _cleanup.unref?.();
+}
+
 export async function takeTokenAsync(
   key: string,
   limit: number,

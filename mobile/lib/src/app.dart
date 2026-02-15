@@ -15,9 +15,12 @@ ThemeData _buildLightTheme() {
     seedColor: _brandGreen,
     brightness: Brightness.light,
     primary: _brandGreen,
+    onPrimary: Colors.white,
+    onSurface: const Color(0xFF1A1C1E),
+    onSurfaceVariant: const Color(0xFF44474E),
     surface: const Color(0xFFF8FAFC),
     surfaceContainerLowest: Colors.white,
-    surfaceContainerLow: const Color(0xFFF1F5F9),
+    surfaceContainerLow: const Color(0xFFEBEFF5),
     surfaceContainer: const Color(0xFFE8F0EC),
     surfaceContainerHigh: const Color(0xFFDDE8E3),
     surfaceContainerHighest: const Color(0xFFD0DDD7),
@@ -34,18 +37,24 @@ ThemeData _buildLightTheme() {
       foregroundColor: colorScheme.onSurface,
     ),
     cardTheme: CardThemeData(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFDDE1E6), width: 0.5),
+      ),
       clipBehavior: Clip.antiAlias,
     ),
     navigationBarTheme: NavigationBarThemeData(
       elevation: 2,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
       indicatorColor: colorScheme.primaryContainer,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colorScheme.surfaceContainerLow,
+      fillColor: const Color(0xFFEBEFF5),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -166,6 +175,9 @@ ThemeData _buildDarkTheme() {
   );
 }
 
+/// Global theme mode notifier so any widget can toggle.
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
+
 class SolarErpNativeApp extends StatelessWidget {
   const SolarErpNativeApp({super.key, required this.config});
 
@@ -173,12 +185,18 @@ class SolarErpNativeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tenaga Hub',
-      debugShowCheckedModeBanner: false,
-      theme: _buildLightTheme(),
-      darkTheme: _buildDarkTheme(),
-      home: _AuthGate(config: config),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, mode, _) {
+        return MaterialApp(
+          title: 'Tenaga Hub',
+          debugShowCheckedModeBanner: false,
+          theme: _buildLightTheme(),
+          darkTheme: _buildDarkTheme(),
+          themeMode: mode,
+          home: _AuthGate(config: config),
+        );
+      },
     );
   }
 }

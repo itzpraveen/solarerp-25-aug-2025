@@ -103,6 +103,195 @@ class SolarErpRepository {
         .toList();
   }
 
+  Future<LeadDetail?> fetchLeadById(String id) async {
+    final row = await _client
+        .from('leads')
+        .select(
+          'id, name, phone, email, address, status, source, branch_id, '
+          'score, score_breakdown, date, next_follow_up_date, '
+          'last_contacted_at, interested_capacity_kw, notes, assigned_to',
+        )
+        .eq('id', id)
+        .maybeSingle();
+    if (row == null) return null;
+    return LeadDetail.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  Future<void> updateLead(String id, Map<String, dynamic> patch) async {
+    await _client.from('leads').update(patch).eq('id', id);
+  }
+
+  Future<void> updateJob(String id, Map<String, dynamic> patch) async {
+    await _client.from('jobs').update(patch).eq('id', id);
+  }
+
+  Future<List<JobSummary>> fetchJobs({
+    String? branchId,
+    int limit = 150,
+  }) async {
+    var query = _client
+        .from('jobs')
+        .select(
+          'id, customer_id, system_type, capacity_kw, status, '
+          'quoted_price, total_amount, deposit_amount, balance_due, '
+          'location, notes, date_lead, date_won, date_install, date_handover, '
+          'branch_id, program_type, is_loan, created_at, '
+          'roof_type, roof_area_sqft, roof_condition, num_floors, building_height_m, mounting_type, '
+          'azimuth_deg, tilt_deg, recommended_capacity_kw, recommended_panel_count, recommended_inverter, '
+          'shading, obstruction_notes, cable_run_m, '
+          'earthing_type, meter_location, wiring_condition, '
+          'customers!inner(name, phone)',
+        );
+    if (branchId != null) {
+      query = query.eq('branch_id', branchId);
+    }
+    final rows = await query.order('created_at', ascending: false).limit(limit);
+    final list = (rows as List<dynamic>? ?? const []);
+    return list
+        .map((row) => JobSummary.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<JobSummary?> fetchJobById(String id) async {
+    final row = await _client
+        .from('jobs')
+        .select(
+          'id, customer_id, system_type, capacity_kw, status, '
+          'quoted_price, total_amount, deposit_amount, balance_due, '
+          'location, notes, date_lead, date_won, date_install, date_handover, '
+          'branch_id, program_type, is_loan, created_at, '
+          'roof_type, roof_area_sqft, roof_condition, num_floors, building_height_m, mounting_type, '
+          'azimuth_deg, tilt_deg, recommended_capacity_kw, recommended_panel_count, recommended_inverter, '
+          'shading, obstruction_notes, cable_run_m, '
+          'earthing_type, meter_location, wiring_condition, '
+          'customers!inner(name, phone)',
+        )
+        .eq('id', id)
+        .maybeSingle();
+    if (row == null) return null;
+    return JobSummary.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  Future<Customer?> fetchCustomerById(String id) async {
+    final row = await _client
+        .from('customers')
+        .select(
+          'id, name, phone, email, address, discom, consumer_no, '
+          'phase, sanctioned_load_kw, notes',
+        )
+        .eq('id', id)
+        .maybeSingle();
+    if (row == null) return null;
+    return Customer.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  Future<List<TaskItem>> fetchMyTasks() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return const [];
+    final rows = await _client
+        .from('tasks')
+        .select('id, job_id, title, assigned_to, due_date, status, priority, notes')
+        .eq('assigned_to', userId)
+        .neq('status', 'Done')
+        .order('due_date', ascending: true, nullsFirst: false);
+    final list = (rows as List<dynamic>? ?? const []);
+    return list
+        .map((row) => TaskItem.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<List<TaskItem>> fetchTasksForJob(String jobId) async {
+    final rows = await _client
+        .from('tasks')
+        .select('id, job_id, title, assigned_to, due_date, status, priority, notes')
+        .eq('job_id', jobId)
+        .order('due_date', ascending: true, nullsFirst: false);
+    final list = (rows as List<dynamic>? ?? const []);
+    return list
+        .map((row) => TaskItem.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> updateTaskStatus(String taskId, String status) async {
+    await _client.from('tasks').update({'status': status}).eq('id', taskId);
+  }
+
+  Future<void> createTask(Map<String, dynamic> data) async {
+    final profile = await fetchMyProfile();
+    if (profile == null) throw StateError('No profile found');
+    await _client.from('tasks').insert({
+      ...data,
+      'tenant_id': profile.tenantId,
+      'status': 'Open',
+      'priority': data['priority'] ?? 'Medium',
+    });
+  }
+
+  Future<void> createLead(Map<String, dynamic> data) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw StateError('Not authenticated');
+    final profile = await fetchMyProfile();
+    if (profile == null) throw StateError('No profile found');
+    await _client.from('leads').insert({
+      ...data,
+      'tenant_id': profile.tenantId,
+      'date': _toYmd(DateTime.now()),
+    });
+  }
+
+  Future<List<Customer>> searchCustomers(String query) async {
+    final rows = await _client
+        .from('customers')
+        .select('id, name, phone, email, address, discom, consumer_no, phase, sanctioned_load_kw, notes')
+        .ilike('name', '%$query%')
+        .isFilter('deleted_at', null)
+        .order('name')
+        .limit(20);
+    final list = (rows as List<dynamic>? ?? const []);
+    return list
+        .map((row) => Customer.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> createJob(Map<String, dynamic> data) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw StateError('Not authenticated');
+    final profile = await fetchMyProfile();
+    if (profile == null) throw StateError('No profile found');
+    await _client.from('jobs').insert({
+      ...data,
+      'tenant_id': profile.tenantId,
+      'status': 'Lead',
+      'date_lead': _toYmd(DateTime.now()),
+    });
+  }
+
+  Future<void> updateJobStatus({
+    required String jobId,
+    required String newStatus,
+    required Uri apiBaseUri,
+  }) async {
+    final session = _client.auth.currentSession;
+    if (session == null) throw StateError('Not authenticated');
+    final uri = apiBaseUri.resolve('/api/jobs/updateStatus');
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${session.accessToken}',
+          },
+          body: jsonEncode({'jobId': jobId, 'status': newStatus}),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final msg = _extractErrorMessage(response.body) ??
+          'Status update failed (${response.statusCode})';
+      throw Exception(msg);
+    }
+  }
+
   Future<EnsureProfileResult> ensureProfile({
     required String accessToken,
     required Uri apiBaseUri,

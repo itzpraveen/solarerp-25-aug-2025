@@ -35,6 +35,7 @@ dependencies:
   http: ^1.5.0
   intl: ^0.20.2
   supabase_flutter: ^2.10.4
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
