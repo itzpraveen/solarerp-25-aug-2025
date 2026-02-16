@@ -28,6 +28,27 @@ const BodySchema = z.object({
   password: z.string().min(6).max(128).optional(),
 });
 
+const AUTH_USERS_PER_PAGE = 1000;
+const AUTH_USERS_MAX_PAGES = 20;
+
+async function findAuthUserByEmail(admin: any, email: string) {
+  const target = email.toLowerCase();
+  for (let page = 1; page <= AUTH_USERS_MAX_PAGES; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_USERS_PER_PAGE,
+    });
+    if (error) throw error;
+    const users: any[] = data?.users || [];
+    const found = users.find(
+      (u) => String(u?.email || '').toLowerCase() === target,
+    );
+    if (found) return found;
+    if (users.length < AUTH_USERS_PER_PAGE) break;
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ip = ipFromHeaders(req.headers);
@@ -93,14 +114,16 @@ export async function POST(req: NextRequest) {
 
     // Real environment: create the user and upsert profile
     const admin = supabaseAdmin();
-    // Try create; if it fails due to existing, list users and match by email
+    // Try create; if it fails due to existing, scan users and match by email.
     let userId: string | null = null;
     try {
-      const { data: created } = await (admin as any).auth.admin.createUser({
+      const { data: created, error: createErr } =
+        await (admin as any).auth.admin.createUser({
         email,
         password,
         email_confirm: true,
       });
+      if (createErr) throw createErr;
       userId = created?.user?.id || null;
     } catch (_) {
       userId = null;
@@ -108,13 +131,7 @@ export async function POST(req: NextRequest) {
 
     if (!userId) {
       try {
-        const { data: list } = await (admin as any).auth.admin.listUsers({
-          page: 1,
-          perPage: 1000,
-        });
-        const found = list?.users?.find(
-          (u: any) => String(u?.email).toLowerCase() === email.toLowerCase(),
-        );
+        const found = await findAuthUserByEmail(admin as any, email);
         userId = found?.id || null;
       } catch (_) {}
     }
@@ -125,14 +142,38 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
 
-    const { error: upsertErr } = await admin.from('profiles').upsert({
-      user_id: userId,
-      tenant_id: tenantId,
+    const { data: existingProfile } = await admin
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const existingTenantId = (existingProfile as any)?.tenant_id as
+      | string
+      | undefined;
+    if (existingTenantId && existingTenantId !== tenantId) {
+      return NextResponse.json(
+        { ok: false, error: 'User already belongs to another tenant' },
+        { status: 409 },
+      );
+    }
+
+    const profilePatch = {
       role,
       display_name: username,
       username,
-    });
-    if (upsertErr)
+    };
+    const { error: profileErr } = existingTenantId
+      ? await admin
+          .from('profiles')
+          .update(profilePatch)
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+      : await admin.from('profiles').insert({
+          user_id: userId,
+          tenant_id: tenantId,
+          ...profilePatch,
+        });
+    if (profileErr)
       return NextResponse.json(
         { ok: false, error: 'Profile update failed' },
         { status: 500 },

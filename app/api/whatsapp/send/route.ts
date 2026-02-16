@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { z } from 'zod';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
+import { can, type Role } from '@/lib/authz';
 
 const BodySchema = z.object({
   to: z.string().min(5),
@@ -30,6 +31,37 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
+    const { data: authUser, error: authErr } = await sb.auth.getUser();
+    const uid = authUser?.user?.id;
+    if (authErr || !uid) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+    const { data: me } = await sb
+      .from('profiles')
+      .select('tenant_id, role')
+      .eq('user_id', uid)
+      .maybeSingle();
+    const role = (me as any)?.role as Role | undefined;
+    if (!(me as any)?.tenant_id) {
+      return NextResponse.json(
+        { ok: false, error: 'Profile not ready' },
+        { status: 400 },
+      );
+    }
+    const canSendWhatsApp =
+      can(role, 'leads.edit') ||
+      can(role, 'invoices.edit') ||
+      can(role, 'service.edit') ||
+      can(role, 'service.self_edit');
+    if (!canSendWhatsApp) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
 
     const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success)
@@ -47,8 +79,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, id: 'mock-message-id' });
     }
 
-    const token = process.env.WHATSAPP_TOKEN!;
-    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID!;
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!token || !phoneId) {
+      return NextResponse.json(
+        { ok: false, error: 'WhatsApp is not configured' },
+        { status: 500 },
+      );
+    }
 
     const res = await fetch(
       `https://graph.facebook.com/v20.0/${phoneId}/messages`,

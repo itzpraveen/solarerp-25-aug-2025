@@ -12,13 +12,10 @@ function isAuthorized(req: NextRequest): boolean {
   const url = new URL(req.url);
   const tokenParam = url.searchParams.get('token') || '';
   const secret = process.env.CRON_SECRET || '';
-  const allowVercelHeader = process.env.CRON_ALLOW_VERCEL_HEADER === '1';
-  const hasVercelCronHeader = req.headers.has('x-vercel-cron');
 
   const bearerOk = !!secret && secureEqual(bearer, secret);
   const queryOk = !!secret && secureEqual(tokenParam, secret);
-  const vercelOk = allowVercelHeader && hasVercelCronHeader;
-  return bearerOk || queryOk || vercelOk;
+  return bearerOk || queryOk;
 }
 
 async function handleCron(req: NextRequest) {

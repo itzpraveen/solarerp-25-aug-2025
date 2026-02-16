@@ -124,20 +124,23 @@ function LeadsPageInner() {
     key: 'score',
     dir: 'desc',
   });
-  const sortColumns: Record<SortKey, string> = {
-    date: 'date',
-    name: 'name',
-    phone: 'phone',
-    address: 'address',
-    source: 'source',
-    capacity: 'interested_capacity_kw',
-    score: 'score',
-    followup: 'next_follow_up_date',
-    last_contacted: 'last_contacted_at',
-    status: 'status',
-    branch: 'branch_id',
-    remarks: 'notes',
-  };
+  const sortColumns = useMemo<Record<SortKey, string>>(
+    () => ({
+      date: 'date',
+      name: 'name',
+      phone: 'phone',
+      address: 'address',
+      source: 'source',
+      capacity: 'interested_capacity_kw',
+      score: 'score',
+      followup: 'next_follow_up_date',
+      last_contacted: 'last_contacted_at',
+      status: 'status',
+      branch: 'branch_id',
+      remarks: 'notes',
+    }),
+    [],
+  );
   const tableColumnsCount = 10;
   const initialDue =
     (search.get('due') || '').toLowerCase() === 'today' ||
@@ -699,6 +702,7 @@ function LeadsPageInner() {
     page,
     pageSize,
     todayStr,
+    sortColumns,
   ]);
 
   // Realtime updates for leads

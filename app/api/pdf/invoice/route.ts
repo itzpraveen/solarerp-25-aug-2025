@@ -15,12 +15,7 @@ import { getBaseUrl } from '@/lib/baseUrl';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// Accept tenantId in payload for backward compatibility, but the server
-// derives the effective tenant id from the authenticated profile to avoid
-// mismatches causing 403s.
 const BodySchema = z.object({
-  tenantId: z.string().optional(),
-  pathKey: z.string().optional(),
   payload: z.any(),
 });
 
@@ -59,29 +54,31 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Invalid payload' },
         { status: 400 },
       );
-    const { tenantId: tenantIdFromBody, pathKey, payload } = parsed.data as {
-      tenantId?: string;
-      pathKey?: string;
+    const { data: authUser, error: authErr } = await sb.auth.getUser();
+    const uid = authUser?.user?.id;
+    if (authErr || !uid) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+
+    const { payload } = parsed.data as {
       payload: LongInvoiceData;
     };
-    // Resolve caller's tenantId authoritatively from profile under RLS
+    // Resolve caller's tenantId authoritatively from profile.
     const { data: me } = await sb
       .from('profiles')
       .select('tenant_id')
+      .eq('user_id', uid)
       .maybeSingle();
-    // Prefer authenticated tenant; fallback to body when available. If still
-    // missing, and the project is single‑tenant, use that tenant id so we
-    // don't fail due to undefined path (RLS still applies on upload).
-    let tenantId = ((me as any)?.tenant_id as string | undefined) || tenantIdFromBody || undefined;
+    const tenantId = (me as any)?.tenant_id as string | undefined;
     if (!tenantId) {
-      try {
-        const { supabaseAdmin } = await import('@/lib/supabaseAdmin');
-        const admin = supabaseAdmin();
-        const { data: t } = await admin.from('tenants').select('id').limit(2);
-        if ((t || []).length === 1) tenantId = (t as any)[0].id as string;
-      } catch {}
+      return NextResponse.json(
+        { ok: false, error: 'Profile not ready' },
+        { status: 400 },
+      );
     }
-    // Ignore mismatched or missing body tenantId here; rely on RLS at upload time.
 
     // Helper: sanitize filename
     const sanitize = (s: string) =>
@@ -107,7 +104,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
     }
 
-    // Prefetch external logo and embed as data URL so images are not blocked
+    function isPrivateIpv4(hostname: string) {
+      const parts = hostname.split('.').map((p) => Number(p));
+      if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n))) {
+        return false;
+      }
+      const [a, b] = parts;
+      if (a === 10) return true;
+      if (a === 127) return true;
+      if (a === 169 && b === 254) return true;
+      if (a === 172 && b >= 16 && b <= 31) return true;
+      if (a === 192 && b === 168) return true;
+      return false;
+    }
+
+    function isSafePublicHttpUrl(raw: string) {
+      try {
+        const u = new URL(raw);
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+        const host = u.hostname.toLowerCase();
+        if (!host || host === 'localhost' || host.endsWith('.local')) {
+          return false;
+        }
+        if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+          if (isPrivateIpv4(host)) return false;
+        }
+        // Block direct IPv6 host literals to avoid private-network fetches.
+        if (host.includes(':')) return false;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Prefetch external logo and embed as data URL so images are not blocked.
     async function toDataUrl(url: string, fallbackMime?: string): Promise<string | null> {
       try {
         const ctrl = new AbortController();
@@ -120,7 +150,10 @@ export async function POST(req: NextRequest) {
         } as any);
         clearTimeout(t);
         if (!res.ok) return null;
+        const len = Number(res.headers.get('content-length') || 0);
+        if (Number.isFinite(len) && len > 2 * 1024 * 1024) return null;
         const buf = await res.arrayBuffer();
+        if (buf.byteLength > 2 * 1024 * 1024) return null;
         const mime =
           res.headers.get('content-type') ||
           fallbackMime ||
@@ -141,7 +174,7 @@ export async function POST(req: NextRequest) {
     let preparedPayload: LongInvoiceData = payload as any;
     try {
       const logo = (payload as any)?.company?.logoUrl as string | undefined;
-      if (logo && !logo.startsWith('data:')) {
+      if (logo && !logo.startsWith('data:') && isSafePublicHttpUrl(logo)) {
         const dataUrl = await toDataUrl(logo);
         if (dataUrl)
           preparedPayload = {

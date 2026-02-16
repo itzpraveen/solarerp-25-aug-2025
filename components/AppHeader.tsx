@@ -320,7 +320,6 @@ export default function AppHeader() {
       return (
         <span className="relative flex items-center">
           {!logoLoaded && skeleton}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={companyLogoUrl as string}
             alt={brandLabel}

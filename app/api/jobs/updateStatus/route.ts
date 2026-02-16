@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { JOB_STATUSES } from '@/lib/status';
 import { logAudit } from '@/lib/audit';
 import { env } from '@/lib/env';
+import { can, type Role } from '@/lib/authz';
 import {
   autoCreateTasksFromTemplates,
   ensureDefaultTaskTemplates,
@@ -30,6 +31,31 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
+    const { data: authUser, error: authErr } = await sb.auth.getUser();
+    const uid = authUser?.user?.id;
+    if (authErr || !uid) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+    const { data: meProfile } = await sb
+      .from('profiles')
+      .select('user_id, tenant_id, role')
+      .eq('user_id', uid)
+      .maybeSingle();
+    if (!(meProfile as any)?.tenant_id) {
+      return NextResponse.json(
+        { ok: false, error: 'Profile not ready' },
+        { status: 400 },
+      );
+    }
+    if (!can(((meProfile as any)?.role || null) as Role | null, 'jobs.edit')) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
 
     // Load job under RLS
     const { data: job, error: jErr } = await sb
@@ -131,7 +157,7 @@ export async function POST(req: NextRequest) {
           const prefix = (settings as any)?.invoice_prefix || 'INV';
           const invoiceNumber = `${prefix}-${String(nextNum).padStart(5, '0')}`;
 
-          await sb.from('invoices').insert({
+          const { error: invInsertErr } = await sb.from('invoices').insert({
             tenant_id: job.tenant_id,
             job_id: job.id,
             date: new Date().toISOString().slice(0, 10),
@@ -143,18 +169,21 @@ export async function POST(req: NextRequest) {
             status: 'Draft',
             invoice_number: invoiceNumber,
           });
+          if (invInsertErr) throw invInsertErr;
 
           // Increment the invoice counter
-          await sb
+          const { error: settingsErr } = await sb
             .from('settings')
             .update({ next_invoice_number: nextNum + 1 })
             .eq('tenant_id', job.tenant_id);
+          if (settingsErr) throw settingsErr;
 
           const balance = Math.round((total - invoiceTotal) * 100) / 100;
-          await sb
+          const { error: jobFinanceErr } = await sb
             .from('jobs')
             .update({ deposit_amount: deposit, balance_due: balance })
             .eq('id', job.id);
+          if (jobFinanceErr) throw jobFinanceErr;
         }
       }
     }
@@ -216,14 +245,10 @@ export async function POST(req: NextRequest) {
         });
         // Audit each auto-created task
         try {
-          const { data: me2 } = await sb
-            .from('profiles')
-            .select('user_id, tenant_id')
-            .maybeSingle();
-          if (me2?.tenant_id) {
+          if ((meProfile as any)?.tenant_id) {
             await (sb as any).from('audit_logs').insert({
-              tenant_id: (me2 as any).tenant_id,
-              user_id: (me2 as any).user_id,
+              tenant_id: (meProfile as any).tenant_id,
+              user_id: (meProfile as any).user_id,
               action: 'tasks.create',
               entity: 'jobs',
               entity_id: jobId,
@@ -235,14 +260,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Audit log (best-effort)
-    const { data: me } = await sb
-      .from('profiles')
-      .select('user_id, tenant_id')
-      .maybeSingle();
-    if (me?.tenant_id) {
+    if ((meProfile as any)?.tenant_id) {
       await logAudit(sb as any, {
-        tenantId: me.tenant_id,
-        userId: (me as any).user_id,
+        tenantId: (meProfile as any).tenant_id,
+        userId: (meProfile as any).user_id,
         action: 'jobs.update_status',
         entity: 'jobs',
         entityId: jobId,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { z } from 'zod';
 import { logAudit } from '@/lib/audit';
+import { can, type Role } from '@/lib/authz';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   Draft: ['Sent', 'Cancelled'],
@@ -32,6 +33,31 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
+    const { data: authUser, error: authErr } = await sb.auth.getUser();
+    const uid = authUser?.user?.id;
+    if (authErr || !uid) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+    const { data: me } = await sb
+      .from('profiles')
+      .select('user_id, tenant_id, role')
+      .eq('user_id', uid)
+      .maybeSingle();
+    if (!(me as any)?.tenant_id) {
+      return NextResponse.json(
+        { ok: false, error: 'Profile not ready' },
+        { status: 400 },
+      );
+    }
+    if (!can(((me as any)?.role || null) as Role | null, 'invoices.edit')) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
 
     const { data: invoice, error: iErr } = await sb
       .from('invoices')
@@ -66,13 +92,9 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
 
-    const { data: me } = await sb
-      .from('profiles')
-      .select('user_id, tenant_id')
-      .maybeSingle();
-    if (me?.tenant_id) {
+    if ((me as any)?.tenant_id) {
       await logAudit(sb as any, {
-        tenantId: me.tenant_id,
+        tenantId: (me as any).tenant_id,
         userId: (me as any).user_id,
         action: 'invoices.update_status',
         entity: 'invoices',

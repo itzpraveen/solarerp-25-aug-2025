@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import RequireOwner from '~/components/RequireOwner';
 import Button from '~/components/ui/Button';
@@ -65,16 +65,19 @@ export default function TeamPage() {
     'rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]';
   const compactFieldClass = 'px-2 py-1 text-xs rounded-md';
 
-  const reloadTeam = async (tid?: string) => {
-    const lookup = tid || tenantId;
-    if (!lookup) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('tenant_id', lookup)
-      .order('display_name', { ascending: true });
-    setTeam((data as any[]) || []);
-  };
+  const reloadTeam = useCallback(
+    async (tid?: string) => {
+      const lookup = tid || tenantId;
+      if (!lookup) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('tenant_id', lookup)
+        .order('display_name', { ascending: true });
+      setTeam((data as any[]) || []);
+    },
+    [supabase, tenantId],
+  );
 
   useEffect(() => {
     (async () => {
@@ -129,7 +132,7 @@ export default function TeamPage() {
         setLoading(false);
       }
     })();
-  }, [supabase]);
+  }, [supabase, reloadTeam]);
 
   const fixMissingProfiles = async () => {
     setFixingProfiles(true);
