@@ -441,13 +441,13 @@ export default function NewProposalClient() {
 
   useEffect(() => {
     if (jobId || !resolvedLead) return;
-    setCustomer((current) => ({
+    setCustomer((current: any) => ({
       ...(current || {}),
       name: resolvedLead.name || current?.name || '',
       phone: resolvedLead.phone || current?.phone || '',
       address: resolvedLead.address || current?.address || '',
     }));
-    setJob((current) => ({
+    setJob((current: any) => ({
       ...(current || {}),
       location: resolvedLead.address || current?.location || '',
       capacity_kw:

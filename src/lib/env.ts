@@ -17,6 +17,7 @@ const Schema = z.object({
   WHATSAPP_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  WHATSAPP_APP_SECRET: z.string().optional(),
 
   // Operations
   CRON_SECRET: z
@@ -49,6 +50,7 @@ const parsed = (() => {
     WHATSAPP_TOKEN: process.env.WHATSAPP_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_APP_SECRET: process.env.WHATSAPP_APP_SECRET,
     CRON_SECRET: process.env.CRON_SECRET,
     NEXT_PUBLIC_AUTH_USERNAME_DOMAIN:
       process.env.NEXT_PUBLIC_AUTH_USERNAME_DOMAIN,
@@ -84,6 +86,8 @@ const parsed = (() => {
         (input.WHATSAPP_PHONE_NUMBER_ID as string) || undefined,
       WHATSAPP_VERIFY_TOKEN:
         (input.WHATSAPP_VERIFY_TOKEN as string) || undefined,
+      WHATSAPP_APP_SECRET:
+        (input.WHATSAPP_APP_SECRET as string) || undefined,
       CRON_SECRET: String(input.CRON_SECRET || ''),
       NEXT_PUBLIC_AUTH_USERNAME_DOMAIN:
         (input.NEXT_PUBLIC_AUTH_USERNAME_DOMAIN as string) || undefined,
@@ -116,6 +120,7 @@ export const env = {
   whatsappToken: parsed.WHATSAPP_TOKEN,
   whatsappPhoneId: parsed.WHATSAPP_PHONE_NUMBER_ID,
   whatsappVerifyToken: parsed.WHATSAPP_VERIFY_TOKEN,
+  whatsappAppSecret: parsed.WHATSAPP_APP_SECRET,
   cronSecret: parsed.CRON_SECRET,
   authUsernameDomain:
     parsed.AUTH_USERNAME_DOMAIN || parsed.NEXT_PUBLIC_AUTH_USERNAME_DOMAIN,

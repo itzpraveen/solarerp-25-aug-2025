@@ -84,6 +84,17 @@ export async function POST(req: NextRequest) {
     if (!parsed.success)
       return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
     const { mode, email, userId, role } = parsed.data;
+    if (mode === 'all-missing') {
+      const allowAllMissing =
+        callerRole === 'owner' &&
+        process.env.ENABLE_PROFILE_BACKFILL_ALL_MISSING === '1';
+      if (!allowAllMissing) {
+        return NextResponse.json(
+          { ok: false, error: 'Bulk profile backfill is disabled' },
+          { status: 403 },
+        );
+      }
+    }
 
     const admin = supabaseAdmin();
 

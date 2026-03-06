@@ -6,6 +6,7 @@ import {
   ensureDefaultTaskTemplates,
 } from '@/lib/taskTemplates';
 import { logAudit } from '@/lib/audit';
+import { selectMyProfile } from '@/lib/currentProfile';
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,10 +44,13 @@ export async function POST(req: NextRequest) {
 
     // Audit (best-effort)
     try {
-      const { data: me } = await sb
-        .from('profiles')
-        .select('user_id, tenant_id')
-        .maybeSingle();
+      const { profile: me } = await selectMyProfile<{
+        user_id: string;
+        tenant_id: string;
+      }>(
+        sb as any,
+        'user_id, tenant_id',
+      );
       if (me?.tenant_id) {
         await logAudit(sb as any, {
           tenantId: me.tenant_id,
@@ -69,4 +73,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

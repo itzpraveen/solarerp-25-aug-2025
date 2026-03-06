@@ -3,6 +3,13 @@ import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import { logAudit } from '@/lib/audit';
+import { getCurrentProfile } from '@/lib/currentProfile';
+import { isServerMockMode } from '@/lib/mockMode';
+import {
+  canManageRequestedRole,
+  canManageTargetRole,
+  isAdminishRole,
+} from '@/lib/teamPermissions';
 
 const BodySchema = z.object({
   userId: z.string().min(1),
@@ -42,30 +49,63 @@ export async function POST(req: NextRequest) {
       );
     const { userId, role } = parsed.data;
 
-    const isMock =
-      process.env.NEXT_PUBLIC_E2E_MOCK === '1' || process.env.E2E_MOCK === '1';
-    const { data: authUser } = await (sb as any).auth.getUser();
-    const uid = (authUser?.user as any)?.id as string | undefined;
+    const isMock = isServerMockMode();
+    const { userId: uid, profile: me } = await getCurrentProfile<{
+      user_id: string;
+      tenant_id: string;
+      role: string;
+    }>(sb as any, 'user_id, tenant_id, role');
     if (!uid && !isMock)
       return NextResponse.json(
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
-    const { data: me } = uid
-      ? await sb
-          .from('profiles')
-          .select('user_id, tenant_id, role')
-          .eq('user_id', uid as any)
-          .maybeSingle()
-      : { data: null };
     if (!isMock) {
-      if (!me?.tenant_id || !['owner', 'admin'].includes((me as any).role))
+      if (!me?.tenant_id || !isAdminishRole((me as any).role))
         return NextResponse.json(
           { ok: false, error: 'Forbidden' },
           { status: 403 },
         );
     }
     const tenantId = ((me as any)?.tenant_id as string) || 't1';
+
+    const { data: targetProfile } = await sb
+      .from('profiles')
+      .select('user_id, role')
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (!targetProfile) {
+      return NextResponse.json(
+        { ok: false, error: 'User not found' },
+        { status: 404 },
+      );
+    }
+
+    if (
+      !isMock &&
+      (!canManageRequestedRole((me as any).role, role) ||
+        !canManageTargetRole((me as any).role, (targetProfile as any).role))
+    ) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
+
+    if ((targetProfile as any).role === 'owner' && role !== 'owner') {
+      const { data: owners } = await sb
+        .from('profiles')
+        .select('user_id')
+        .eq('tenant_id', tenantId)
+        .eq('role', 'owner');
+      if ((owners || []).length <= 1) {
+        return NextResponse.json(
+          { ok: false, error: 'Cannot demote the last owner' },
+          { status: 400 },
+        );
+      }
+    }
 
     // Prevent removing last owner
     // Enforce at least one admin-ish (owner/admin) remains

@@ -11,6 +11,7 @@ import Card from '~/components/ui/Card';
 import Select from '~/components/ui/Select';
 import Badge from '~/components/ui/Badge';
 import PageHeader from '~/components/ui/PageHeader';
+import { getCurrentProfile } from '@/lib/currentProfile';
 
 export default function CustomerDetail() {
   const params = useParams<{ id: string }>();
@@ -53,10 +54,14 @@ export default function CustomerDetail() {
   }, [params.id, supabase]);
 
   const createJob = async () => {
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
+    const { profile: prof } = await getCurrentProfile<{ tenant_id: string }>(
+      supabase as any,
+      'tenant_id',
+    );
+    if (!prof?.tenant_id) {
+      setErr('Profile not ready');
+      return;
+    }
     const { data: j } = await supabase
       .from('jobs')
       .insert({

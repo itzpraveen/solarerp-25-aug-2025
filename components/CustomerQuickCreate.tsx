@@ -5,6 +5,7 @@ import Button from '~/components/ui/Button';
 import Modal from '~/components/ui/Modal';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useToast } from '~/components/ui/ToastProvider';
+import { getCurrentProfile } from '@/lib/currentProfile';
 
 export default function CustomerQuickCreate({
   open,
@@ -35,10 +36,10 @@ export default function CustomerQuickCreate({
     }
     setSaving(true);
     try {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .maybeSingle();
+      const { profile: prof } = await getCurrentProfile<{ tenant_id: string }>(
+        supabase as any,
+        'tenant_id',
+      );
       if (!prof?.tenant_id) throw new Error('Profile not ready');
       const { data } = await supabase
         .from('customers')
@@ -48,7 +49,7 @@ export default function CustomerQuickCreate({
           phone: phone || null,
           address: address || null,
         })
-        .select('id,name')
+        .select('id,name,address')
         .single();
       toast({ title: 'Customer created', variant: 'success' });
       onCreated(

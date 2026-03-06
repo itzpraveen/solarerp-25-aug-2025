@@ -5,6 +5,8 @@ import { limitByIp } from '@/lib/rateLimit';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { env } from '@/lib/env';
 import { logAudit } from '@/lib/audit';
+import { getCurrentProfile } from '@/lib/currentProfile';
+import { canManageTargetRole, isAdminishRole } from '@/lib/teamPermissions';
 
 const BodySchema = z.object({
   userId: z.string().uuid(),
@@ -35,24 +37,22 @@ export async function POST(req: NextRequest) {
       );
 
     const { userId, password, useDefault } = parsed.data;
-    const { data: authUser } = await (sb as any).auth.getUser();
-    const uid = (authUser?.user as any)?.id as string | undefined;
+    const { userId: uid, profile: me } = await getCurrentProfile<{
+      tenant_id: string;
+      role: string;
+      user_id: string;
+    }>(sb as any, 'tenant_id, role, user_id');
     if (!uid)
       return NextResponse.json(
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
-    const { data: me } = await sb
-      .from('profiles')
-      .select('tenant_id, role, user_id')
-      .eq('user_id', uid as any)
-      .maybeSingle();
     if (!me?.tenant_id)
       return NextResponse.json(
         { ok: false, error: 'Profile not ready' },
         { status: 400 },
       );
-    if (!['owner', 'admin'].includes((me as any).role))
+    if (!isAdminishRole((me as any).role))
       return NextResponse.json(
         { ok: false, error: 'Forbidden' },
         { status: 403 },
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     const { data: target } = await sb
       .from('profiles')
-      .select('user_id')
+      .select('user_id, role')
       .eq('user_id', userId)
       .eq('tenant_id', (me as any).tenant_id)
       .maybeSingle();
@@ -83,6 +83,12 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'User not found' },
         { status: 404 },
       );
+    if (!canManageTargetRole((me as any).role, (target as any).role)) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
 
     const admin = supabaseAdmin();
     const { error } = await (admin as any).auth.admin.updateUserById(userId, {

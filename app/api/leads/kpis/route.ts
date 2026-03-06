@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
+import { selectMyProfile } from '@/lib/currentProfile';
 
 function startOfWeekMondayISO(date = new Date()) {
   const d = new Date(date);
@@ -38,10 +39,10 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10);
     const startOfWeek = startOfWeekMondayISO();
     // Resolve tenant for safer RLS-compliant filtering
-    const { data: meProfile } = await sb
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
+    const { profile: meProfile } = await selectMyProfile(
+      sb as any,
+      'tenant_id',
+    );
     const tenantId = (meProfile as any)?.tenant_id as string | undefined;
 
     if (branchId) {
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
       const overdue = await count(sb, 'leads', (q) =>
         q
           .eq('branch_id', branchId)
-          .lte('next_follow_up_date', today)
+          .lt('next_follow_up_date', today)
           .neq('status', 'Closed')
           .neq('status', 'Converted')
           .neq('status', 'Lost'),
@@ -123,7 +124,7 @@ export async function GET(req: NextRequest) {
           count(sb, 'leads', (q) =>
             q
               .eq('branch_id', b.id)
-              .lte('next_follow_up_date', today)
+              .lt('next_follow_up_date', today)
               .neq('status', 'Closed')
               .neq('status', 'Converted')
               .neq('status', 'Lost'),
@@ -175,7 +176,7 @@ export async function GET(req: NextRequest) {
       count(sb, 'leads', (q) =>
         q
           .is('branch_id', null)
-          .lte('next_follow_up_date', today)
+        .lt('next_follow_up_date', today)
           .neq('status', 'Closed')
           .neq('status', 'Converted')
           .neq('status', 'Lost'),

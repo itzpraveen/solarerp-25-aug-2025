@@ -97,6 +97,26 @@ export type LongInvoiceData = {
 };
 
 export function renderLongInvoiceHtml(data: LongInvoiceData) {
+  const escapeHtml = (value: unknown) =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  const sanitizeDeep = <T,>(value: T): T => {
+    if (typeof value === 'string') return escapeHtml(value) as T;
+    if (Array.isArray(value)) return value.map((item) => sanitizeDeep(item)) as T;
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+          key,
+          sanitizeDeep(item),
+        ]),
+      ) as T;
+    }
+    return value;
+  };
   const lang: 'en' | 'ml' = data.lang === 'ml' ? 'ml' : 'en';
   const L = {
     en: {
@@ -209,6 +229,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
     },
   } as const;
   const S = L[lang];
+  const safe = sanitizeDeep(data);
   const inr = (v?: number) =>
     typeof v === 'number'
       ? new Intl.NumberFormat('en-IN', {
@@ -224,11 +245,11 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
   const grandTotal = subtotal + tax;
 
   // Render multi-line addresses cleanly inside HTML
-  const companyAddressHtml = String(data.company.address || '')
+  const companyAddressHtml = String(safe.company.address || '')
     .trim()
     .replace(/\n+/g, '<br/>');
   const customerAddressHtml = String(
-    data.customer.address || data.customer.place || data.meta.site || '',
+    safe.customer.address || safe.customer.place || safe.meta.site || '',
   )
     .trim()
     .replace(/\n+/g, '<br/>');
@@ -259,7 +280,7 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
 <html>
 <head>
 <meta charset="utf-8" />
-<title>${data.meta.quoteNo} - ${data.customer.name}</title>
+<title>${safe.meta.quoteNo} - ${safe.customer.name}</title>
 <style>
   ${mlFontCss}
   @page { size: A4; margin: 18mm 14mm; }
@@ -291,38 +312,38 @@ export function renderLongInvoiceHtml(data: LongInvoiceData) {
 </head>
 <body class="body">
 
-${data.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONAL</div>` : ''}
+${safe.meta.quotationType === 'Provisional' ? `<div class="watermark">PROVISIONAL</div>` : ''}
 <section class="header">
   <div class="row header-top">
     <div>
       <div class="kicker">${S.quotation}</div>
-      <h1>${data.company.name || ''}</h1>
+      <h1>${safe.company.name || ''}</h1>
       <div class="muted">${companyAddressHtml}</div>
     </div>
-    <div class="logo">${data.company.logoUrl ? `<img src="${data.company.logoUrl}" alt="${(data.company.name || 'Logo').replace(/"/g,'')}">` : ''}</div>
+    <div class="logo">${safe.company.logoUrl ? `<img src="${safe.company.logoUrl}" alt="${safe.company.name || 'Logo'}">` : ''}</div>
   </div>
   <hr />
   <div class="grid" style="grid-template-columns: 1fr 1fr;">
     <div class="card accent">
-      <strong>${S.client}</strong>: ${data.customer.name}<br/>
+      <strong>${S.client}</strong>: ${safe.customer.name}<br/>
       <strong>${S.address}</strong>: ${customerAddressHtml}<br/>
       ${
-        data.customer.phone || data.customer.email
-          ? `<span class="muted">${[data.customer.phone, data.customer.email].filter(Boolean).join(' | ')}</span><br/>`
+        safe.customer.phone || safe.customer.email
+          ? `<span class="muted">${[safe.customer.phone, safe.customer.email].filter(Boolean).join(' | ')}</span><br/>`
           : ''
       }
-      <strong>${S.plant} / ${S.brand}</strong>: ${data.meta.plantBrand || ''}<br/>
+      <strong>${S.plant} / ${S.brand}</strong>: ${safe.meta.plantBrand || ''}<br/>
       <strong>${S.capacity}</strong>: ${data.meta.capacityKW} kW
     </div>
     <div>
-      <div><strong>${S.quoteNo}</strong>: ${data.meta.quoteNo}</div>
+      <div><strong>${S.quoteNo}</strong>: ${safe.meta.quoteNo}</div>
       <div><strong>${S.date}</strong>: ${new Date(data.meta.dateISO).toLocaleDateString('en-IN')}</div>
       ${data.meta.validTillISO ? `<div><strong>${S.validTill}</strong>: ${new Date(data.meta.validTillISO).toLocaleDateString('en-IN')}</div>` : ''}
       <div class="row" style="margin-top:6px; gap:6px;">
-        <span class="tag">${data.meta.program}</span>
-        <span class="tag">${data.meta.systemCategory}</span>
-        ${data.kit?.name ? `<span class="tag">${data.kit.name}</span>` : ''}
-        ${data.meta.quotationType ? `<span class="tag">${data.meta.quotationType}</span>` : ''}
+        <span class="tag">${safe.meta.program}</span>
+        <span class="tag">${safe.meta.systemCategory}</span>
+        ${safe.kit?.name ? `<span class="tag">${safe.kit.name}</span>` : ''}
+        ${safe.meta.quotationType ? `<span class="tag">${safe.meta.quotationType}</span>` : ''}
       </div>
       <div class="summary">
         <div class="row"><div class="label">${S.projectCost}:</div><div class="value">${inr(data.money.projectCost)}</div></div>
@@ -338,16 +359,16 @@ ${
     ? `
 <section class="page-break card">
   <h2>${S.quotation}</h2>
-  ${data.cover.to ? `<p><strong>${S.to}:</strong> ${data.cover.to}</p>` : ''}
-  <p><strong>${S.subject}:</strong> ${data.cover.subject || `Quotation for ${data.meta.capacityKW} kW ${data.meta.systemCategory} Solar Power Plant ${data.meta.program === 'PM Surya' ? '(PMSG Subsidy)' : ''}`}</p>
-  ${data.cover.reference ? `<p><strong>${S.reference}:</strong> ${data.cover.reference}</p>` : ''}
-  ${(data.cover.paragraphs || []).map((p) => `<p>${p}</p>`).join('')}
+  ${safe.cover?.to ? `<p><strong>${S.to}:</strong> ${safe.cover.to}</p>` : ''}
+  <p><strong>${S.subject}:</strong> ${safe.cover?.subject || `Quotation for ${data.meta.capacityKW} kW ${safe.meta.systemCategory} Solar Power Plant ${data.meta.program === 'PM Surya' ? '(PMSG Subsidy)' : ''}`}</p>
+  ${safe.cover?.reference ? `<p><strong>${S.reference}:</strong> ${safe.cover.reference}</p>` : ''}
+  ${(safe.cover?.paragraphs || []).map((p) => `<p>${p}</p>`).join('')}
   ${
-    data.cover.signatory
+    safe.cover?.signatory
       ? `<div style="margin-top: 12px;">
-    <div>${data.cover.signatory.name || ''}</div>
-    <div class="muted">${data.cover.signatory.title || ''}</div>
-    ${data.cover.signatory.phone ? `<div class="muted">${data.cover.signatory.phone}</div>` : ''}
+    <div>${safe.cover.signatory.name || ''}</div>
+    <div class="muted">${safe.cover.signatory.title || ''}</div>
+    ${safe.cover.signatory.phone ? `<div class="muted">${safe.cover.signatory.phone}</div>` : ''}
   </div>`
       : ''
   }
@@ -361,13 +382,13 @@ ${
     <thead><tr><th>${S.description}</th><th class="right">${S.amount} (₹)</th></tr></thead>
     <tbody>
       <tr><td><strong>${S.projectCost}</strong></td><td class="right">${inr(data.money.projectCost)}</td></tr>
-      ${data.money.addOns?.map((a) => `<tr><td>${a.label}</td><td class="right">${inr(a.amount)}</td></tr>`).join('') || ''}
+      ${safe.money.addOns?.map((a) => `<tr><td>${a.label}</td><td class="right">${inr(a.amount)}</td></tr>`).join('') || ''}
       <tr><td class="right"><em>${S.subtotal}</em></td><td class="right"><em>${inr(subtotal)}</em></td></tr>
       <tr><td class="right">${S.tax} (${data.money.taxRatePct || 0}%)</td><td class="right">${inr(tax)}</td></tr>
       <tr><td><strong>${S.grandTotal}</strong></td><td class="right"><strong>${inr(grandTotal)}</strong></td></tr>
     </tbody>
   </table>
-  ${lang === 'ml' && data.malayalamNote ? `<p class="muted" style="margin-top:10px;">${data.malayalamNote}</p>` : ''}
+  ${lang === 'ml' && safe.malayalamNote ? `<p class="muted" style="margin-top:10px;">${safe.malayalamNote}</p>` : ''}
 </section>
 
 <section class="page-break card">
@@ -388,7 +409,7 @@ ${
   ${
     data.pipeline.reminders?.length
       ? `<h3>${S.reminders}</h3>
-  <ul>${data.pipeline.reminders.map((r) => `<li>${r.label} — ${new Date(r.dueISO).toLocaleDateString('en-IN')}</li>`).join('')}</ul>`
+  <ul>${safe.pipeline.reminders?.map((r) => `<li>${r.label} — ${new Date(r.dueISO).toLocaleDateString('en-IN')}</li>`).join('') || ''}</ul>`
       : ''
   }
 </section>
@@ -401,7 +422,7 @@ ${
   <table class="table">
     <thead><tr><th>${S.item}</th><th>${S.qty}</th><th>${S.unit}</th><th>${S.make}</th><th>${S.notes}</th></tr></thead>
     <tbody>
-      ${data.boq.rows
+      ${safe.boq?.rows
         .map(
           (r) => `<tr>
         <td>${r.item}</td><td>${r.qty}</td><td>${r.unit || ''}</td><td>${r.make || ''}</td><td>${r.notes || ''}</td>
@@ -422,7 +443,7 @@ ${
   <table class="table">
     <thead><tr><th>Scope</th><th>Details</th><th>Timeline</th></tr></thead>
     <tbody>
-      ${data.workSchedule.rows.map((r) => `<tr><td>${r.scope}</td><td>${r.details}</td><td>${r.timeline}</td></tr>`).join('')}
+      ${safe.workSchedule?.rows.map((r) => `<tr><td>${r.scope}</td><td>${r.details}</td><td>${r.timeline}</td></tr>`).join('') || ''}
     </tbody>
   </table>
 </section>`
@@ -431,8 +452,8 @@ ${
 
 <section class="page-break card">
   <h2>${S.assumptions}</h2>
-  <ul>${(data.assumptions || []).map((x) => `<li>${x}</li>`).join('')}</ul>
-  ${data.warranty?.length ? `<h2>${S.warranty}</h2><ul>${data.warranty.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
+  <ul>${(safe.assumptions || []).map((x) => `<li>${x}</li>`).join('')}</ul>
+  ${safe.warranty?.length ? `<h2>${S.warranty}</h2><ul>${safe.warranty.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
 </section>
 
 ${
@@ -440,7 +461,7 @@ ${
     ? `
 <section class="page-break card">
   <h2>${S.generalNotes}</h2>
-  <ul>${data.notes.map((n) => `<li>${n}</li>`).join('')}</ul>
+  <ul>${safe.notes?.map((n) => `<li>${n}</li>`).join('') || ''}</ul>
 </section>`
     : ''
 }
@@ -453,20 +474,20 @@ ${
   <table class="table">
     <thead><tr><th>${S.line}</th><th class="right">${S.amount}</th><th>${S.notes}</th></tr></thead>
     <tbody>
-      ${data.priceSchedule.lines.map((l) => `<tr><td>${l.label}</td><td class="right">${inr(l.amount)}</td><td>${l.note || ''}</td></tr>`).join('')}
+      ${safe.priceSchedule?.lines.map((l) => `<tr><td>${l.label}</td><td class="right">${inr(l.amount)}</td><td>${l.note || ''}</td></tr>`).join('') || ''}
     </tbody>
   </table>`
       : ''
   }
-  ${data.paymentTerms?.length ? `<h3>${S.paymentTerms}</h3><ul>${data.paymentTerms.map((p) => `<li>${p}</li>`).join('')}</ul>` : ''}
+  ${safe.paymentTerms?.length ? `<h3>${S.paymentTerms}</h3><ul>${safe.paymentTerms.map((p) => `<li>${p}</li>`).join('')}</ul>` : ''}
   ${
     data.bank
       ? `<h3>${S.bankUpi}</h3>
-    <p><strong>${S.accountName}:</strong> ${data.bank.accountName || ''}<br/>
-    <strong>${S.accountNo}:</strong> ${data.bank.accountNo || ''}<br/>
-    <strong>IFSC:</strong> ${data.bank.ifsc || ''}<br/>
-    <strong>${S.bank}:</strong> ${data.bank.bank || ''} ${data.bank.branch ? ' | ' + data.bank.branch : ''}<br/>
-    ${data.company.upi ? `<strong>UPI:</strong> ${data.company.upi}` : ''}</p>`
+    <p><strong>${S.accountName}:</strong> ${safe.bank?.accountName || ''}<br/>
+    <strong>${S.accountNo}:</strong> ${safe.bank?.accountNo || ''}<br/>
+    <strong>IFSC:</strong> ${safe.bank?.ifsc || ''}<br/>
+    <strong>${S.bank}:</strong> ${safe.bank?.bank || ''} ${safe.bank?.branch ? ' | ' + safe.bank.branch : ''}<br/>
+    ${safe.company.upi ? `<strong>UPI:</strong> ${safe.company.upi}` : ''}</p>`
       : ''
   }
   <p class="muted">${S.offerValidity}: ${data.priceSchedule?.offerValidityDays ?? 10} ${S.daysFromQuote}</p>
@@ -474,14 +495,14 @@ ${
     data.signatures
       ? `<div class="row"><div>
       <div class="kicker">${S.preparedBy}</div>
-      <div>${data.signatures.preparedBy || ''}</div>
-      <div>${data.signatures.contactPerson || ''} ${data.signatures.contactNumber ? ' | ' + data.signatures.contactNumber : ''}</div>
+      <div>${safe.signatures?.preparedBy || ''}</div>
+      <div>${safe.signatures?.contactPerson || ''} ${safe.signatures?.contactNumber ? ' | ' + safe.signatures.contactNumber : ''}</div>
   </div></div>`
       : ''
   }
 </section>
 
-<footer>${data.company.name} • ${data.company.phone || ''} • ${data.company.email || ''}</footer>
+<footer>${safe.company.name} • ${safe.company.phone || ''} • ${safe.company.email || ''}</footer>
 </body>
 </html>`;
 }

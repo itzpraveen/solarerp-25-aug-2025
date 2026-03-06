@@ -10,6 +10,7 @@ import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useConfirm } from '~/components/ui/ConfirmProvider';
 import { useToast } from '~/components/ui/ToastProvider';
 import PageHeader from '~/components/ui/PageHeader';
+import { getCurrentProfile } from '@/lib/currentProfile';
 
 export default function ServiceTicketDetail() {
   const params = useParams<{ id: string }>();
@@ -53,10 +54,10 @@ export default function ServiceTicketDetail() {
         } else {
           setJobs([]);
         }
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .maybeSingle();
+        const { profile: prof } = await getCurrentProfile<{ tenant_id: string }>(
+          supabase as any,
+          'tenant_id',
+        );
         if ((prof as any)?.tenant_id) {
           const { data: members } = await supabase
             .from('profiles')

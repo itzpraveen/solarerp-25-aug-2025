@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { limitByIp } from '@/lib/rateLimit';
+import { getCurrentProfile } from '@/lib/currentProfile';
+import { canManageTargetRole, isAdminishRole } from '@/lib/teamPermissions';
 
 const BodySchema = z.object({
   userId: z.string().uuid(),
@@ -32,24 +34,21 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     const { userId, displayName, phone } = parsed.data;
-    const { data: authUser } = await (sb as any).auth.getUser();
-    const uid = (authUser?.user as any)?.id as string | undefined;
+    const { userId: uid, profile: me } = await getCurrentProfile<{
+      tenant_id: string;
+      role: string;
+    }>(sb as any, 'tenant_id, role');
     if (!uid)
       return NextResponse.json(
         { ok: false, error: 'Unauthorized' },
         { status: 401 },
       );
-    const { data: me } = await sb
-      .from('profiles')
-      .select('tenant_id, role')
-      .eq('user_id', uid as any)
-      .maybeSingle();
     if (!me?.tenant_id)
       return NextResponse.json(
         { ok: false, error: 'Profile not ready' },
         { status: 400 },
       );
-    if (!['owner', 'admin'].includes((me as any).role))
+    if (!isAdminishRole((me as any).role))
       return NextResponse.json(
         { ok: false, error: 'Forbidden' },
         { status: 403 },
@@ -59,6 +58,25 @@ export async function POST(req: NextRequest) {
     if (displayName !== undefined) patch.display_name = displayName;
     if (phone !== undefined) patch.phone = phone || null;
     if (Object.keys(patch).length === 0) return NextResponse.json({ ok: true });
+
+    const { data: target } = await sb
+      .from('profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('tenant_id', (me as any).tenant_id)
+      .maybeSingle();
+    if (!target) {
+      return NextResponse.json(
+        { ok: false, error: 'User not found' },
+        { status: 404 },
+      );
+    }
+    if (!canManageTargetRole((me as any).role, (target as any).role)) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
+      );
+    }
 
     const { error } = await sb
       .from('profiles')

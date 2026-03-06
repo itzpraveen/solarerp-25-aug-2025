@@ -1,3 +1,5 @@
+import { selectMyProfile } from '@/lib/currentProfile';
+
 // Utilities to manage task templates and prefill tasks for jobs
 // Kept intentionally light on types (any) to minimize churn.
 
@@ -321,10 +323,10 @@ export async function autoCreateTasksFromTemplates(
         .single();
       // Audit per inserted task (best-effort)
       try {
-        const { data: me2 } = await sb
-          .from('profiles')
-          .select('user_id, tenant_id')
-          .maybeSingle();
+        const { profile: me2 } = await selectMyProfile(
+          sb as any,
+          'user_id, tenant_id',
+        );
         if (me2?.tenant_id) {
           await (sb as any).from('audit_logs').insert({
             tenant_id: (me2 as any).tenant_id,

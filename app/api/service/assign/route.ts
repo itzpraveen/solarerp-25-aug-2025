@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
+import { selectMyProfile } from '@/lib/currentProfile';
 
 const Body = z.object({
   ticketId: z.string().uuid(),
@@ -25,11 +26,10 @@ export async function POST(req: NextRequest) {
     const { ticketId, userId } = parsed.data;
 
     // Caller must be owner/admin/manager to assign; technicians may self-assign
-    const { data: me } = await sb
-      .from('profiles')
-      .select('user_id, tenant_id, role')
-      .maybeSingle();
-    const callerId = (me as any)?.user_id as string | undefined;
+    const { userId: callerId, profile: me } = await selectMyProfile(
+      sb as any,
+      'user_id, tenant_id, role',
+    );
     const tenantId = (me as any)?.tenant_id as string | undefined;
     const role = (me as any)?.role as string | undefined;
     if (!tenantId)

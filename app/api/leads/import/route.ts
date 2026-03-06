@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import ExcelJS from 'exceljs';
+import { selectMyProfile } from '@/lib/currentProfile';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -121,10 +122,7 @@ export async function POST(req: NextRequest) {
       String(form.get('createBranches') || 'false') === 'true';
 
     // Determine tenant
-    const { data: prof } = await s
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
+    const { profile: prof } = await selectMyProfile(s, 'tenant_id');
     const tenantId = (prof as any)?.tenant_id as string | undefined;
     if (!tenantId)
       return NextResponse.json(

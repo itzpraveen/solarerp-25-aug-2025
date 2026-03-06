@@ -16,6 +16,8 @@ import RequiredDocs from '~/components/RequiredDocs';
 import { ensureProfileIfMissing } from '@/lib/ensureProfileClient';
 import QuickContact from 'components/QuickContact';
 import PageHeader from '~/components/ui/PageHeader';
+import { getCurrentProfile } from '@/lib/currentProfile';
+import { isSafeBrowserUrl } from '@/lib/urlSafety';
 
 type Job = any;
 
@@ -849,10 +851,10 @@ function ServiceForJob({ jobId }: { jobId: string }) {
 
   const add = async () => {
     if (!summary.trim()) return;
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
+    const { profile: prof } = await getCurrentProfile<{ tenant_id: string }>(
+      supabase as any,
+      'tenant_id',
+    );
     const tenantId = (prof as any)?.tenant_id as string | undefined;
     if (!tenantId) {
       setErr('Profile not ready');
@@ -1697,12 +1699,12 @@ function Proposals({ jobId }: { jobId: string }) {
                       if (!res.ok) throw new Error('WhatsApp send failed');
                       // Audit: proposal WhatsApp send
                       try {
-                        const [{ data: prof }, { data: user }] =
+                        const [{ profile: prof }, { data: user }] =
                           await Promise.all([
-                            supabase
-                              .from('profiles')
-                              .select('tenant_id')
-                              .maybeSingle(),
+                            getCurrentProfile<{ tenant_id: string }>(
+                              supabase as any,
+                              'tenant_id',
+                            ),
                             supabase.auth.getUser(),
                           ]);
                         if (prof?.tenant_id) {
@@ -1900,6 +1902,9 @@ function Docs({ jobId }: { jobId: string }) {
                   onClick={async () => {
                     try {
                       if (!looksLikeKey) {
+                        if (!isSafeBrowserUrl(stored)) {
+                          throw new Error('Blocked unsafe document URL');
+                        }
                         window.open(stored, '_blank');
                         return;
                       }

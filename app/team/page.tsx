@@ -145,15 +145,16 @@ export default function TeamPage() {
         headers: token
           ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
           : { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'all-missing' }),
+        body: JSON.stringify({ mode: 'current' }),
       });
       const out = await res.json();
       if (!res.ok || !out?.ok) throw new Error(out?.error || 'Fix failed');
-      const resultText = `Updated ${out.updated} user profiles`;
+      const resultText =
+        out.updated > 0 ? 'Profile repaired' : 'No profile changes needed';
       setFixResult(resultText);
       await reloadTeam();
       toast({
-        title: 'Profiles fixed',
+        title: 'Profile repaired',
         description: resultText,
         variant: 'success',
       });
@@ -510,7 +511,7 @@ export default function TeamPage() {
                   loading={fixingProfiles}
                   variant="secondary"
                 >
-                  Fix missing profiles
+                  Repair my profile
                 </Button>
                 {fixResult && (
                   <span className="text-xs text-[var(--text-secondary)]">

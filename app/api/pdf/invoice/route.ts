@@ -9,6 +9,9 @@ import {
 } from '@/lib/renderLongInvoiceHtml';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
+import { getCurrentProfile } from '@/lib/currentProfile';
+import { isServerMockMode } from '@/lib/mockMode';
+import { isSafePublicHttpUrl } from '@/lib/serverUrlSafety';
 import fs from 'node:fs';
 import { z } from 'zod';
 import { getBaseUrl } from '@/lib/baseUrl';
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
       process.env.PDF_DEBUG_VERBOSE === '1' || url.searchParams.get('debug') === '1';
     // Basic rate limit: 5/min per IP (configurable). Best-effort, single-instance only.
     const ip = ipFromHeaders(req.headers);
-    const { ok, remaining } = takeToken(
+    const { ok } = takeToken(
       `pdf:${ip}`,
       Number(process.env.RATE_LIMIT_PDF_PER_MIN || 5),
       60_000,
@@ -54,24 +57,10 @@ export async function POST(req: NextRequest) {
         { ok: false, error: 'Invalid payload' },
         { status: 400 },
       );
-    const { data: authUser, error: authErr } = await sb.auth.getUser();
-    const uid = authUser?.user?.id;
-    if (authErr || !uid) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
-
-    const { payload } = parsed.data as {
-      payload: LongInvoiceData;
-    };
-    // Resolve caller's tenantId authoritatively from profile.
-    const { data: me } = await sb
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', uid)
-      .maybeSingle();
+    const { profile: me } = await getCurrentProfile<{ tenant_id: string }>(
+      sb as any,
+      'tenant_id',
+    );
     const tenantId = (me as any)?.tenant_id as string | undefined;
     if (!tenantId) {
       return NextResponse.json(
@@ -79,6 +68,9 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const { payload } = parsed.data as {
+      payload: LongInvoiceData;
+    };
 
     // Helper: sanitize filename
     const sanitize = (s: string) =>
@@ -87,10 +79,7 @@ export async function POST(req: NextRequest) {
         .replace(/[^A-Za-z0-9_\-]/g, '_');
 
     // Short-circuit in mock mode: return a fake signed URL without rendering
-    if (
-      process.env.NEXT_PUBLIC_E2E_MOCK === '1' ||
-      process.env.E2E_MOCK === '1'
-    ) {
+    if (isServerMockMode()) {
       const lang = (payload as any)?.lang === 'ml' ? 'ml' : 'en';
       const safeQuote = sanitize((payload as any).meta.quoteNo || 'quote');
       const key = `${tenantId}/${safeQuote}-${lang}.pdf`;
@@ -102,39 +91,6 @@ export async function POST(req: NextRequest) {
         .from('documents')
         .createSignedUrl(key, 60 * 60 * 24 * 7);
       return NextResponse.json({ ok: true, url: signed?.signedUrl, key });
-    }
-
-    function isPrivateIpv4(hostname: string) {
-      const parts = hostname.split('.').map((p) => Number(p));
-      if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n))) {
-        return false;
-      }
-      const [a, b] = parts;
-      if (a === 10) return true;
-      if (a === 127) return true;
-      if (a === 169 && b === 254) return true;
-      if (a === 172 && b >= 16 && b <= 31) return true;
-      if (a === 192 && b === 168) return true;
-      return false;
-    }
-
-    function isSafePublicHttpUrl(raw: string) {
-      try {
-        const u = new URL(raw);
-        if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
-        const host = u.hostname.toLowerCase();
-        if (!host || host === 'localhost' || host.endsWith('.local')) {
-          return false;
-        }
-        if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-          if (isPrivateIpv4(host)) return false;
-        }
-        // Block direct IPv6 host literals to avoid private-network fetches.
-        if (host.includes(':')) return false;
-        return true;
-      } catch {
-        return false;
-      }
     }
 
     // Prefetch external logo and embed as data URL so images are not blocked.
@@ -152,10 +108,11 @@ export async function POST(req: NextRequest) {
         if (!res.ok) return null;
         const len = Number(res.headers.get('content-length') || 0);
         if (Number.isFinite(len) && len > 2 * 1024 * 1024) return null;
-        const buf = await res.arrayBuffer();
-        if (buf.byteLength > 2 * 1024 * 1024) return null;
-        const mime =
-          res.headers.get('content-type') ||
+        const headerMime = (res.headers.get('content-type') || '')
+          .split(';')[0]
+          .trim()
+          .toLowerCase();
+        const inferredMime =
           fallbackMime ||
           (url.endsWith('.svg') || url.endsWith('.svgz')
             ? 'image/svg+xml'
@@ -163,7 +120,11 @@ export async function POST(req: NextRequest) {
               ? 'image/png'
               : url.endsWith('.jpg') || url.endsWith('.jpeg')
                 ? 'image/jpeg'
-                : 'application/octet-stream');
+                : '');
+        const mime = (headerMime || inferredMime).trim().toLowerCase();
+        if (!mime.startsWith('image/')) return null;
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength > 2 * 1024 * 1024) return null;
         const b64 = Buffer.from(buf).toString('base64');
         return `data:${mime};base64,${b64}`;
       } catch {
@@ -173,14 +134,28 @@ export async function POST(req: NextRequest) {
 
     let preparedPayload: LongInvoiceData = payload as any;
     try {
-      const logo = (payload as any)?.company?.logoUrl as string | undefined;
-      if (logo && !logo.startsWith('data:') && isSafePublicHttpUrl(logo)) {
-        const dataUrl = await toDataUrl(logo);
-        if (dataUrl)
+      const logo = String((payload as any)?.company?.logoUrl || '').trim();
+      if (logo) {
+        if (logo.startsWith('data:image/')) {
           preparedPayload = {
             ...(payload as any),
-            company: { ...(payload as any).company, logoUrl: dataUrl },
+            company: { ...(payload as any).company, logoUrl: logo },
           } as any;
+        } else if (await isSafePublicHttpUrl(logo)) {
+          const dataUrl = await toDataUrl(logo);
+          preparedPayload = {
+            ...(payload as any),
+            company: {
+              ...(payload as any).company,
+              logoUrl: dataUrl || undefined,
+            },
+          } as any;
+        } else {
+          preparedPayload = {
+            ...(payload as any),
+            company: { ...(payload as any).company, logoUrl: undefined },
+          } as any;
+        }
       }
     } catch {}
 
@@ -447,7 +422,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: 'Chrome/Chromium executable not found',
           id,
-          hint: 'Install Google Chrome locally or set PUPPETEER_EXECUTABLE_PATH/CHROME_PATH. On Vercel, ensure @sparticuz/chromium is bundled and optionally set PUPPETEER_EXECUTABLE_PATH=/var/task/node_modules/@sparticuz/chromium/bin/chromium. For dev without Chrome, set NEXT_PUBLIC_E2E_MOCK=1.',
+          hint: 'Install Google Chrome locally or set PUPPETEER_EXECUTABLE_PATH/CHROME_PATH. On Vercel, ensure @sparticuz/chromium is bundled and optionally set PUPPETEER_EXECUTABLE_PATH=/var/task/node_modules/@sparticuz/chromium/bin/chromium. For dev without Chrome, set E2E_MOCK=1.',
         },
         { status: 500 },
       );
@@ -481,17 +456,17 @@ export async function POST(req: NextRequest) {
       env: launchEnv,
     });
     const page = await browser.newPage();
+    await page.setJavaScriptEnabled(false);
     // Safer content load strategy on serverless: avoid hangs on external assets
     page.setDefaultNavigationTimeout(25_000);
     try {
       await page.setRequestInterception(true);
       page.on('request', (req: any) => {
-        const rt = req.resourceType();
-        // Allow data: and inline requests; block external fonts/images if any
         const url = req.url();
-        if (url.startsWith('data:')) return req.continue();
-        if (rt === 'image' || rt === 'media') return req.abort();
-        return req.continue();
+        if (url.startsWith('data:') || url.startsWith('about:blank')) {
+          return req.continue();
+        }
+        return req.abort('blockedbyclient');
       });
     } catch {}
     await page.goto(

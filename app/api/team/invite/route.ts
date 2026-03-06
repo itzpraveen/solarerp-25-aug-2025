@@ -5,6 +5,11 @@ import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import { logAudit } from '@/lib/audit';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { env } from '@/lib/env';
+import { getCurrentProfile } from '@/lib/currentProfile';
+import {
+  canManageRequestedRole,
+  canManageTargetRole,
+} from '@/lib/teamPermissions';
 import {
   isValidUsername,
   normalizeUsername,
@@ -92,19 +97,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: authUser } = await (sb as any).auth.getUser();
-    const uid = (authUser?.user as any)?.id as string | undefined;
-    const { data: me } = await sb
-      .from('profiles')
-      .select('tenant_id, role')
-      .eq('user_id', uid as any)
-      .maybeSingle();
+    const { userId: uid, profile: me } = await getCurrentProfile<{
+      tenant_id: string;
+      role: string;
+    }>(sb as any, 'tenant_id, role');
+    if (!uid)
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
     if (!me?.tenant_id)
       return NextResponse.json(
         { ok: false, error: 'Profile not ready' },
         { status: 400 },
       );
-    if (!['owner', 'admin'].includes((me as any).role))
+    if (!canManageRequestedRole((me as any).role, role))
       return NextResponse.json(
         { ok: false, error: 'Forbidden' },
         { status: 403 },
@@ -144,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     const { data: existingProfile } = await admin
       .from('profiles')
-      .select('tenant_id')
+      .select('tenant_id, role')
       .eq('user_id', userId)
       .maybeSingle();
     const existingTenantId = (existingProfile as any)?.tenant_id as
@@ -154,6 +161,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: 'User already belongs to another tenant' },
         { status: 409 },
+      );
+    }
+    if (
+      existingTenantId === tenantId &&
+      !canManageTargetRole((me as any).role, (existingProfile as any)?.role)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: 'Forbidden' },
+        { status: 403 },
       );
     }
 

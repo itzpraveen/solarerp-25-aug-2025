@@ -3,6 +3,7 @@ import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
 import { z } from 'zod';
 import { takeToken, ipFromHeaders } from '@/lib/rateLimit';
 import { can, type Role } from '@/lib/authz';
+import { isServerMockMode } from '@/lib/mockMode';
 
 const BodySchema = z.object({
   to: z.string().min(5),
@@ -72,10 +73,7 @@ export async function POST(req: NextRequest) {
     const { to, templateName, variables } = parsed.data;
 
     // Mock mode: short-circuit and pretend success
-    if (
-      process.env.NEXT_PUBLIC_E2E_MOCK === '1' ||
-      process.env.E2E_MOCK === '1'
-    ) {
+    if (isServerMockMode()) {
       return NextResponse.json({ ok: true, id: 'mock-message-id' });
     }
 

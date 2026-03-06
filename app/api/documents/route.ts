@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseFromAuthHeader } from '@/lib/supabaseServer';
+import { selectMyProfile } from '@/lib/currentProfile';
+import { isSafeBrowserUrl, isStorageObjectKey } from '@/lib/urlSafety';
 
 const ListQuery = z.object({
   jobId: z.string().uuid(),
@@ -9,7 +11,13 @@ const ListQuery = z.object({
 const CreateBody = z.object({
   jobId: z.string().uuid(),
   docType: z.string().min(1, 'Document type is required'),
-  fileUrl: z.string().url('Valid URL required'),
+  fileUrl: z
+    .string()
+    .min(1, 'Document reference is required')
+    .refine(
+      (value) => isSafeBrowserUrl(value) || isStorageObjectKey(value),
+      'Only storage keys or http(s) document links are allowed',
+    ),
   notes: z.string().optional(),
 });
 
@@ -24,10 +32,7 @@ export async function GET(req: NextRequest) {
     if (!parsed.success)
       return NextResponse.json({ ok: false, error: 'jobId query param required (UUID)' }, { status: 400 });
 
-    const { data: me } = await sb
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
+    const { profile: me } = await selectMyProfile(sb as any, 'tenant_id');
     const tenantId = (me as any)?.tenant_id as string | undefined;
     if (!tenantId)
       return NextResponse.json({ ok: false, error: 'Profile not ready' }, { status: 400 });
@@ -37,6 +42,7 @@ export async function GET(req: NextRequest) {
       .from('jobs')
       .select('id')
       .eq('id', parsed.data.jobId)
+      .eq('tenant_id', tenantId)
       .maybeSingle();
     if (!job)
       return NextResponse.json({ ok: false, error: 'Job not found' }, { status: 404 });
@@ -44,6 +50,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await sb
       .from('documents')
       .select('id, doc_type, file_url, version, signed_by, signed_date, notes, created_at')
+      .eq('tenant_id', tenantId)
       .eq('job_id', parsed.data.jobId)
       .order('created_at', { ascending: false });
 
@@ -72,10 +79,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
 
-    const { data: me } = await sb
-      .from('profiles')
-      .select('tenant_id')
-      .maybeSingle();
+    const { profile: me } = await selectMyProfile(sb as any, 'tenant_id');
     const tenantId = (me as any)?.tenant_id as string | undefined;
     if (!tenantId)
       return NextResponse.json({ ok: false, error: 'Profile not ready' }, { status: 400 });
@@ -85,6 +89,7 @@ export async function POST(req: NextRequest) {
       .from('jobs')
       .select('id')
       .eq('id', parsed.data.jobId)
+      .eq('tenant_id', tenantId)
       .maybeSingle();
     if (!job)
       return NextResponse.json({ ok: false, error: 'Job not found' }, { status: 404 });
@@ -93,6 +98,7 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await sb
       .from('documents')
       .select('version')
+      .eq('tenant_id', tenantId)
       .eq('job_id', parsed.data.jobId)
       .eq('doc_type', parsed.data.docType)
       .order('version', { ascending: false })

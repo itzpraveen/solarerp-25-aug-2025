@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { normalizeLoginIdentifier } from '@/lib/authUsername';
+import { getCurrentProfile } from '@/lib/currentProfile';
 import Input from '~/components/ui/Input';
 import Button from '~/components/ui/Button';
 import Card from '~/components/ui/Card';
@@ -41,10 +42,9 @@ export default function SignIn() {
           }
           // If invite-only (403), check whether DB bootstrap already created a profile
           if (res.status === 403) {
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('tenant_id')
-              .maybeSingle();
+            const { profile: prof } = await getCurrentProfile<{
+              tenant_id: string;
+            }>(supabase as any, 'tenant_id');
             if (prof?.tenant_id) {
               router.replace('/jobs');
               return;
