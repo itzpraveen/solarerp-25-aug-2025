@@ -19,10 +19,12 @@ class CreateJobPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.config,
+    this.branchId,
   });
 
   final SolarErpRepository repository;
   final AppConfig config;
+  final String? branchId;
 
   @override
   State<CreateJobPage> createState() => _CreateJobPageState();
@@ -109,6 +111,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
       final data = <String, dynamic>{
         'customer_id': _selectedCustomer!.id,
         'system_type': _systemType ?? 'On-grid',
+        if (widget.branchId != null) 'branch_id': widget.branchId,
       };
       if (_capacityCtrl.text.trim().isNotEmpty) {
         final kw = double.tryParse(_capacityCtrl.text.trim());
@@ -125,7 +128,10 @@ class _CreateJobPageState extends State<CreateJobPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Job created'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Job created'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -186,7 +192,9 @@ class _CreateJobPageState extends State<CreateJobPage> {
                               child: SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : null,
@@ -233,7 +241,8 @@ class _CreateJobPageState extends State<CreateJobPage> {
                   .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                   .toList(),
               onChanged: (v) => setState(() => _systemType = v),
-              validator: (v) => (v == null || v.isEmpty) ? 'Select system type' : null,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? 'Select system type' : null,
             ),
             const SizedBox(height: 12),
 
@@ -244,7 +253,9 @@ class _CreateJobPageState extends State<CreateJobPage> {
                 labelText: 'Capacity (kW)',
                 prefixIcon: Icon(Icons.bolt_outlined),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -278,7 +289,10 @@ class _CreateJobPageState extends State<CreateJobPage> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.add),
               label: Text(_saving ? 'Creating...' : 'Create Job'),

@@ -15,9 +15,10 @@ const List<String> _sources = [
 ];
 
 class CreateLeadPage extends StatefulWidget {
-  const CreateLeadPage({super.key, required this.repository});
+  const CreateLeadPage({super.key, required this.repository, this.branchId});
 
   final SolarErpRepository repository;
+  final String? branchId;
 
   @override
   State<CreateLeadPage> createState() => _CreateLeadPageState();
@@ -67,6 +68,7 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
         'name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'status': 'New',
+        if (widget.branchId != null) 'branch_id': widget.branchId,
       };
       if (_emailCtrl.text.trim().isNotEmpty) {
         data['email'] = _emailCtrl.text.trim();
@@ -82,7 +84,9 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
         if (kw != null) data['interested_capacity_kw'] = kw;
       }
       if (_followUpDate != null) {
-        data['next_follow_up_date'] = DateFormat('yyyy-MM-dd').format(_followUpDate!);
+        data['next_follow_up_date'] = DateFormat(
+          'yyyy-MM-dd',
+        ).format(_followUpDate!);
       }
       if (_notesCtrl.text.trim().isNotEmpty) {
         data['notes'] = _notesCtrl.text.trim();
@@ -91,7 +95,10 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
       await widget.repository.createLead(data);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lead created'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Lead created'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -124,7 +131,8 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
                 prefixIcon: Icon(Icons.person_outline),
               ),
               textCapitalization: TextCapitalization.words,
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Name is required' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -178,7 +186,9 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
                 labelText: 'Interested Capacity (kW)',
                 prefixIcon: Icon(Icons.solar_power_outlined),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -189,7 +199,9 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
                     ? 'Follow-up: ${DateFormat('dd MMM yyyy').format(_followUpDate!)}'
                     : 'Set follow-up date',
                 style: TextStyle(
-                  color: _followUpDate != null ? null : Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: _followUpDate != null
+                      ? null
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               trailing: _followUpDate != null
@@ -218,7 +230,10 @@ class _CreateLeadPageState extends State<CreateLeadPage> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.add),
               label: Text(_saving ? 'Creating...' : 'Create Lead'),

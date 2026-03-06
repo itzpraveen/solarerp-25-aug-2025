@@ -190,7 +190,9 @@ class SolarErpRepository {
     if (userId == null) return const [];
     final rows = await _client
         .from('tasks')
-        .select('id, job_id, title, assigned_to, due_date, status, priority, notes')
+        .select(
+          'id, job_id, title, assigned_to, due_date, status, priority, notes',
+        )
         .eq('assigned_to', userId)
         .neq('status', 'Done')
         .order('due_date', ascending: true, nullsFirst: false);
@@ -203,7 +205,9 @@ class SolarErpRepository {
   Future<List<TaskItem>> fetchTasksForJob(String jobId) async {
     final rows = await _client
         .from('tasks')
-        .select('id, job_id, title, assigned_to, due_date, status, priority, notes')
+        .select(
+          'id, job_id, title, assigned_to, due_date, status, priority, notes',
+        )
         .eq('job_id', jobId)
         .order('due_date', ascending: true, nullsFirst: false);
     final list = (rows as List<dynamic>? ?? const []);
@@ -242,7 +246,9 @@ class SolarErpRepository {
   Future<List<Customer>> searchCustomers(String query) async {
     final rows = await _client
         .from('customers')
-        .select('id, name, phone, email, address, discom, consumer_no, phase, sanctioned_load_kw, notes')
+        .select(
+          'id, name, phone, email, address, discom, consumer_no, phase, sanctioned_load_kw, notes',
+        )
         .ilike('name', '%$query%')
         .isFilter('deleted_at', null)
         .order('name')
@@ -281,12 +287,13 @@ class SolarErpRepository {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${session.accessToken}',
           },
-          body: jsonEncode({'jobId': jobId, 'status': newStatus}),
+          body: jsonEncode({'jobId': jobId, 'newStatus': newStatus}),
         )
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final msg = _extractErrorMessage(response.body) ??
+      final msg =
+          _extractErrorMessage(response.body) ??
           'Status update failed (${response.statusCode})';
       throw Exception(msg);
     }

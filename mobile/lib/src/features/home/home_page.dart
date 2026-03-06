@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _refreshBranchData() async {
+  Future<void> _refreshBranchData({bool reloadJobs = true}) async {
     if (_loading) return;
     setState(() {
       _syncing = true;
@@ -118,11 +118,17 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
+      final jobsReload = reloadJobs
+          ? _jobsTabKey.currentState?.loadJobs()
+          : null;
       final results = await Future.wait<dynamic>([
         widget.repository.fetchOverview(branchId: _selectedBranchId),
         widget.repository.fetchLeads(branchId: _selectedBranchId),
         widget.repository.fetchMyTasks(),
       ]);
+      if (jobsReload != null) {
+        await jobsReload;
+      }
       if (!mounted) return;
       setState(() {
         _overview = results[0] as OverviewKpi;
@@ -149,7 +155,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _selectedBranchId = next;
     });
-    await _refreshBranchData();
+    await _refreshBranchData(reloadJobs: false);
   }
 
   Future<void> _signOut() async {
@@ -285,7 +291,9 @@ class _HomePageState extends State<HomePage> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+                      color: theme.colorScheme.errorContainer.withValues(
+                        alpha: 0.3,
+                      ),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -424,7 +432,10 @@ class _HomePageState extends State<HomePage> {
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.errorContainer,
                   borderRadius: BorderRadius.circular(10),
@@ -520,7 +531,10 @@ class _HomePageState extends State<HomePage> {
                 final created = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CreateLeadPage(repository: widget.repository),
+                    builder: (_) => CreateLeadPage(
+                      repository: widget.repository,
+                      branchId: _selectedBranchId,
+                    ),
                   ),
                 );
                 if (created == true) _refreshBranchData();
@@ -528,23 +542,24 @@ class _HomePageState extends State<HomePage> {
               child: const Icon(Icons.person_add),
             )
           : _tabIndex == 2
-              ? FloatingActionButton(
-                  heroTag: 'createJob',
-                  onPressed: () async {
-                    final created = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CreateJobPage(
-                          repository: widget.repository,
-                          config: widget.config,
-                        ),
-                      ),
-                    );
-                    if (created == true) _jobsTabKey.currentState?.loadJobs();
-                  },
-                  child: const Icon(Icons.add),
-                )
-              : null,
+          ? FloatingActionButton(
+              heroTag: 'createJob',
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateJobPage(
+                      repository: widget.repository,
+                      config: widget.config,
+                      branchId: _selectedBranchId,
+                    ),
+                  ),
+                );
+                if (created == true) _jobsTabKey.currentState?.loadJobs();
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tabIndex,
         onDestinationSelected: (index) {
@@ -625,7 +640,9 @@ class _DashboardTab extends StatelessWidget {
                 Icon(
                   Icons.bar_chart_rounded,
                   size: 48,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -1098,7 +1115,10 @@ class _AccountTab extends StatelessWidget {
               Text(displayName, style: theme.textTheme.titleLarge),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(20),
@@ -1120,22 +1140,28 @@ class _AccountTab extends StatelessWidget {
           child: Column(
             children: [
               ListTile(
-                leading: Icon(Icons.email_outlined,
-                    color: theme.colorScheme.onSurfaceVariant),
+                leading: Icon(
+                  Icons.email_outlined,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 title: const Text('Email'),
                 subtitle: Text(user?.email ?? '—'),
               ),
               const Divider(indent: 56),
               ListTile(
-                leading: Icon(Icons.alternate_email,
-                    color: theme.colorScheme.onSurfaceVariant),
+                leading: Icon(
+                  Icons.alternate_email,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 title: const Text('Username'),
                 subtitle: Text(profile?.username ?? '—'),
               ),
               const Divider(indent: 56),
               ListTile(
-                leading: Icon(Icons.domain_outlined,
-                    color: theme.colorScheme.onSurfaceVariant),
+                leading: Icon(
+                  Icons.domain_outlined,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 title: const Text('Tenant'),
                 subtitle: Text(profile?.tenantId ?? '—'),
               ),
@@ -1149,8 +1175,10 @@ class _AccountTab extends StatelessWidget {
           data: theme.copyWith(dividerColor: Colors.transparent),
           child: Card(
             child: ExpansionTile(
-              leading: Icon(Icons.dns_outlined,
-                  color: theme.colorScheme.onSurfaceVariant),
+              leading: Icon(
+                Icons.dns_outlined,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               title: Text(
                 'Backend',
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -1180,8 +1208,8 @@ class _AccountTab extends StatelessWidget {
                       mode == ThemeMode.dark
                           ? Icons.dark_mode_rounded
                           : mode == ThemeMode.light
-                              ? Icons.light_mode_rounded
-                              : Icons.brightness_auto_rounded,
+                          ? Icons.light_mode_rounded
+                          : Icons.brightness_auto_rounded,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     title: const Text('Appearance'),
@@ -1189,8 +1217,8 @@ class _AccountTab extends StatelessWidget {
                       mode == ThemeMode.dark
                           ? 'Dark'
                           : mode == ThemeMode.light
-                              ? 'Light'
-                              : 'System default',
+                          ? 'Light'
+                          : 'System default',
                     ),
                   ),
                   Padding(
@@ -1277,46 +1305,46 @@ class _HeroCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradient,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: gradient.first.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: gradient.first.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 24, color: Colors.white.withValues(alpha: 0.85)),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 24, color: Colors.white.withValues(alpha: 0.85)),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.85),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -1346,9 +1374,7 @@ class _QuickStat extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(12),
-            border: Border(
-              top: BorderSide(color: color, width: 2.5),
-            ),
+            border: Border(top: BorderSide(color: color, width: 2.5)),
           ),
           child: Column(
             children: [
@@ -1486,170 +1512,173 @@ class _LeadCard extends StatelessWidget {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => LeadDetailPage(
-                leadId: lead.id,
-                repository: repository,
-              ),
+              builder: (_) =>
+                  LeadDetailPage(leadId: lead.id, repository: repository),
             ),
           );
           onChanged();
         },
         child: IntrinsicHeight(
-        child: Row(
-          children: [
-            // Left colored stripe
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: stripeColor ?? Colors.transparent,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
+          child: Row(
+            children: [
+              // Left colored stripe
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: stripeColor ?? Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title row
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: statusColor.withValues(alpha: 0.12),
-                          child: Text(
-                            initials,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: statusColor,
-                              fontWeight: FontWeight.w700,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title row
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: statusColor.withValues(
+                              alpha: 0.12,
+                            ),
+                            child: Text(
+                              initials,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: theme.textTheme.titleSmall,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            status,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: statusColor,
-                              fontWeight: FontWeight.w700,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: theme.textTheme.titleSmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              status,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
 
-                    // Phone
-                    if (lead.phone != null && lead.phone!.trim().isNotEmpty)
+                      // Phone
+                      if (lead.phone != null && lead.phone!.trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 46, bottom: 6),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.phone_outlined,
+                                size: 14,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                lead.phone!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Source + Branch chips
                       Padding(
-                        padding: const EdgeInsets.only(left: 46, bottom: 6),
+                        padding: const EdgeInsets.only(left: 46),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (lead.source != null &&
+                                lead.source!.trim().isNotEmpty)
+                              _TagChip(label: lead.source!),
+                            if (branchName != null)
+                              _TagChip(label: branchName!),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Footer: follow-up, score, created
+                      Padding(
+                        padding: const EdgeInsets.only(left: 46),
                         child: Row(
                           children: [
                             Icon(
-                              Icons.phone_outlined,
-                              size: 14,
+                              Icons.calendar_today_rounded,
+                              size: 12,
+                              color:
+                                  stripeColor ??
+                                  theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              followUpText,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color:
+                                    stripeColor ??
+                                    theme.colorScheme.onSurfaceVariant,
+                                fontWeight: stripeColor != null
+                                    ? FontWeight.w600
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(
+                              Icons.star_outline_rounded,
+                              size: 12,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 3),
                             Text(
-                              lead.phone!,
-                              style: theme.textTheme.bodySmall?.copyWith(
+                              '${lead.score}',
+                              style: theme.textTheme.labelSmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              createdDateText,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6),
                               ),
                             ),
                           ],
                         ),
                       ),
-
-                    // Source + Branch chips
-                    Padding(
-                      padding: const EdgeInsets.only(left: 46),
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          if (lead.source != null &&
-                              lead.source!.trim().isNotEmpty)
-                            _TagChip(label: lead.source!),
-                          if (branchName != null)
-                            _TagChip(label: branchName!),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Footer: follow-up, score, created
-                    Padding(
-                      padding: const EdgeInsets.only(left: 46),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            size: 12,
-                            color: stripeColor ??
-                                theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            followUpText,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: stripeColor ??
-                                  theme.colorScheme.onSurfaceVariant,
-                              fontWeight:
-                                  stripeColor != null ? FontWeight.w600 : null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.star_outline_rounded,
-                            size: 12,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${lead.score}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            createdDateText,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1700,12 +1729,7 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodySmall,
-          ),
-        ),
+        Expanded(child: Text(value, style: theme.textTheme.bodySmall)),
       ],
     );
   }

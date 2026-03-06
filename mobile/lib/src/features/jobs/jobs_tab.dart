@@ -8,8 +8,17 @@ import '../../utils/launcher.dart';
 import 'job_detail_page.dart';
 
 const List<String> _pipelineStatuses = [
-  'Lead', 'Qualified', 'Quoted', 'Won', 'KSEB_Submitted',
-  'Material_Ordered', 'Installed', 'Net_Metered', 'Handover', 'Closed', 'Lost',
+  'Lead',
+  'Qualified',
+  'Quoted',
+  'Won',
+  'KSEB_Submitted',
+  'Material_Ordered',
+  'Installed',
+  'Net_Metered',
+  'Handover',
+  'Closed',
+  'Lost',
 ];
 
 class JobsTab extends StatefulWidget {
@@ -39,6 +48,14 @@ class JobsTabState extends State<JobsTab> {
   void initState() {
     super.initState();
     loadJobs();
+  }
+
+  @override
+  void didUpdateWidget(covariant JobsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.branchId != widget.branchId) {
+      loadJobs();
+    }
   }
 
   @override
@@ -151,8 +168,12 @@ class JobsTabState extends State<JobsTab> {
                       onSelected: (_) => setState(() {
                         _filterStatus = _filterStatus == status ? null : status;
                       }),
-                      label: Text('${_displayStatus(status)} (${counts[status]})'),
-                      selectedColor: _jobStatusColor(status).withValues(alpha: 0.15),
+                      label: Text(
+                        '${_displayStatus(status)} (${counts[status]})',
+                      ),
+                      selectedColor: _jobStatusColor(
+                        status,
+                      ).withValues(alpha: 0.15),
                       showCheckmark: false,
                       visualDensity: VisualDensity.compact,
                     ),
@@ -207,7 +228,8 @@ class JobsTabState extends State<JobsTab> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                     itemCount: filtered.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final job = filtered[index];
                       return _JobCard(
@@ -278,7 +300,10 @@ class _JobCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -298,8 +323,11 @@ class _JobCard extends StatelessWidget {
               // System type + capacity
               Row(
                 children: [
-                  Icon(Icons.solar_power_outlined, size: 14,
-                      color: theme.colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.solar_power_outlined,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     [
@@ -318,8 +346,11 @@ class _JobCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.phone_outlined, size: 14,
-                        color: theme.colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.phone_outlined,
+                      size: 14,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -334,8 +365,11 @@ class _JobCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.phone_rounded, size: 16,
-                            color: Colors.green.shade600),
+                        child: Icon(
+                          Icons.phone_rounded,
+                          size: 16,
+                          color: Colors.green.shade600,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -344,8 +378,11 @@ class _JobCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.message_rounded, size: 16,
-                            color: const Color(0xFF25D366)),
+                        child: Icon(
+                          Icons.message_rounded,
+                          size: 16,
+                          color: const Color(0xFF25D366),
+                        ),
                       ),
                     ),
                   ],
@@ -367,8 +404,11 @@ class _JobCard extends StatelessWidget {
                     const SizedBox(width: 12),
                   ],
                   if (job.location != null) ...[
-                    Icon(Icons.location_on_outlined, size: 12,
-                        color: theme.colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 2),
                     Expanded(
                       child: Text(
@@ -386,7 +426,9 @@ class _JobCard extends StatelessWidget {
                     Text(
                       DateFormat('dd MMM').format(job.createdAt!),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                 ],
