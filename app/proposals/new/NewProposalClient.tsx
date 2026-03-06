@@ -1,15 +1,55 @@
 'use client';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseClient';
+import { getCurrentProfile } from '@/lib/currentProfile';
 import type { LongInvoiceData } from '@/lib/renderLongInvoiceHtml';
 import PdfProposalImport, { type ParsedProposalHint } from 'components/PdfProposalImport';
 import PageHeader from '~/components/ui/PageHeader';
+import { useToast } from '~/components/ui/ToastProvider';
+
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+});
+
+type ProposalFlowKind = 'existing-job' | 'lead-job' | 'pdf-only';
+
+type ProposalFlow = {
+  kind: ProposalFlowKind;
+  description: string;
+  detail: string;
+  targetJobId?: string;
+  lead?: any;
+  phone?: string | null;
+  customerName?: string;
+  nextHref?: string;
+  nextLabel?: string;
+};
+
+type ValidationIssue = {
+  field: string;
+  message: string;
+};
+
+type GenerationResult = {
+  kind: ProposalFlowKind;
+  title: string;
+  description: string;
+  targetLabel: string;
+  nextHref?: string;
+  nextLabel?: string;
+  phone?: string | null;
+  proposalId?: string | null;
+  targetJobId?: string | null;
+};
 
 export default function NewProposalClient() {
   const params = useSearchParams();
   const jobId = params.get('jobId');
   const supabase = supabaseBrowser();
+  const { toast } = useToast();
   const [kits, setKits] = useState<any[]>([]);
   const [kitName, setKitName] = useState<string>('');
   const [price, setPrice] = useState<number>(0);
@@ -68,6 +108,14 @@ export default function NewProposalClient() {
   const [preparedBy, setPreparedBy] = useState<string>('');
   const [contactPerson, setContactPerson] = useState<string>('');
   const [contactNumber, setContactNumber] = useState<string>('');
+  const [progressLabel, setProgressLabel] = useState<string>('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(
+    null,
+  );
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+  const [quoteNoEdited, setQuoteNoEdited] = useState(false);
+  const [validTillEdited, setValidTillEdited] = useState(false);
 
   // Cover letter, notes, work schedule (optional advanced sections)
   const [includeCover, setIncludeCover] = useState<boolean>(false);
@@ -83,6 +131,170 @@ export default function NewProposalClient() {
     { scope: string; details: string; timeline: string }[]
   >([]);
 
+  const resolvedLead = useMemo(
+    () => leads.find((lead) => lead.id === leadId) || null,
+    [leads, leadId],
+  );
+
+  const computedAddOns = useMemo(
+    () => [
+      ...addOns,
+      ...(quotationType === 'Provisional' && (Number(bufferPct) || 0) > 0
+        ? [
+            {
+              label: `Uncertainty buffer (${Number(bufferPct)}%)`,
+              amount: Math.round(
+                ((Number(price) || 0) * Number(bufferPct)) / 100,
+              ),
+            },
+          ]
+        : []),
+    ],
+    [addOns, bufferPct, price, quotationType],
+  );
+
+  const totals = useMemo(() => {
+    const beforeTax =
+      (Number(price) || 0) +
+      computedAddOns.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
+    return {
+      beforeTax,
+      taxAmt,
+      total: beforeTax + taxAmt,
+    };
+  }, [computedAddOns, price, taxRate]);
+
+  const proposalFlow = useMemo<ProposalFlow>(() => {
+    if (jobId) {
+      return {
+        kind: 'existing-job',
+        description: `Generate the PDF and attach it to the existing job${customer?.name ? ` for ${customer.name}` : ''}.`,
+        detail:
+          'The proposal stays linked to the current job so the sales and execution teams see the same record.',
+        targetJobId: jobId,
+        phone: customer?.phone || null,
+        customerName: customer?.name || 'Existing customer',
+        nextHref: `/jobs/${jobId}?tab=proposals`,
+        nextLabel: 'Open job proposals',
+      };
+    }
+
+    if (resolvedLead) {
+      return {
+        kind: 'lead-job',
+        description: `Generate the PDF, create a job from ${resolvedLead.name || 'the selected lead'}, and attach the proposal automatically.`,
+        detail:
+          'Customer and job records will be created only if needed, and the lead will be moved to Quoted once the proposal is saved.',
+        lead: resolvedLead,
+        phone: resolvedLead.phone || null,
+        customerName: resolvedLead.name || 'Selected lead',
+      };
+    }
+
+    return {
+      kind: 'pdf-only',
+      description: 'Generate a standalone quotation PDF without creating a job.',
+      detail:
+        'Select a lead if you want one click to create the customer, create the job, and save the proposal after the PDF is ready.',
+      phone: customer?.phone || null,
+      customerName: customer?.name || 'Standalone quotation',
+    };
+  }, [customer?.name, customer?.phone, jobId, resolvedLead]);
+
+  const flowPreview = useMemo(
+    () => ({
+      customerName:
+        customer?.name || resolvedLead?.name || 'Customer will be added later',
+      phone: customer?.phone || resolvedLead?.phone || 'No phone captured yet',
+      site: job?.location || resolvedLead?.address || 'Site not added yet',
+      capacity:
+        job?.capacity_kw || resolvedLead?.interested_capacity_kw || null,
+    }),
+    [customer?.name, customer?.phone, job?.capacity_kw, job?.location, resolvedLead],
+  );
+
+  const validationIssues = useMemo<ValidationIssue[]>(() => {
+    const issues: ValidationIssue[] = [];
+
+    if (!tenantId) {
+      issues.push({
+        field: 'profile',
+        message: 'Your profile is still loading. Wait a moment and try again.',
+      });
+    }
+    if (!kitName) {
+      issues.push({
+        field: 'kit',
+        message: 'Select a kit before generating the quotation.',
+      });
+    }
+    if (!Number.isFinite(Number(price)) || Number(price) < 0) {
+      issues.push({
+        field: 'price',
+        message: 'Project cost must be 0 or greater.',
+      });
+    }
+    if (!Number.isFinite(Number(taxRate)) || Number(taxRate) < 0 || Number(taxRate) > 100) {
+      issues.push({
+        field: 'taxRate',
+        message: 'Tax percentage must stay between 0 and 100.',
+      });
+    }
+    if (!quoteNo.trim()) {
+      issues.push({
+        field: 'quoteNo',
+        message: 'Enter a quote number so the PDF and saved record stay traceable.',
+      });
+    }
+    if (!validTill) {
+      issues.push({
+        field: 'validTill',
+        message: 'Choose a validity date for the quotation.',
+      });
+    }
+    if (proposalFlow.kind === 'existing-job' && !job) {
+      issues.push({
+        field: 'job',
+        message: 'The selected job is still loading. Wait for the job details to appear.',
+      });
+    }
+    if (includeCover && !coverParagraphs.trim()) {
+      issues.push({
+        field: 'coverParagraphs',
+        message: 'Add at least one cover paragraph or turn off the cover page.',
+      });
+    }
+
+    return issues;
+  }, [
+    coverParagraphs,
+    includeCover,
+    job,
+    kitName,
+    price,
+    proposalFlow.kind,
+    quoteNo,
+    taxRate,
+    tenantId,
+    validTill,
+  ]);
+
+  const issueMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const issue of validationIssues) {
+      if (!map[issue.field]) map[issue.field] = issue.message;
+    }
+    return map;
+  }, [validationIssues]);
+
+  const primaryActionLabel = useMemo(() => {
+    if (generating) return progressLabel || 'Generating PDF…';
+    if (proposalFlow.kind === 'existing-job') return 'Generate & Save Proposal';
+    if (proposalFlow.kind === 'lead-job') return 'Generate, Create Job & Attach';
+    return 'Generate PDF';
+  }, [generating, progressLabel, proposalFlow.kind]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -93,10 +305,10 @@ export default function NewProposalClient() {
           return;
         }
         // Try fetch profile; if missing, ensure it exists (first-user bootstrap)
-        let { data: profile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .maybeSingle();
+        let { profile } = await getCurrentProfile<{ tenant_id: string }>(
+          supabase as any,
+          'tenant_id',
+        );
         if (!profile?.tenant_id) {
           const token = sess.session.access_token;
           try {
@@ -194,7 +406,7 @@ export default function NewProposalClient() {
   }, [kitName, supabase]);
 
   useEffect(() => {
-    // Default quote number using settings template
+    // Default quote number using settings template without overwriting manual edits.
     const dt = new Date();
     const yy = String(dt.getFullYear()).slice(-2);
     const yyyy = String(dt.getFullYear());
@@ -217,30 +429,283 @@ export default function NewProposalClient() {
       .replaceAll('{SYSTEM}', system)
       .replaceAll('{NAME}', name)
       .replaceAll('{PLACE}', place);
-    setQuoteNo(`${prefix}${body}`);
+    if (!quoteNoEdited || !quoteNo.trim()) {
+      setQuoteNo(`${prefix}${body}`);
+    }
     const v = new Date();
     v.setDate(v.getDate() + 10);
-    setValidTill(v.toISOString().slice(0, 10));
-    setPlantBrand('');
-  }, [job, customer, settings]);
+    if (!validTillEdited || !validTill) {
+      setValidTill(v.toISOString().slice(0, 10));
+    }
+  }, [customer, job, quoteNo, quoteNoEdited, settings, validTill, validTillEdited]);
+
+  useEffect(() => {
+    if (jobId || !resolvedLead) return;
+    setCustomer((current) => ({
+      ...(current || {}),
+      name: resolvedLead.name || current?.name || '',
+      phone: resolvedLead.phone || current?.phone || '',
+      address: resolvedLead.address || current?.address || '',
+    }));
+    setJob((current) => ({
+      ...(current || {}),
+      location: resolvedLead.address || current?.location || '',
+      capacity_kw:
+        resolvedLead.interested_capacity_kw || current?.capacity_kw || 0,
+      system_type: current?.system_type || 'On-grid',
+    }));
+  }, [jobId, resolvedLead]);
+
+  const buildProposalRow = (targetJobId: string, key: string) => {
+    const cleanParagraphs = coverParagraphs
+      .split(/\n\n+|\r\n\r\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const cleanNotes = (notes || []).filter((n) => n.trim()).map((n) => n.trim());
+    const cleanWorkRows = workRows
+      .filter((r) => (r.scope || r.details || r.timeline).trim())
+      .map((r) => ({
+        scope: r.scope,
+        details: r.details,
+        timeline: r.timeline,
+      }));
+
+    return {
+      tenant_id: tenantId,
+      job_id: targetJobId,
+      date: new Date().toISOString().slice(0, 10),
+      kit_name: kitName,
+      price_before_tax: totals.beforeTax,
+      tax: totals.taxAmt,
+      total: totals.total,
+      pdf_url: key,
+      lang,
+      quotation_type: quotationType,
+      valid_till: validTill || null,
+      cover: includeCover
+        ? {
+            to: coverTo || null,
+            subject: coverSubject || null,
+            reference: coverReference || null,
+            paragraphs: cleanParagraphs,
+            signatory: {
+              name: signName || null,
+              title: signTitle || null,
+              phone: signPhone || null,
+            },
+          }
+        : null,
+      notes: cleanNotes,
+      work_schedule:
+        cleanWorkRows.length > 0
+          ? {
+              rows: cleanWorkRows,
+            }
+          : null,
+    };
+  };
+
+  const persistProposalRow = async (targetJobId: string, key: string) => {
+    const fullRow: any = buildProposalRow(targetJobId, key);
+    const { data, error } = await supabase
+      .from('proposals')
+      .insert(fullRow)
+      .select('id, total, pdf_url')
+      .single();
+    if (!error) return data;
+
+    const { data: fallback, error: fallbackError } = await supabase
+      .from('proposals')
+      .insert({
+        tenant_id: tenantId,
+        job_id: targetJobId,
+        date: new Date().toISOString().slice(0, 10),
+        kit_name: kitName,
+        price_before_tax: totals.beforeTax,
+        tax: totals.taxAmt,
+        total: totals.total,
+        pdf_url: key,
+      })
+      .select('id, total, pdf_url')
+      .single();
+    if (fallbackError) throw fallbackError;
+    return fallback;
+  };
+
+  const ensureCustomerForLead = async (targetTenantId: string, lead: any) => {
+    if (lead?.phone) {
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('tenant_id', targetTenantId)
+        .eq('phone', lead.phone)
+        .maybeSingle();
+      if (existing?.id) return existing.id as string;
+    }
+
+    const { data: customerRow, error } = await supabase
+      .from('customers')
+      .insert({
+        tenant_id: targetTenantId,
+        name: lead?.name || 'Customer',
+        phone: lead?.phone || null,
+        address: lead?.address || null,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return (customerRow as any).id as string;
+  };
+
+  const createJobFromLead = async (lead: any) => {
+    const customerId = await ensureCustomerForLead(tenantId, lead);
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: createdJob, error } = await supabase
+      .from('jobs')
+      .insert({
+        tenant_id: tenantId,
+        customer_id: customerId,
+        lead_id: lead.id,
+        branch_id: lead?.branch_id || null,
+        system_type: job?.system_type || 'On-grid',
+        program_type: program,
+        status: 'Quoted',
+        capacity_kw: lead?.interested_capacity_kw || job?.capacity_kw || null,
+        quoted_price: totals.beforeTax,
+        total_amount: totals.total,
+        location: lead?.address || job?.location || null,
+        notes: lead?.notes || job?.notes || null,
+        date_lead: (lead as any)?.date || today,
+        date_quote: today,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return createdJob as any;
+  };
+
+  const recordProposalAudit = async (targetJobId: string, proposal: any) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      await supabase.from('audit_logs').insert({
+        tenant_id: tenantId,
+        user_id: (user?.user as any)?.id || null,
+        action: 'proposals.create',
+        entity: 'jobs',
+        entity_id: targetJobId,
+        metadata: {
+          proposalId: proposal?.id,
+          total: proposal?.total,
+          pdfKey: proposal?.pdf_url,
+        },
+      });
+    } catch {}
+  };
+
+  const finalizeProposalForFlow = async (key: string, flow: ProposalFlow) => {
+    if (flow.kind === 'pdf-only') {
+      return null;
+    }
+
+    if (flow.kind === 'existing-job' && flow.targetJobId) {
+      setProgressLabel('Saving proposal…');
+      const proposal = await persistProposalRow(flow.targetJobId, key);
+      await recordProposalAudit(flow.targetJobId, proposal);
+      return {
+        proposal,
+        targetJobId: flow.targetJobId,
+        nextHref: flow.nextHref,
+        nextLabel: flow.nextLabel,
+      };
+    }
+
+    if (!flow.lead) {
+      throw new Error('Select a lead before trying to create a job from the quotation.');
+    }
+
+    setProgressLabel('Creating job…');
+    const createdJob = await createJobFromLead(flow.lead);
+    setProgressLabel('Saving proposal…');
+    const proposal = await persistProposalRow((createdJob as any).id, key);
+    await recordProposalAudit((createdJob as any).id, proposal);
+    await supabase.from('leads').update({ status: 'Quoted' }).eq('id', flow.lead.id);
+
+    return {
+      proposal,
+      targetJobId: (createdJob as any).id as string,
+      nextHref: `/jobs/${(createdJob as any).id}?tab=proposals`,
+      nextLabel: 'Open new job',
+    };
+  };
+
+  const handleCopyPdfLink = async () => {
+    if (!signedUrl) return;
+    try {
+      await navigator.clipboard.writeText(signedUrl);
+      toast({
+        title: 'Link copied',
+        description: 'The PDF link is ready to paste.',
+        variant: 'success',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Copy failed',
+        description: String(e?.message || e),
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleSendWhatsapp = async () => {
+    const phone = generationResult?.phone || proposalFlow.phone;
+    if (!signedUrl || !phone) return;
+
+    setSendingWhatsapp(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          to: phone,
+          templateName: 'proposal_ready',
+          variables: [
+            generationResult?.targetLabel || proposalFlow.customerName || 'Customer',
+            String(job?.capacity_kw || flowPreview.capacity || ''),
+            signedUrl,
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error('WhatsApp send failed');
+      toast({
+        title: 'WhatsApp queued',
+        description: 'Proposal share has been queued.',
+        variant: 'success',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'WhatsApp failed',
+        description: String(e?.message || e),
+        variant: 'error',
+      });
+    } finally {
+      setSendingWhatsapp(false);
+    }
+  };
 
   const generate = async () => {
+    setSubmitAttempted(true);
+    setGenerationResult(null);
     setErrorMsg(null);
-    // Basic validation to avoid generating empty PDFs/rows
-    if (!kitName) {
-      setErrorMsg('Please select a kit');
-      return;
-    }
-    if ((Number(price) || 0) < 0) {
-      setErrorMsg('Price must be 0 or greater');
-      return;
-    }
-    if ((Number(taxRate) || 0) < 0 || (Number(taxRate) || 0) > 100) {
-      setErrorMsg('Tax % must be between 0 and 100');
-      return;
-    }
-    if (!quoteNo.trim()) {
-      setErrorMsg('Quote number is required');
+
+    if (validationIssues.length) {
+      setErrorMsg(
+        `Fix ${validationIssues.length} issue${validationIssues.length > 1 ? 's' : ''} before generating the quotation.`,
+      );
       return;
     }
 
@@ -264,18 +729,6 @@ export default function NewProposalClient() {
           },
         }
       : undefined;
-
-    const computedAddOns = [
-      ...addOns,
-      ...(quotationType === 'Provisional' && (Number(bufferPct) || 0) > 0
-        ? [
-            {
-              label: `Uncertainty buffer (${Number(bufferPct)}%)`,
-              amount: Math.round(((Number(price) || 0) * Number(bufferPct)) / 100),
-            },
-          ]
-        : []),
-    ];
 
     // Resolve logo: if the saved value looks like a storage key (no http/data),
     // create a short‑lived signed URL for rendering, else use as-is.
@@ -366,6 +819,7 @@ export default function NewProposalClient() {
     };
 
     setGenerating(true);
+    setProgressLabel('Generating PDF…');
     try {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
@@ -388,102 +842,56 @@ export default function NewProposalClient() {
       }
       setSignedUrl(out.url);
       setPdfKey(out.key);
-      if (jobId) {
-        const addOnSum = computedAddOns.reduce((s, a) => s + (a.amount || 0), 0);
-        const beforeTax = (Number(price) || 0) + addOnSum;
-        const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
-        const total = beforeTax + taxAmt;
-        // Try full insert; if DB is missing optional columns, fallback to minimal insert
-        const fullRow: any = {
-          tenant_id: tenantId,
-          job_id: jobId,
-          date: new Date().toISOString().slice(0, 10),
-          kit_name: kitName,
-          price_before_tax: beforeTax,
-          tax: taxAmt,
-          total,
-          pdf_url: out.key,
-          lang,
-          quotation_type: quotationType,
-          valid_till: validTill || null,
-          cover: includeCover
+      const saved = await finalizeProposalForFlow(out.key, proposalFlow);
+      const result: GenerationResult =
+        proposalFlow.kind === 'existing-job'
+          ? {
+              kind: proposalFlow.kind,
+              title: 'Proposal saved to the job',
+              description:
+                'The quotation PDF is ready and the proposal record is attached to the existing job.',
+              targetLabel: proposalFlow.customerName || 'Existing job',
+              nextHref: saved?.nextHref,
+              nextLabel: saved?.nextLabel,
+              phone: proposalFlow.phone,
+              proposalId: (saved?.proposal as any)?.id || null,
+              targetJobId: saved?.targetJobId || null,
+            }
+          : proposalFlow.kind === 'lead-job'
             ? {
-                to: coverTo || null,
-                subject: coverSubject || null,
-                reference: coverReference || null,
-                paragraphs: coverParagraphs
-                  .split(/\n\n+|\r\n\r\n+/)
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-                signatory: {
-                  name: signName || null,
-                  title: signTitle || null,
-                  phone: signPhone || null,
-                },
+                kind: proposalFlow.kind,
+                title: 'Job created and proposal attached',
+                description:
+                  'The lead is now quoted, the new job has been created, and the proposal is already linked to it.',
+                targetLabel: proposalFlow.customerName || 'Selected lead',
+                nextHref: saved?.nextHref,
+                nextLabel: saved?.nextLabel,
+                phone: proposalFlow.phone,
+                proposalId: (saved?.proposal as any)?.id || null,
+                targetJobId: saved?.targetJobId || null,
               }
-            : null,
-          notes: (notes || []).filter((n) => n.trim()).map((n) => n.trim()),
-          work_schedule:
-            workRows.length > 0
-              ? {
-                  rows: workRows.map((r) => ({
-                    scope: r.scope,
-                    details: r.details,
-                    timeline: r.timeline,
-                  })),
-                }
-              : null,
-        };
-        let created: any = null;
-        {
-          const { data, error } = await supabase
-            .from('proposals')
-            .insert(fullRow)
-            .select('id, total, pdf_url')
-            .single();
-          if (!error) {
-            created = data;
-          } else {
-            const minimal = {
-              tenant_id: tenantId,
-              job_id: jobId,
-              date: new Date().toISOString().slice(0, 10),
-              kit_name: kitName,
-              price_before_tax: beforeTax,
-              tax: taxAmt,
-              total,
-              pdf_url: out.key,
-            } as any;
-            const { data: data2, error: err2 } = await supabase
-              .from('proposals')
-              .insert(minimal)
-              .select('id, total, pdf_url')
-              .single();
-            if (err2) throw err2;
-            created = data2;
-          }
-        }
-        // Audit: proposal created
-        try {
-          const { data: user } = await supabase.auth.getUser();
-          await supabase.from('audit_logs').insert({
-            tenant_id: tenantId,
-            user_id: (user?.user as any)?.id || null,
-            action: 'proposals.create',
-            entity: 'jobs',
-            entity_id: jobId,
-            metadata: {
-              proposalId: (created as any)?.id,
-              total: (created as any)?.total,
-              pdfKey: (created as any)?.pdf_url,
-            },
-          });
-        } catch {}
-      }
+            : {
+                kind: proposalFlow.kind,
+                title: 'Quotation PDF ready',
+                description:
+                  'The PDF was generated without creating a job. Select a lead next time if you want the quotation to attach automatically.',
+                targetLabel: 'Standalone PDF only',
+                phone: proposalFlow.phone,
+                proposalId: null,
+                targetJobId: null,
+              };
+
+      setGenerationResult(result);
+      toast({
+        title: result.title,
+        description: result.description,
+        variant: 'success',
+      });
     } catch (e: any) {
       setErrorMsg(String(e?.message || e));
     } finally {
       setGenerating(false);
+      setProgressLabel('');
     }
   };
 
@@ -517,7 +925,10 @@ export default function NewProposalClient() {
                 }
                 if (p.priceBeforeTax !== undefined) setPrice(p.priceBeforeTax);
                 if (p.program) setProgram(p.program);
-                if (p.quoteNo) setQuoteNo(p.quoteNo);
+                if (p.quoteNo) {
+                  setQuoteNoEdited(true);
+                  setQuoteNo(p.quoteNo);
+                }
                 if (p.place) setJob((j: any) => ({ ...(j || {}), location: p.place }));
               }}
             />
@@ -530,9 +941,9 @@ export default function NewProposalClient() {
         )}
         {!jobId && (
           <div className="rounded border border-yellow-200 bg-yellow-50 p-3 text-sm text-gray-800">
-            No Job selected. You can still generate a PDF. Optionally pick a
-            Lead, and after generating you can create a Job and attach this
-            proposal.
+            No Job selected. You can still generate a PDF. If you pick a lead,
+            the main action will generate the quotation, create the job, and
+            attach the proposal in one step.
             <div className="mt-2">
               <label className="block text-xs font-medium">Lead</label>
               <select
@@ -549,160 +960,58 @@ export default function NewProposalClient() {
                 ))}
               </select>
             </div>
-            {signedUrl && pdfKey && leadId && (
-              <div className="mt-3">
-                <button
-                  className="rounded bg-[var(--primary-600)] px-3 py-2 text-white"
-                  onClick={async () => {
-                    try {
-                      const l = (leads || []).find((x) => x.id === leadId);
-                      if (!l) return;
-                      const { data: prof } = await supabase
-                        .from('profiles')
-                        .select('tenant_id')
-                        .maybeSingle();
-                      const tenantId = (prof as any)?.tenant_id as
-                        | string
-                        | undefined;
-                      if (!tenantId) {
-                        alert('Profile not ready');
-                        return;
-                      }
-                      // Reuse existing customer by phone if available
-                      let customerId: string | null = null;
-                      if (l.phone) {
-                        const { data: existing } = await supabase
-                          .from('customers')
-                          .select('id')
-                          .eq('tenant_id', tenantId)
-                          .eq('phone', l.phone)
-                          .maybeSingle();
-                        if (existing?.id) customerId = existing.id as string;
-                      }
-                      if (!customerId) {
-                        const { data: cust } = await supabase
-                          .from('customers')
-                          .insert({
-                            tenant_id: tenantId,
-                            name: l.name,
-                            phone: l.phone || null,
-                            address: l.address || null,
-                          })
-                          .select('id')
-                          .single();
-                        customerId = (cust as any)!.id as string;
-                      }
-                      const today = new Date().toISOString().slice(0, 10);
-                      const { data: job } = await supabase
-                        .from('jobs')
-                        .insert({
-                          tenant_id: tenantId,
-                          customer_id: customerId!,
-                          lead_id: l.id,
-                          system_type: 'On-grid',
-                          status: 'Quoted',
-                          capacity_kw: l.interested_capacity_kw || null,
-                          location: l.address || null,
-                          date_lead: (l as any)?.date || today,
-                          date_quote: today,
-                        })
-                        .select('id')
-                        .single();
-                      // Persist proposal row and attach
-                      const addOnSum = [
-                        ...addOns,
-                        ...(quotationType === 'Provisional' && (Number(bufferPct) || 0) > 0
-                          ? [
-                              {
-                                label: `Uncertainty buffer (${Number(bufferPct)}%)`,
-                                amount: Math.round(((Number(price) || 0) * Number(bufferPct)) / 100),
-                              },
-                            ]
-                          : []),
-                      ].reduce((s, a) => s + (a.amount || 0), 0);
-                      const beforeTax = (Number(price) || 0) + addOnSum;
-                      const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
-                      const total = beforeTax + taxAmt;
-                      // Insert proposal row; fallback to minimal fields if optional columns are missing on DB
-                      const fullRow2: any = {
-                        tenant_id: tenantId,
-                        job_id: (job as any)!.id,
-                        date: today,
-                        kit_name: kitName,
-                        price_before_tax: beforeTax,
-                        tax: taxAmt,
-                        total,
-                        pdf_url: pdfKey!,
-                        lang,
-                        quotation_type: quotationType,
-                        valid_till: validTill || null,
-                        cover: includeCover
-                          ? {
-                              to: coverTo || null,
-                              subject: coverSubject || null,
-                              reference: coverReference || null,
-                              paragraphs: coverParagraphs
-                                .split(/\n\n+|\r\n\r\n+/)
-                                .map((s) => s.trim())
-                                .filter(Boolean),
-                              signatory: {
-                                name: signName || null,
-                                title: signTitle || null,
-                                phone: signPhone || null,
-                              },
-                            }
-                          : null,
-                        notes: (notes || [])
-                          .filter((n) => n.trim())
-                          .map((n) => n.trim()),
-                        work_schedule:
-                          workRows.length > 0
-                            ? {
-                                rows: workRows.map((r) => ({
-                                  scope: r.scope,
-                                  details: r.details,
-                                  timeline: r.timeline,
-                                })),
-                              }
-                            : null,
-                      };
-                      const { data: created2, error: createErr } = await supabase
-                        .from('proposals')
-                        .insert(fullRow2)
-                        .select('id')
-                        .single();
-                      if (createErr) {
-                        await supabase
-                          .from('proposals')
-                          .insert({
-                            tenant_id: tenantId,
-                            job_id: (job as any)!.id,
-                            date: today,
-                            kit_name: kitName,
-                            price_before_tax: beforeTax,
-                            tax: taxAmt,
-                            total,
-                            pdf_url: pdfKey!,
-                          })
-                          .select('id')
-                          .single();
-                      }
-                      await supabase
-                        .from('leads')
-                        .update({ status: 'Quoted' })
-                        .eq('id', l.id);
-                      window.location.href = `/jobs/${(job as any)!.id}?tab=proposals`;
-                    } catch (e) {
-                      alert(String((e as any)?.message || e));
-                    }
-                  }}
-                >
-                  Create Job from Lead + Attach
-                </button>
-              </div>
-            )}
           </div>
         )}
+        <div className="rounded border bg-slate-50 p-3 text-sm text-slate-800">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="font-medium text-slate-900">Action flow</div>
+              <div className="mt-1">{proposalFlow.description}</div>
+              <div className="mt-1 text-slate-600">{proposalFlow.detail}</div>
+            </div>
+            <div className="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+              {proposalFlow.kind === 'existing-job'
+                ? 'Existing job flow'
+                : proposalFlow.kind === 'lead-job'
+                  ? 'Lead to job flow'
+                  : 'Standalone PDF flow'}
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-4">
+            <div>
+              <div className="text-slate-500">Customer</div>
+              <div className="font-medium text-slate-900">
+                {flowPreview.customerName}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500">Phone</div>
+              <div className="font-medium text-slate-900">{flowPreview.phone}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Site</div>
+              <div className="font-medium text-slate-900">{flowPreview.site}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Capacity</div>
+              <div className="font-medium text-slate-900">
+                {flowPreview.capacity ? `${flowPreview.capacity} kW` : 'Not added yet'}
+              </div>
+            </div>
+          </div>
+          {submitAttempted && validationIssues.length > 0 && (
+            <div className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              <div className="font-medium">
+                Fix these items before generating the quotation:
+              </div>
+              <ul className="mt-2 list-disc pl-5">
+                {validationIssues.map((issue) => (
+                  <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
         <div>
           <label className="block text-sm font-medium">Language</label>
           <select
@@ -733,7 +1042,9 @@ export default function NewProposalClient() {
         <div>
           <label className="block text-sm font-medium">Kit</label>
           <select
-            className="mt-1 w-full rounded border px-3 py-2"
+            className={`mt-1 w-full rounded px-3 py-2 ${
+              issueMap.kit ? 'border-red-300 bg-red-50' : 'border'
+            }`}
             value={kitName}
             onChange={(e) => setKitName(e.target.value)}
           >
@@ -744,6 +1055,9 @@ export default function NewProposalClient() {
               </option>
             ))}
           </select>
+          {issueMap.kit && (
+            <p className="mt-1 text-xs text-red-600">{issueMap.kit}</p>
+          )}
         </div>
 
         {/* Quick preset for Harilal */}
@@ -831,7 +1145,10 @@ export default function NewProposalClient() {
                   { label: 'Special discount', amount: -7080 },
                 ]);
                 setTaxRate(0);
-                if (!quoteNo) setQuoteNo('q19_5KW_SOLAR PLANT_Harilal Mampad');
+                if (!quoteNo) {
+                  setQuoteNoEdited(true);
+                  setQuoteNo('q19_5KW_SOLAR PLANT_Harilal Mampad');
+                }
               }}
             >
               Load Harilal preset
@@ -843,11 +1160,16 @@ export default function NewProposalClient() {
             Price (before add-ons)
           </label>
           <input
-            className="mt-1 w-full rounded border px-3 py-2"
+            className={`mt-1 w-full rounded px-3 py-2 ${
+              issueMap.price ? 'border-red-300 bg-red-50' : 'border'
+            }`}
             type="number"
             value={price}
             onChange={(e) => setPrice(Number(e.target.value))}
           />
+          {issueMap.price && (
+            <p className="mt-1 text-xs text-red-600">{issueMap.price}</p>
+          )}
         </div>
         {quotationType === 'Provisional' && (
           <div>
@@ -865,29 +1187,50 @@ export default function NewProposalClient() {
         <div>
           <label className="block text-sm font-medium">Tax %</label>
           <input
-            className="mt-1 w-full rounded border px-3 py-2"
+            className={`mt-1 w-full rounded px-3 py-2 ${
+              issueMap.taxRate ? 'border-red-300 bg-red-50' : 'border'
+            }`}
             type="number"
             value={taxRate}
             onChange={(e) => setTaxRate(Number(e.target.value))}
           />
+          {issueMap.taxRate && (
+            <p className="mt-1 text-xs text-red-600">{issueMap.taxRate}</p>
+          )}
         </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <div>
             <label className="block text-sm font-medium">Quote No</label>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
+              className={`mt-1 w-full rounded px-3 py-2 ${
+                issueMap.quoteNo ? 'border-red-300 bg-red-50' : 'border'
+              }`}
               value={quoteNo}
-              onChange={(e) => setQuoteNo(e.target.value)}
+              onChange={(e) => {
+                setQuoteNoEdited(true);
+                setQuoteNo(e.target.value);
+              }}
             />
+            {issueMap.quoteNo && (
+              <p className="mt-1 text-xs text-red-600">{issueMap.quoteNo}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium">Valid Till</label>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
+              className={`mt-1 w-full rounded px-3 py-2 ${
+                issueMap.validTill ? 'border-red-300 bg-red-50' : 'border'
+              }`}
               type="date"
               value={validTill}
-              onChange={(e) => setValidTill(e.target.value)}
+              onChange={(e) => {
+                setValidTillEdited(true);
+                setValidTill(e.target.value);
+              }}
             />
+            {issueMap.validTill && (
+              <p className="mt-1 text-xs text-red-600">{issueMap.validTill}</p>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -984,10 +1327,17 @@ export default function NewProposalClient() {
                   Paragraphs (separate by blank line)
                 </label>
                 <textarea
-                  className="mt-1 w-full rounded border px-3 py-2 h-28"
+                  className={`mt-1 h-28 w-full rounded px-3 py-2 ${
+                    issueMap.coverParagraphs ? 'border-red-300 bg-red-50' : 'border'
+                  }`}
                   value={coverParagraphs}
                   onChange={(e) => setCoverParagraphs(e.target.value)}
                 />
+                {issueMap.coverParagraphs && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {issueMap.coverParagraphs}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm">Signatory Name</label>
@@ -1495,23 +1845,63 @@ export default function NewProposalClient() {
         </div>
         <div className="rounded border bg-gray-50 p-3 text-sm">
           <strong>Tip:</strong> Price guidance — sum of kit MRP x qty ≈{' '}
-          {new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-          }).format(
+          {currencyFormatter.format(
             kitBoq.reduce(
               (s, r) => s + Number(r.mrp || 0) * Number(r.qty || 0),
               0,
             ),
           )}
         </div>
-        <button
-          onClick={generate}
-          className="rounded bg-[var(--primary-600)] px-3 py-2 text-white disabled:opacity-50"
-          disabled={generating}
-        >
-          {generating ? 'Generating…' : 'Generate PDF'}
-        </button>
+        <div className="rounded border bg-slate-50 p-3 text-sm">
+          <div className="font-medium text-slate-900">Quotation summary</div>
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <div>
+              <div className="text-slate-600">Project cost</div>
+              <div className="font-medium">{currencyFormatter.format(Number(price) || 0)}</div>
+            </div>
+            <div>
+              <div className="text-slate-600">Grand total</div>
+              <div className="font-medium">{currencyFormatter.format(totals.total || 0)}</div>
+            </div>
+            <div>
+              <div className="text-slate-600">Destination</div>
+              <div className="font-medium">{proposalFlow.description}</div>
+            </div>
+            <div>
+              <div className="text-slate-600">Kit + quote</div>
+              <div className="font-medium">
+                {(kitName || 'No kit')} • {(quoteNo || 'Draft quote')}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-600">Ready to generate</div>
+              <div className="font-medium">
+                {validationIssues.length === 0
+                  ? 'Yes, all required fields look good.'
+                  : `${validationIssues.length} item${validationIssues.length > 1 ? 's' : ''} still need attention.`}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-600">After generation</div>
+              <div className="font-medium">{proposalFlow.detail}</div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={generate}
+            className="rounded bg-[var(--primary-600)] px-3 py-2 text-white disabled:opacity-50"
+            disabled={generating}
+          >
+            {primaryActionLabel}
+          </button>
+          <p className="text-xs text-gray-600">
+            {proposalFlow.kind === 'pdf-only'
+              ? 'This will only generate the PDF. Pick a lead above if you want the quotation to create and save a job automatically.'
+              : proposalFlow.detail}
+          </p>
+        </div>
       </div>
 
       {selectedKit?.description && (
@@ -1612,169 +2002,77 @@ export default function NewProposalClient() {
 
       {signedUrl && (
         <div className="rounded border bg-white p-4">
-          <h3 className="font-semibold">PDF</h3>
-          <a className="text-[var(--primary-600)]" target="_blank" rel="noreferrer" href={signedUrl}>
-            Open PDF
-          </a>
-          {(customer?.phone ||
-            (leadId && leads.find((l) => l.id === leadId)?.phone)) && (
-            <div className="mt-3">
-              <button
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="font-semibold">
+                {generationResult?.title || 'Last generated quotation'}
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
+                {generationResult?.description ||
+                  'The latest quotation PDF is ready.'}
+              </p>
+            </div>
+            <div className="rounded border bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              {generationResult?.kind === 'existing-job'
+                ? 'Attached to existing job'
+                : generationResult?.kind === 'lead-job'
+                  ? 'Created from selected lead'
+                  : 'Standalone PDF'}
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+            <div>
+              <div className="text-gray-500">Destination</div>
+              <div className="font-medium">
+                {generationResult?.targetLabel || proposalFlow.customerName}
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500">Proposal ID</div>
+              <div className="font-medium">
+                {generationResult?.proposalId || 'PDF only'}
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500">PDF key</div>
+              <div className="truncate font-medium">{pdfKey || 'Generated now'}</div>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              className="rounded bg-[var(--primary-600)] px-3 py-2 text-sm text-white"
+              target="_blank"
+              rel="noreferrer"
+              href={signedUrl}
+            >
+              Open PDF
+            </a>
+            <button
+              type="button"
+              className="rounded border px-3 py-2 text-sm"
+              onClick={handleCopyPdfLink}
+            >
+              Copy PDF link
+            </button>
+            {generationResult?.nextHref && generationResult?.nextLabel && (
+              <Link
                 className="rounded border px-3 py-2 text-sm"
-                onClick={async () => {
-                  try {
-                    const phone =
-                      customer?.phone ||
-                      leads.find((l) => l.id === leadId)?.phone;
-                    if (!phone) return;
-                    const { data: session } = await supabase.auth.getSession();
-                    const token = session.session?.access_token;
-                    const res = await fetch('/api/whatsapp/send', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                      },
-                      body: JSON.stringify({
-                        to: phone,
-                        templateName: 'proposal_ready',
-                        variables: [
-                          customer?.name || 'Customer',
-                          String(job?.capacity_kw || ''),
-                          signedUrl,
-                        ],
-                      }),
-                    });
-                    if (!res.ok) throw new Error('WhatsApp send failed');
-                    alert('WhatsApp send enqueued');
-                  } catch (e) {
-                    alert(String((e as any)?.message || e));
-                  }
-                }}
+                href={generationResult.nextHref}
               >
-                Send via WhatsApp
-              </button>
-            </div>
-          )}
-          {!jobId && leadId && (
-            <div className="mt-3">
+                {generationResult.nextLabel}
+              </Link>
+            )}
+            {(generationResult?.phone || proposalFlow.phone) && (
               <button
-                className="rounded bg-emerald-600 px-3 py-2 text-white text-sm"
-                onClick={async () => {
-                  try {
-                    // Ensure customer exists, then create job and save proposal row under it
-                    const lead = (leads || []).find((l) => l.id === leadId);
-                    const { data: prof } = await supabase
-                      .from('profiles')
-                      .select('tenant_id')
-                      .maybeSingle();
-                    const tId = (prof as any)?.tenant_id as string | undefined;
-                    if (!tId) {
-                      setErrorMsg('Profile not ready');
-                      return;
-                    }
-                    // create or reuse customer by phone within tenant
-                    let custId: string | null = null;
-                    if (lead?.phone) {
-                      const { data: dup } = await supabase
-                        .from('customers')
-                        .select('id')
-                        .eq('tenant_id', tId)
-                        .eq('phone', lead.phone)
-                        .maybeSingle();
-                      custId = dup?.id || null;
-                    }
-                    if (!custId) {
-                      const { data: cust } = await supabase
-                        .from('customers')
-                        .insert({
-                          tenant_id: tId,
-                          name: lead?.name || 'Customer',
-                          phone: lead?.phone || null,
-                          address: lead?.address || null,
-                        })
-                        .select('id')
-                        .single();
-                      custId = (cust as any).id;
-                    }
-                    const { data: jobRow } = await supabase
-                      .from('jobs')
-                      .insert({
-                        tenant_id: tId,
-                        customer_id: custId!,
-                        lead_id: leadId,
-                        system_type: 'On-grid',
-                        program_type: program,
-                        status: 'Lead',
-                        capacity_kw: lead?.interested_capacity_kw || 1,
-                        location: lead?.address || null,
-                        date_lead: new Date().toISOString().slice(0, 10),
-                      })
-                      .select('*')
-                      .single();
-                    const addOnSum = addOns.reduce(
-                      (s, a) => s + (a.amount || 0),
-                      0,
-                    );
-                    const beforeTax = (Number(price) || 0) + addOnSum;
-                    const taxAmt = (beforeTax * (Number(taxRate) || 0)) / 100;
-                    const total = beforeTax + taxAmt;
-                    // We used mock PDF API key earlier in out.key path; reuse payload meta for quoteNo
-                    const qn = quoteNo || `Q-${Date.now()}`;
-                    const keyGuess = `${tId}/${qn
-                      .replace(/\s+/g, '_')
-                      .replace(/[^A-Za-z0-9_\-]/g, '_')}.pdf`;
-                    await supabase.from('proposals').insert({
-                      tenant_id: tId,
-                      job_id: (jobRow as any).id,
-                      date: new Date().toISOString().slice(0, 10),
-                      kit_name: kitName,
-                      price_before_tax: beforeTax,
-                      tax: taxAmt,
-                      total,
-                      pdf_url: keyGuess,
-                      lang,
-                      valid_till: validTill || null,
-                      cover: includeCover
-                        ? {
-                            to: coverTo || null,
-                            subject: coverSubject || null,
-                            reference: coverReference || null,
-                            paragraphs: coverParagraphs
-                              .split(/\n\n+|\r\n\r\n+/)
-                              .map((s) => s.trim())
-                              .filter(Boolean),
-                            signatory: {
-                              name: signName || null,
-                              title: signTitle || null,
-                              phone: signPhone || null,
-                            },
-                          }
-                        : null,
-                      notes: (notes || [])
-                        .filter((n) => n.trim())
-                        .map((n) => n.trim()),
-                      work_schedule:
-                        workRows.length > 0
-                          ? {
-                              rows: workRows.map((r) => ({
-                                scope: r.scope,
-                                details: r.details,
-                                timeline: r.timeline,
-                              })),
-                            }
-                          : null,
-                    });
-                    window.location.href = `/jobs/${(jobRow as any).id}`;
-                  } catch (e: any) {
-                    setErrorMsg(String(e?.message || e));
-                  }
-                }}
+                type="button"
+                className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+                onClick={handleSendWhatsapp}
+                disabled={sendingWhatsapp}
               >
-                Create Job from this Lead
+                {sendingWhatsapp ? 'Sending WhatsApp…' : 'Send via WhatsApp'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
